@@ -26,6 +26,7 @@ import {
   mapSnapshotItems,
   roundShoppingAmount,
   toArchiveSnapshot,
+  withShoppingKitchenMeasure,
   toShoppingUnit,
 } from '../utils/shopping-items.util';
 import { ensureMembership } from '../utils/auth-checks.util';
@@ -648,7 +649,11 @@ export class ShoppingListService {
   ) {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
-    return this.getShoppingListSnapshot(householdId, weekStartDate);
+    const items = await this.getShoppingListSnapshot(
+      householdId,
+      weekStartDate,
+    );
+    return items.map(withShoppingKitchenMeasure);
   }
 
   async getShoppingListState(
@@ -712,7 +717,7 @@ export class ShoppingListService {
       items: shouldHideCurrentWeekList
         ? []
         : items.map((item) => ({
-            ...item,
+            ...withShoppingKitchenMeasure(item),
             addedFrom: addedFrom.get(item.productKey) ?? [],
           })),
       archives: archives.map((archive) =>

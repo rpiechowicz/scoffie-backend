@@ -11297,6 +11297,7 @@
           "slug": { "type": "string", "nullable": true },
           "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
+            "description": "Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`).",
             "type": "array",
             "items": {
               "type": "object",
@@ -11306,7 +11307,31 @@
                 "id": { "type": "string" },
                 "recipeId": { "type": "string" },
                 "amount": { "type": "number" },
-                "department": { "type": "string" }
+                "department": { "type": "string" },
+                "kitchenMeasure": {
+                  "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["spoon"] },
+                        "per": { "type": "number" }
+                      },
+                      "required": ["kind", "per"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["piece"] },
+                        "per": { "type": "number" },
+                        "one": { "type": "string" },
+                        "few": { "type": "string" },
+                        "many": { "type": "string" }
+                      },
+                      "required": ["few", "kind", "many", "one", "per"]
+                    }
+                  ]
+                }
               },
               "required": [
                 "amount",
@@ -11681,7 +11706,31 @@
           "unit": { "type": "string" },
           "department": { "type": "string" },
           "totalAmount": { "type": "number" },
-          "isChecked": { "type": "boolean" }
+          "isChecked": { "type": "boolean" },
+          "kitchenMeasure": {
+            "description": "Miara kuchenna przypraw — tylko w odpowiedzi dla telefonu, nie w bazie.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["spoon"] },
+                  "per": { "type": "number" }
+                },
+                "required": ["kind", "per"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["piece"] },
+                  "per": { "type": "number" },
+                  "one": { "type": "string" },
+                  "few": { "type": "string" },
+                  "many": { "type": "string" }
+                },
+                "required": ["few", "kind", "many", "one", "per"]
+              }
+            ]
+          }
         },
         "required": [
           "department",
@@ -11702,6 +11751,30 @@
           "department": { "type": "string" },
           "totalAmount": { "type": "number" },
           "isChecked": { "type": "boolean" },
+          "kitchenMeasure": {
+            "description": "Miara kuchenna przypraw — tylko w odpowiedzi dla telefonu, nie w bazie.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["spoon"] },
+                  "per": { "type": "number" }
+                },
+                "required": ["kind", "per"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["piece"] },
+                  "per": { "type": "number" },
+                  "one": { "type": "string" },
+                  "few": { "type": "string" },
+                  "many": { "type": "string" }
+                },
+                "required": ["few", "kind", "many", "one", "per"]
+              }
+            ]
+          },
           "addedFrom": { "type": "array", "items": { "type": "string" } }
         },
         "required": [
@@ -13046,6 +13119,7 @@
           "slug": { "type": "string", "nullable": true },
           "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
+            "description": "Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`).",
             "type": "array",
             "items": {
               "type": "object",
@@ -13055,7 +13129,31 @@
                 "id": { "type": "string" },
                 "recipeId": { "type": "string" },
                 "amount": { "type": "number" },
-                "department": { "type": "string" }
+                "department": { "type": "string" },
+                "kitchenMeasure": {
+                  "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["spoon"] },
+                        "per": { "type": "number" }
+                      },
+                      "required": ["kind", "per"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["piece"] },
+                        "per": { "type": "number" },
+                        "one": { "type": "string" },
+                        "few": { "type": "string" },
+                        "many": { "type": "string" }
+                      },
+                      "required": ["few", "kind", "many", "one", "per"]
+                    }
+                  ]
+                }
               },
               "required": [
                 "amount",
@@ -13106,6 +13204,58 @@
       "WsRecipesFindByIdData": {
         "type": "object",
         "properties": {
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit": { "type": "string" },
+                "name": { "type": "string" },
+                "id": { "type": "string" },
+                "ingredientId": { "type": "string" },
+                "recipeId": { "type": "string" },
+                "amount": { "type": "number" },
+                "normalizedAmount": { "type": "number" },
+                "normalizedUnit": { "type": "string" },
+                "department": { "type": "string" },
+                "kitchenMeasure": {
+                  "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["spoon"] },
+                        "per": { "type": "number" }
+                      },
+                      "required": ["kind", "per"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["piece"] },
+                        "per": { "type": "number" },
+                        "one": { "type": "string" },
+                        "few": { "type": "string" },
+                        "many": { "type": "string" }
+                      },
+                      "required": ["few", "kind", "many", "one", "per"]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "amount",
+                "department",
+                "id",
+                "ingredientId",
+                "name",
+                "normalizedAmount",
+                "normalizedUnit",
+                "recipeId",
+                "unit"
+              ]
+            }
+          },
           "suitableMealTypes": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
@@ -13142,35 +13292,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
-          "cookScenarioVersion": { "type": "number", "nullable": true },
-          "ingredients": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "unit": { "type": "string" },
-                "name": { "type": "string" },
-                "id": { "type": "string" },
-                "ingredientId": { "type": "string" },
-                "recipeId": { "type": "string" },
-                "amount": { "type": "number" },
-                "normalizedAmount": { "type": "number" },
-                "normalizedUnit": { "type": "string" },
-                "department": { "type": "string" }
-              },
-              "required": [
-                "amount",
-                "department",
-                "id",
-                "ingredientId",
-                "name",
-                "normalizedAmount",
-                "normalizedUnit",
-                "recipeId",
-                "unit"
-              ]
-            }
-          }
+          "cookScenarioVersion": { "type": "number", "nullable": true }
         },
         "required": [
           "allergens",
@@ -13255,6 +13377,7 @@
                 "slug": { "type": "string", "nullable": true },
                 "cookScenarioVersion": { "type": "number", "nullable": true },
                 "ingredients": {
+                  "description": "Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`).",
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -13264,7 +13387,31 @@
                       "id": { "type": "string" },
                       "recipeId": { "type": "string" },
                       "amount": { "type": "number" },
-                      "department": { "type": "string" }
+                      "department": { "type": "string" },
+                      "kitchenMeasure": {
+                        "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "enum": ["spoon"] },
+                              "per": { "type": "number" }
+                            },
+                            "required": ["kind", "per"]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "enum": ["piece"] },
+                              "per": { "type": "number" },
+                              "one": { "type": "string" },
+                              "few": { "type": "string" },
+                              "many": { "type": "string" }
+                            },
+                            "required": ["few", "kind", "many", "one", "per"]
+                          }
+                        ]
+                      }
                     },
                     "required": [
                       "amount",
@@ -13377,7 +13524,31 @@
                     "amount": { "type": "number" },
                     "normalizedAmount": { "type": "number" },
                     "normalizedUnit": { "type": "string" },
-                    "department": { "type": "string" }
+                    "department": { "type": "string" },
+                    "kitchenMeasure": {
+                      "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["spoon"] },
+                            "per": { "type": "number" }
+                          },
+                          "required": ["kind", "per"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["piece"] },
+                            "per": { "type": "number" },
+                            "one": { "type": "string" },
+                            "few": { "type": "string" },
+                            "many": { "type": "string" }
+                          },
+                          "required": ["few", "kind", "many", "one", "per"]
+                        }
+                      ]
+                    }
                   },
                   "required": [
                     "amount",
@@ -13457,6 +13628,58 @@
           "recipe": {
             "type": "object",
             "properties": {
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "unit": { "type": "string" },
+                    "name": { "type": "string" },
+                    "id": { "type": "string" },
+                    "ingredientId": { "type": "string" },
+                    "recipeId": { "type": "string" },
+                    "amount": { "type": "number" },
+                    "normalizedAmount": { "type": "number" },
+                    "normalizedUnit": { "type": "string" },
+                    "department": { "type": "string" },
+                    "kitchenMeasure": {
+                      "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["spoon"] },
+                            "per": { "type": "number" }
+                          },
+                          "required": ["kind", "per"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["piece"] },
+                            "per": { "type": "number" },
+                            "one": { "type": "string" },
+                            "few": { "type": "string" },
+                            "many": { "type": "string" }
+                          },
+                          "required": ["few", "kind", "many", "one", "per"]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "amount",
+                    "department",
+                    "id",
+                    "ingredientId",
+                    "name",
+                    "normalizedAmount",
+                    "normalizedUnit",
+                    "recipeId",
+                    "unit"
+                  ]
+                }
+              },
               "suitableMealTypes": {
                 "type": "array",
                 "items": { "$ref": "#/components/schemas/MealType" }
@@ -13493,35 +13716,7 @@
               "equipment": { "type": "array", "items": { "type": "string" } },
               "features": { "type": "array", "items": { "type": "string" } },
               "slug": { "type": "string", "nullable": true },
-              "cookScenarioVersion": { "type": "number", "nullable": true },
-              "ingredients": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "unit": { "type": "string" },
-                    "name": { "type": "string" },
-                    "id": { "type": "string" },
-                    "ingredientId": { "type": "string" },
-                    "recipeId": { "type": "string" },
-                    "amount": { "type": "number" },
-                    "normalizedAmount": { "type": "number" },
-                    "normalizedUnit": { "type": "string" },
-                    "department": { "type": "string" }
-                  },
-                  "required": [
-                    "amount",
-                    "department",
-                    "id",
-                    "ingredientId",
-                    "name",
-                    "normalizedAmount",
-                    "normalizedUnit",
-                    "recipeId",
-                    "unit"
-                  ]
-                }
-              }
+              "cookScenarioVersion": { "type": "number", "nullable": true }
             },
             "required": [
               "allergens",
@@ -13568,6 +13763,58 @@
       "WsRecipesSetFavoriteData": {
         "type": "object",
         "properties": {
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit": { "type": "string" },
+                "name": { "type": "string" },
+                "id": { "type": "string" },
+                "ingredientId": { "type": "string" },
+                "recipeId": { "type": "string" },
+                "amount": { "type": "number" },
+                "normalizedAmount": { "type": "number" },
+                "normalizedUnit": { "type": "string" },
+                "department": { "type": "string" },
+                "kitchenMeasure": {
+                  "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["spoon"] },
+                        "per": { "type": "number" }
+                      },
+                      "required": ["kind", "per"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["piece"] },
+                        "per": { "type": "number" },
+                        "one": { "type": "string" },
+                        "few": { "type": "string" },
+                        "many": { "type": "string" }
+                      },
+                      "required": ["few", "kind", "many", "one", "per"]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "amount",
+                "department",
+                "id",
+                "ingredientId",
+                "name",
+                "normalizedAmount",
+                "normalizedUnit",
+                "recipeId",
+                "unit"
+              ]
+            }
+          },
           "suitableMealTypes": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
@@ -13604,35 +13851,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
-          "cookScenarioVersion": { "type": "number", "nullable": true },
-          "ingredients": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "unit": { "type": "string" },
-                "name": { "type": "string" },
-                "id": { "type": "string" },
-                "ingredientId": { "type": "string" },
-                "recipeId": { "type": "string" },
-                "amount": { "type": "number" },
-                "normalizedAmount": { "type": "number" },
-                "normalizedUnit": { "type": "string" },
-                "department": { "type": "string" }
-              },
-              "required": [
-                "amount",
-                "department",
-                "id",
-                "ingredientId",
-                "name",
-                "normalizedAmount",
-                "normalizedUnit",
-                "recipeId",
-                "unit"
-              ]
-            }
-          }
+          "cookScenarioVersion": { "type": "number", "nullable": true }
         },
         "required": [
           "allergens",
@@ -13689,6 +13908,58 @@
       "WsRecipesUpdateData": {
         "type": "object",
         "properties": {
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit": { "type": "string" },
+                "name": { "type": "string" },
+                "id": { "type": "string" },
+                "ingredientId": { "type": "string" },
+                "recipeId": { "type": "string" },
+                "amount": { "type": "number" },
+                "normalizedAmount": { "type": "number" },
+                "normalizedUnit": { "type": "string" },
+                "department": { "type": "string" },
+                "kitchenMeasure": {
+                  "description": "Jak pokazać ilość przyprawy w kuchni. `per` = gramy (albo ml — w jednostce\nwiersza) na łyżeczkę (`spoon`) lub na sztukę (`piece`). Telefon zamienia\nnim gramaturę po przeskalowaniu porcji na „szczypta / ½ łyżeczki /\n2 łyżki” albo „2 liście”; dane zostają w gramach.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["spoon"] },
+                        "per": { "type": "number" }
+                      },
+                      "required": ["kind", "per"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["piece"] },
+                        "per": { "type": "number" },
+                        "one": { "type": "string" },
+                        "few": { "type": "string" },
+                        "many": { "type": "string" }
+                      },
+                      "required": ["few", "kind", "many", "one", "per"]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "amount",
+                "department",
+                "id",
+                "ingredientId",
+                "name",
+                "normalizedAmount",
+                "normalizedUnit",
+                "recipeId",
+                "unit"
+              ]
+            }
+          },
           "suitableMealTypes": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
@@ -13725,35 +13996,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
-          "cookScenarioVersion": { "type": "number", "nullable": true },
-          "ingredients": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "unit": { "type": "string" },
-                "name": { "type": "string" },
-                "id": { "type": "string" },
-                "ingredientId": { "type": "string" },
-                "recipeId": { "type": "string" },
-                "amount": { "type": "number" },
-                "normalizedAmount": { "type": "number" },
-                "normalizedUnit": { "type": "string" },
-                "department": { "type": "string" }
-              },
-              "required": [
-                "amount",
-                "department",
-                "id",
-                "ingredientId",
-                "name",
-                "normalizedAmount",
-                "normalizedUnit",
-                "recipeId",
-                "unit"
-              ]
-            }
-          }
+          "cookScenarioVersion": { "type": "number", "nullable": true }
         },
         "required": [
           "allergens",

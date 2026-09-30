@@ -1,7 +1,9 @@
 import {
   ALLOWED_UNITS,
+  kitchenMeasure,
   normalizeIngredientAmount,
   normalizeText,
+  withKitchenMeasure,
 } from './ingredient-amount.util';
 
 /**
@@ -27,8 +29,11 @@ describe('normalizeIngredientAmount', () => {
     ['ketchup', 'Przyprawy i sosy', 1, 'łyżka', 15, 'ml'],
     ['sos sojowy', 'Przyprawy i sosy', 1, 'łyżeczka', 5, 'ml'],
     ['musztarda', 'Przyprawy i sosy', 1, 'szczypta', 0.5, 'ml'],
-    ['zioła prowansalskie', 'Przyprawy i sosy', 1, 'łyżeczka', 2.5, 'g'],
-    ['zioła prowansalskie', 'Przyprawy i sosy', 1, 'łyżka', 7.5, 'g'],
+    // Przyprawa spoza tabeli — domyślne 2,5 g na łyżeczkę.
+    ['przyprawa do ryb', 'Przyprawy i sosy', 1, 'łyżeczka', 2.5, 'g'],
+    ['przyprawa do ryb', 'Przyprawy i sosy', 1, 'łyżka', 7.5, 'g'],
+    ['zioła prowansalskie', 'Przyprawy i sosy', 1, 'łyżeczka', 1, 'g'],
+    ['majeranek', 'Przyprawy i sosy', 1, 'łyżeczka', 0.6, 'g'],
   ])(
     '%s (%s): %s %s -> %s %s',
     (name, category, amount, unit, expectedAmount, expectedUnit) => {
@@ -102,5 +107,127 @@ describe('ALLOWED_UNITS', () => {
         'lyzka',
       ].sort(),
     );
+  });
+});
+
+describe('kitchenMeasure — miara kuchenna przypraw do wyświetlania', () => {
+  const SPICES = 'Przyprawy i sosy';
+
+  it('gramy przyprawy → gramy na łyżeczkę z tej samej tabeli co normalizacja', () => {
+    expect(kitchenMeasure('sól', SPICES, 'g')).toEqual({
+      kind: 'spoon',
+      per: 6,
+    });
+    expect(kitchenMeasure('Majeranek', SPICES, 'g')).toEqual({
+      kind: 'spoon',
+      per: 0.6,
+    });
+    // Odwrotność normalizacji: 1 łyżeczka → gramy → z powrotem 1 łyżeczka.
+    for (const name of ['sól', 'cynamon', 'kmin rzymski', 'curry']) {
+      const grams = normalizeIngredientAmount(name, SPICES, 1, 'łyżeczka');
+      const measure = kitchenMeasure(name, SPICES, grams.normalizedUnit);
+      expect(measure?.kind).toBe('spoon');
+      expect(grams.normalizedAmount / measure!.per).toBeCloseTo(1, 6);
+    }
+  });
+
+  it('płyn w ml → 5 ml na łyżeczkę, niezależnie od nazwy', () => {
+    expect(kitchenMeasure('sos sojowy', SPICES, 'ml')).toEqual({
+      kind: 'spoon',
+      per: 5,
+    });
+    expect(kitchenMeasure('ocet balsamiczny', SPICES, 'ml')).toEqual({
+      kind: 'spoon',
+      per: 5,
+    });
+  });
+
+  it('liść laurowy, ziele angielskie, goździki — sztuki z odmianą', () => {
+    expect(kitchenMeasure('liść laurowy', SPICES, 'g')).toEqual({
+      kind: 'piece',
+      per: 0.5,
+      one: 'liść',
+      few: 'liście',
+      many: 'liści',
+    });
+    expect(kitchenMeasure('zioło angielskie', SPICES, 'g')?.kind).toBe('piece');
+    expect(kitchenMeasure('ziele angielskie', SPICES, 'g')?.kind).toBe('piece');
+  });
+
+  it('bez miary: inny dział, inna jednostka, przyprawa spoza tabeli', () => {
+    expect(kitchenMeasure('sól', 'Nabiał', 'g')).toBeNull();
+    expect(kitchenMeasure('sól', SPICES, 'łyżeczka')).toBeNull();
+    expect(kitchenMeasure('sól', SPICES, 'szt')).toBeNull();
+    expect(kitchenMeasure('przyprawa do ryb', SPICES, 'g')).toBeNull();
+  });
+
+  it('każda przyprawa w gramach z katalogu ma miarę', () => {
+    // Lista z katalogu 30.09.2026 (1072 przepisy, dział „Przyprawy i sosy”,
+    // jednostka g). Nowa przyprawa bez miary pokaże się w gramach — ten test
+    // każe ją dopisać do tabeli.
+    const catalog = [
+      'sól',
+      'pieprz czarny',
+      'papryka słodka mielona',
+      'cukier',
+      'kmin rzymski',
+      'oregano',
+      'cynamon',
+      'papryka wędzona mielona',
+      'majeranek',
+      'musztarda',
+      'tymianek suszony',
+      'liść laurowy',
+      'cukier waniliowy',
+      'cukier puder',
+      'majonez',
+      'kurkuma',
+      'gałka muszkatołowa',
+      'zioło angielskie',
+      'czosnek granulowany',
+      'płatki chili',
+      'cukier brązowy',
+      'ketchup',
+      'rozmaryn suszony',
+      'garam masala',
+      'curry',
+      'papryka ostra mielona',
+      'kminek',
+      'zioła prowansalskie',
+      'sos chili słodki',
+      'imbir mielony',
+      'pesto bazyliowe',
+      'salsa pomidorowa',
+      'sos barbecue',
+      'bazylia suszona',
+      'przyprawa do piernika',
+      'sos sriracha',
+      'pasta curry',
+      'kardamon mielony',
+      'przyprawa do gyrosa',
+      'goździki',
+      'szałwia suszona',
+      'sos pomidorowy',
+      'cebula prażona',
+    ];
+    expect(
+      catalog.filter((name) => !kitchenMeasure(name, SPICES, 'g')),
+    ).toEqual([]);
+  });
+
+  it('withKitchenMeasure dokłada pole tylko przyprawom', () => {
+    const salt = { name: 'sól', unit: 'g', department: SPICES, amount: 2 };
+    const milk = {
+      name: 'mleko',
+      unit: 'ml',
+      department: 'Nabiał',
+      amount: 200,
+    };
+    expect(withKitchenMeasure(salt)).toEqual({
+      ...salt,
+      kitchenMeasure: { kind: 'spoon', per: 6 },
+    });
+    expect(withKitchenMeasure(milk)).toBe(milk);
+    expect('kitchenMeasure' in withKitchenMeasure(milk)).toBe(false);
   });
 });

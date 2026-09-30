@@ -20,6 +20,8 @@ import { deriveRecipeTags } from '../common/diet-tags';
 import {
   ALLOWED_UNITS,
   normalizeIngredientAmount,
+  withKitchenMeasure,
+  type KitchenMeasure,
 } from './ingredient-amount.util';
 import {
   nutritionColumnsFromIngredients,
@@ -108,8 +110,15 @@ export type RecipeDetailRow = Prisma.RecipeGetPayload<{
 }>;
 
 /** Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych. */
-export type RecipeListItem = Omit<RecipeListRow, 'sourceMeta'> & {
+export type RecipeListItem = Omit<
+  RecipeListRow,
+  'sourceMeta' | 'ingredients'
+> & {
   imageUrl: string;
+  /** Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`). */
+  ingredients: Array<
+    RecipeListRow['ingredients'][number] & { kitchenMeasure?: KitchenMeasure }
+  >;
 };
 
 /**
@@ -693,6 +702,7 @@ export class RecipesService {
     const { sourceMeta: _sourceMeta, ...base } = recipe;
     return {
       ...base,
+      ingredients: base.ingredients.map(withKitchenMeasure),
       // Nigdy nie wypuszczamy pustej listy slotów — klient nie musi znać
       // reguły „puste znaczy tyle, co slot bazowy". Normalizacja jest tu,
       // a nie w zapytaniu, bo dotyczy też wierszy z cache'u.
@@ -864,6 +874,7 @@ export class RecipesService {
     const { sourceMeta: _sourceMeta, ...base } = recipe;
     return {
       ...base,
+      ingredients: base.ingredients.map(withKitchenMeasure),
       suitableMealTypes: effectiveSuitableMealTypes(recipe),
       imageUrl: this.resolveRecipeImageUrl(recipe),
       isFavorite,
