@@ -26,6 +26,8 @@
  *   z id paczek w locie i stanem zadań; przerwa (sieć, budżet, proces) →
  *   `--resume` odbiera opłacone paczki i jedzie dalej; `--budget-usd` przy
  *   wznowieniu = łączny limit CAŁEJ serii.
+ *   Dziennik ma wyłączną blokadę (`<dziennik>.lock`) — drugi proces odmówi;
+ *   blokadę po padniętym procesie zdejmuje świadomie `--break-lock`.
  * Opcje: --limit N (najwyżej N przepisów faktycznie pisanych),
  *   --skip-written (pomija przepisy z aktualnym wynikiem dla obecnej treści),
  *   --concurrency 3 (tryb na żywo), --out raport.json.
@@ -76,6 +78,7 @@ import {
   COOK_WRITER_PROMPT_VERSION,
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
+import { acquireLock } from '../src/recipes/cook-scenario/writer/writer.lock';
 import {
   loadWriterRecipe,
   saveWrittenScenario,
@@ -99,6 +102,7 @@ interface Args {
   out: string | null;
   journal: string | null;
   resume: string | null;
+  breakLock: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -116,6 +120,7 @@ function parseArgs(argv: string[]): Args {
     out: null,
     journal: null,
     resume: null,
+    breakLock: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -144,6 +149,7 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--out') args.out = next();
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
+    else if (flag === '--break-lock') args.breakLock = true;
     else throw new Error(`nieznana opcja ${flag}`);
   }
   if (
@@ -323,6 +329,14 @@ interface ReportEntry {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   assertLocalDatabase();
+  // Wyłączna blokada dziennika PRZED jego odczytem czy utworzeniem — dwa
+  // procesy na jednym dzienniku zapłaciłyby podwójnie (writer.lock.ts).
+  const journalPath =
+    args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
+  const releaseLock =
+    args.batch || args.resume
+      ? await acquireLock(`${journalPath}.lock`, { breakStale: args.breakLock })
+      : null;
   const prisma = new PrismaClient();
   try {
     const resumed = args.resume ? await readJournal(args.resume) : null;
@@ -435,8 +449,6 @@ async function main() {
 
     let stoppedBatch: BatchStoppedError | null = null;
     if (args.batch || resumed) {
-      const journalPath =
-        args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
       let jobs: ScenarioJob[];
       const signatures: Record<string, string> = {};
       if (resumed) {
@@ -593,6 +605,7 @@ async function main() {
     }
   } finally {
     await prisma.$disconnect();
+    await releaseLock?.();
   }
 }
 
