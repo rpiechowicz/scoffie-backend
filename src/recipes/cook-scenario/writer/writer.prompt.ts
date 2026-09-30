@@ -45,7 +45,7 @@ SZTUKI DANIA I TOKEN LICZBY
 TIMERY
 - \`label\` ≤ ${L.timerLabel} znaków (widać go w Dynamic Island), np. „Ziemniaki”.
 - \`minSeconds\`–\`maxSeconds\`: zakres z przepisu („10–12 minut” → 600–720); jeden czas → oba równe. Najwyżej 12 h.
-- JEDEN czas z przepisu = JEDEN timer. Nie dziel go („piecz 20–25 min, w połowie obróć” to jeden timer 1200–1500): czynność w trakcie („w połowie obróć”, „co kilka minut zamieszaj”) opisz w treści kroku albo w alarmie.
+- JEDEN czas z przepisu = JEDEN timer. Nie dziel go („piecz 20–25 min, w połowie obróć” to jeden timer 1200–1500): czynność w trakcie („w połowie obróć”, „co kilka minut zamieszaj”) opisz w treści kroku albo w alarmie. Wyjątek: „po 3 min z każdej strony” to dwa odliczania po 3 min albo jedno łączne 6 min — wybierz jedno.
 - \`trigger\`: NOW = odliczanie od razu po stuknięciu; EVENT = czeka na zdarzenie („gdy woda zawrze”).
 - \`startLabel\` ≤ ${L.timerStartLabel} znaków mówi, KIEDY stuknąć („Woda wrze — odliczaj 20 min”).
 - \`alert\`: tytuł ≤ ${L.timerAlertTitle}, treść ≤ ${L.timerAlertBody} — co zrobić, gdy zadzwoni („Nóż ma wchodzić bez oporu.”).

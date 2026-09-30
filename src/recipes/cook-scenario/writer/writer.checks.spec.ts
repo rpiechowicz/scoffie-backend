@@ -178,6 +178,25 @@ describe('system pisania — walidatory twarde', () => {
     ]);
   });
 
+  it('„po X min z każdej strony” = dwa odliczania albo jedno łączne', () => {
+    expect(
+      recipeDurations([
+        'Smaż rybę po 3 minuty z każdej strony.',
+        'Gotuj 5 min.',
+      ]),
+    ).toEqual([
+      [180, 180],
+      [180, 180],
+      [360, 360],
+      [300, 300],
+    ]);
+    expect(recipeDurations(['Opiekaj 2 min na patelni z obu stron.'])).toEqual([
+      [120, 120],
+      [120, 120],
+      [240, 240],
+    ]);
+  });
+
   it('SKIP dozwolony tylko dla przepisu bez czasów i krótkiego', () => {
     expect(skipGuard(kotlet)).toContain('SKIP niedozwolony');
     expect(

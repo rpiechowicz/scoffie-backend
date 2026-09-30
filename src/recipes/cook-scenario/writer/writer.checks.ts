@@ -157,6 +157,9 @@ const unitSeconds = (unit: string) => {
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
+const PER_SIDE =
+  /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
+
 export function recipeDurations(instructions: string[]): [number, number][] {
   const found: [number, number][] = [];
   for (const line of instructions) {
@@ -164,7 +167,16 @@ export function recipeDurations(instructions: string[]): [number, number][] {
       const seconds = unitSeconds(match[3]);
       const from = toNumber(match[1]) * seconds;
       const to = match[2] ? toNumber(match[2]) * seconds : from;
-      found.push([Math.min(from, to), Math.max(from, to)]);
+      const range: [number, number] = [Math.min(from, to), Math.max(from, to)];
+      found.push(range);
+      // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
+      // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
+      const after = line
+        .slice((match.index ?? 0) + match[0].length)
+        .slice(0, 40);
+      if (PER_SIDE.test(after)) {
+        found.push(range, [range[0] * 2, range[1] * 2]);
+      }
     }
     const lower = line.toLowerCase();
     if (lower.includes('kwadrans')) found.push([900, 900]);
