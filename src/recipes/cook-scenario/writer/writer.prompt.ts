@@ -11,7 +11,7 @@ import type { WriterIngredient, WriterRecipe } from './writer.types';
  * formy promptu = nowy `COOK_WRITER_PROMPT_VERSION` (oba lądują przy wersji
  * scenariusza w `generator`).
  */
-export const COOK_WRITER_PROMPT_VERSION = 'w7-2026-10-01';
+export const COOK_WRITER_PROMPT_VERSION = 'w8-2026-10-01';
 
 /**
  * Limity W PROMPCIE z zapasem względem walidatora: model liczy znaki
@@ -40,6 +40,7 @@ POZIOM SZCZEGÓŁU
 
 JĘZYK I TON
 - Druga osoba, tryb rozkazujący, polszczyzna kuchenna, bez żargonu („podsmaż”, nie „zrumień metodą Maillarda”). Bez protekcjonalności i bez wykrzykników.
+- Bez form zależnych od płci („jeśli nie obracałeś”, „sos, który zrobiłeś”) — tryb rozkazujący albo bezosobowo („jeśli kotlety nie są jeszcze obrócone”, „sos z miseczki”).
 - Poprawna polszczyzna z polskimi znakami („Krój”, nie „Kroj”; „żółtko”, nie „zoltko”). Sprawdź każde słowo przed odpowiedzią.
 - Limity znaków: tytuł ≤ ${L.title}, treść „jak” (\`body\`) ≤ ${L.body}, adnotacja ≤ ${L.note}, rada kucharza ≤ ${L.tip} (najwyżej ${L.tipsMax}), rada „na następny raz” ≤ ${L.nextTimeTip}, etykieta etapu ≤ ${L.stage}, nota skali ≤ ${L.scaleNote}.
 - Każda informacja RAZ w całym scenariuszu: \`body\` nie powtarza tytułu ani listy składników kroku (telefon pokazuje ilości sam, przy kroku); adnotacja nie powtarza treści kroku; alarm timera nie powtarza adnotacji; rady kucharza i rada „na następny raz” nie powtarzają niczego z kroków ani siebie nawzajem. Zanim oddasz odpowiedź, przeczytaj całość i usuń każde zdanie, które mówi drugi raz to samo.

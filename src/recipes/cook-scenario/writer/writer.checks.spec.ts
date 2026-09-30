@@ -1416,6 +1416,21 @@ describe('system pisania — walidatory twarde', () => {
       ).toEqual([]);
     });
 
+    it('forma zależna od płci („jeśli nie obracałeś”) — ostrzeżenie; „właśnie”, „zbyt” — nie', () => {
+      const content = clone(example.content);
+      step(content, 's8').timer!.alert.title = 'Obróć, jeśli nie obracałeś';
+      step(content, 's11').body =
+        'Postaw garnek, właśnie tak, żeby odparowały.';
+      const warnings = qualityChecks(kotlet, content).warnings.filter((w) =>
+        w.includes('płci'),
+      );
+      expect(warnings).toEqual([
+        expect.stringContaining(
+          's8.timer.alert.title: forma zależna od płci („obracałeś”)',
+        ),
+      ]);
+    });
+
     it('EVENT bez „Gdy…” i NOW z „Gdy…” — ostrzeżenia dla recenzenta', () => {
       const content = clone(example.content);
       step(content, 's3').timer!.startLabel = 'Garnek na ogniu';

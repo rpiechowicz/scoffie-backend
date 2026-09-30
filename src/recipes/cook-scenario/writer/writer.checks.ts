@@ -693,6 +693,25 @@ const TYPO = new RegExp(
  */
 const FOREIGN_SCRIPT = /[\u0370-\u03ff\u0400-\u052f\u0590-\u06ff]/u;
 
+/**
+ * Formy zależne od płci („jeśli nie obracałeś”, „sos, który zrobiłeś”) —
+ * scenariusz czyta każdy, a tryb rozkazujący i bezosobowy wystarczą
+ * (próby .5–w7: 5 takich tekstów na ~190 scenariuszy). Ostrzeżenie, nie
+ * błąd: sama apka ma jeszcze „kupiłeś” — to decyzja Rafała.
+ */
+const GENDERED = /(?<![\p{L}])\p{L}+(?:łeś|łaś|łbyś|łabyś)(?![\p{L}])/giu;
+
+function checkGendered(content: CookScenarioContent, warnings: string[]) {
+  for (const [path, text] of textFields(content)) {
+    const found = text.match(GENDERED);
+    if (found) {
+      warnings.push(
+        `${path}: forma zależna od płci („${found[0]}”) — napisz trybem rozkazującym albo bezosobowo („jeśli kotlety nie są jeszcze obrócone”)`,
+      );
+    }
+  }
+}
+
 function checkSpelling(content: CookScenarioContent, errors: string[]) {
   for (const [path, text] of textFields(content)) {
     const foreign = FOREIGN_SCRIPT.exec(text);
@@ -1792,6 +1811,7 @@ export function qualityChecks(
 
   checkNumbersInText(recipe, content, errors);
   checkSpelling(content, errors);
+  checkGendered(content, warnings);
   checkStageDuring(content, errors);
   checkStartLabels(content, errors, warnings);
   checkAuthorLimits(content, errors);
