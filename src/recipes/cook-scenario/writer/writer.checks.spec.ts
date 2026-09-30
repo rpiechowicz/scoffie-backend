@@ -101,6 +101,24 @@ describe('system pisania — walidatory twarde', () => {
     });
   });
 
+  it('startLabel to sam warunek startu — bez czasu i „odliczaj” (zasady .5)', () => {
+    const content = clone(example.content);
+    const step = content.steps.find((s) => s.timer)!;
+    expect(
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('startLabel'),
+      ),
+    ).toEqual([]);
+    step.timer!.startLabel = 'Woda wrze — odliczaj 20 min';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+    step.timer!.startLabel = 'Po 5 min zamieszaj';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+  });
+
   it('„W MIĘDZYCZASIE” tylko przy kroku z during (zasady .4)', () => {
     const content = clone(example.content);
     const withDuring = content.steps.find((step) => step.during);

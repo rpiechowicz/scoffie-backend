@@ -593,6 +593,22 @@ function checkIngredientsNamed(
   }
 }
 
+/**
+ * \`startLabel\` to sam warunek startu na przycisku timera w doku („Gdy woda
+ * zawrze”) — czas stoi tuż obok, więc liczba albo „odliczaj” to powtórzenie
+ * (zasady .5; wcześniej „Woda wrze — odliczaj 20 min”).
+ */
+function checkStartLabels(content: CookScenarioContent, errors: string[]) {
+  for (const step of content.steps) {
+    const label = step.timer?.startLabel;
+    if (label && /\d|odlicz/i.test(label)) {
+      errors.push(
+        `${step.id}.timer.startLabel: „${label}” — sam warunek startu, bez czasu i „odliczaj” (np. „Gdy woda zawrze”)`,
+      );
+    }
+  }
+}
+
 // ── Piekarnik ───────────────────────────────────────────────────────────
 
 const OVEN_USE = /(do piekarnika|w piekarniku|z piekarnika)(?!\s*mikrofal)/i;
@@ -1150,6 +1166,7 @@ export function qualityChecks(
   checkNumbersInText(recipe, content, errors);
   checkSpelling(content, errors);
   checkStageDuring(content, errors);
+  checkStartLabels(content, errors);
   checkIngredientsNamed(recipe, content, warnings);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);

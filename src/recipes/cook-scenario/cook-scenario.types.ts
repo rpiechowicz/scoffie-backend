@@ -27,7 +27,7 @@ export const COOK_SCENARIO_SCHEMA_VERSION = 1;
  * odliczania naraz, kroki „w międzyczasie” mieszczą się po ludzku (±2 min),
  * tryb piekarnika zawsze podany, praktyczne wskazówki dozwolone.
  */
-export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.4';
+export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.5';
 
 export const COOK_STEP_PHASES = ['PREP', 'COOK', 'FINISH', 'SERVE'] as const;
 export type CookStepPhase = (typeof COOK_STEP_PHASES)[number];
@@ -49,15 +49,19 @@ export type CookTimerTrigger = (typeof COOK_TIMER_TRIGGERS)[number];
 
 /** Limity tekstów — design ekranu kroku, wyspy i ekranu blokady (§5.2, §13). */
 export const COOK_LIMITS = {
-  title: 60,
-  body: 320,
+  // Tytuł kroku ma 40 pt — dwie linijki na szerokość telefonu (design 30.09).
+  title: 30,
+  // Treść + tytuł + adnotacja mieszczą się nad dokiem z dwoma timerami.
+  body: 260,
   stage: 24,
   note: 140,
   tip: 140,
   tipsMax: 3,
   nextTimeTip: 180,
   timerLabel: 14,
-  timerStartLabel: 40,
+  // Mała linijka kapsuły „do włączenia” w doku (przy dwóch timerach ~118 pt) —
+  // sam warunek startu; 20 znaków zmierzone w przeglądarce 30.09.
+  timerStartLabel: 20,
   timerAlertTitle: 40,
   timerAlertBody: 120,
   scaleNote: 120,

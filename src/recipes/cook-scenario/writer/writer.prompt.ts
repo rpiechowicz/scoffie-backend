@@ -7,7 +7,7 @@ import type { WriterIngredient, WriterRecipe } from './writer.types';
  * formy promptu = nowy `COOK_WRITER_PROMPT_VERSION` (oba lądują przy wersji
  * scenariusza w `generator`).
  */
-export const COOK_WRITER_PROMPT_VERSION = 'w4-2026-09-30';
+export const COOK_WRITER_PROMPT_VERSION = 'w5-2026-09-30';
 
 const L = COOK_LIMITS;
 
@@ -17,6 +17,7 @@ POZIOM SZCZEGÓŁU
 - Nie tłumacz podstaw: jak pokroić cebulę, obrać ziemniaki, zagotować wodę.
 - Tłumacz techniki, od których zależy wynik: zawijanie roladek, panierka, zeszklenie, zasmażka, ubijanie piany, temperowanie, wyrabianie ciasta.
 - Zawsze mów, PO CZYM POZNAĆ, że etap skończony: kolor, zapach, konsystencja, temperatura w środku. Najlepiej w adnotacji \`note\` rodzaju CUE.
+- Tytuł kroku to KRÓTKIE polecenie: czasownik + rzecz („Zrób masło koperkowe”, „Smaż kotlety na złoto”), bez szczegółów, czasów i drugiej czynności — te są w treści. Telefon pokazuje go dużą czcionką w dwóch linijkach.
 - Jeden krok = jedna czynność z perspektywy rąk (może mieć kilka ruchów, ale jeden cel). Typowo 8–14 kroków na obiad, 3–6 na śniadanie. Bez sztucznego rozdrabniania.
 
 JĘZYK I TON
@@ -54,7 +55,7 @@ TIMERY
 - JEDEN czas z przepisu = JEDEN timer. Nie dziel go („piecz 20–25 min, w połowie obróć” to jeden timer 1200–1500): czynność w trakcie („w połowie obróć”, „co kilka minut zamieszaj”) opisz w treści kroku albo w alarmie. „Smaż po 3 min z każdej strony” to krótka czynność — bez timera; „piecz po 5 min z każdej strony” — jeden timer 10 min z obrotem w połowie.
 - Timer najkrócej 4 min (240 s).
 - \`trigger\`: NOW = odliczanie od razu po stuknięciu; EVENT = czeka na zdarzenie („gdy woda zawrze”).
-- \`startLabel\` ≤ ${L.timerStartLabel} znaków mówi, KIEDY stuknąć („Woda wrze — odliczaj 20 min”).
+- \`startLabel\` ≤ ${L.timerStartLabel} znaków to SAM warunek startu — telefon pokazuje go na pulsującym przycisku timera obok czasu, więc bez czasu i bez „odliczaj”: „Gdy woda zawrze”, „Kotlety na patelni”, „Blacha w piekarniku”, „Masło w zamrażarce”.
 - \`alert\`: tytuł ≤ ${L.timerAlertTitle}, treść ≤ ${L.timerAlertBody} — co zrobić, gdy zadzwoni („Nóż ma wchodzić bez oporu.”).
 - id timerów i kroków unikalne: kroki s1, s2…; timery t-coś.
 

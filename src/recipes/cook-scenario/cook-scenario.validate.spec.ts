@@ -107,7 +107,7 @@ describe('parseCookScenarioContent', () => {
       expect.arrayContaining([
         'schemaVersion: oczekiwano 1',
         'steps[0].phase: dozwolone PREP, COOK, FINISH, SERVE',
-        'steps[0].title: 61 znaków, limit 60',
+        'steps[0].title: 61 znaków, limit 30',
         'steps[0].timer.label: 18 znaków, limit 14',
         'steps[0].timer: maxSeconds mniejsze niż minSeconds',
       ]),

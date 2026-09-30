@@ -1,6 +1,6 @@
 {
   "version": "cook-scenarios-pl-v1",
-  "rulesVersion": "2026-09-30.4",
+  "rulesVersion": "2026-09-30.5",
   "convention": "Scenariusze trybu Gotuj pisane ręcznie (wzorce dla systemu pisania, scoffie-ios docs/workstreams/gotuj/README.md §10). Składniki po NAZWIE z przepisu (`ingredient`, `mentions`) — loader zamienia je na `ingredientId` danej bazy. Wgranie: pnpm cook-scenarios:load.",
   "scenarios": [
     {
@@ -25,7 +25,7 @@
             "id": "s1",
             "phase": "PREP",
             "stage": null,
-            "title": "Zrób masło koperkowe i schowaj je do zamrażarki",
+            "title": "Zrób masło koperkowe",
             "body": "Posiekaj cały koperek drobno i odłóż połowę — przyda się do ziemniaków. Masło rozgnieć widelcem z koperkiem na gładką masę. Na folii uformuj {count:rolls|wałeczek|wałeczki|wałeczków} grubości palca, zawiń szczelnie i połóż płasko w zamrażarce.",
             "ingredients": [
               {
@@ -49,7 +49,7 @@
               "minSeconds": 900,
               "maxSeconds": 900,
               "trigger": "NOW",
-              "startLabel": "Schowane — odliczaj 15 min",
+              "startLabel": "Masło w zamrażarce",
               "alert": {
                 "title": "Masło gotowe",
                 "body": "Wyjmij wałeczki z zamrażarki."
@@ -62,8 +62,8 @@
             "id": "s2",
             "phase": "PREP",
             "stage": "W MIĘDZYCZASIE",
-            "title": "Rozbij filety na cienkie kotlety",
-            "body": "Każdy filet połóż płasko i przetnij poziomo na dwa cieńsze płaty, jak otwierając książkę — wyjdą {count:cutlets|kotlet|kotlety|kotletów}. Przykryj folią i rozbijaj tłuczkiem od środka na zewnątrz, aż mięso będzie miało ok. 0,5 cm. Równa grubość = równe smażenie. Posól i popieprz z obu stron.",
+            "title": "Rozbij filety na kotlety",
+            "body": "Każdy filet przetnij poziomo na dwa płaty, jak otwierając książkę — wyjdą {count:cutlets|kotlet|kotlety|kotletów}. Przykryj folią i rozbij tłuczkiem od środka na ok. 0,5 cm — równa grubość to równe smażenie. Posól i popieprz z obu stron.",
             "ingredients": [
               {
                 "ingredient": "filet z kurczaka",
@@ -116,7 +116,7 @@
               "minSeconds": 1200,
               "maxSeconds": 1200,
               "trigger": "EVENT",
-              "startLabel": "Woda wrze — odliczaj 20 min",
+              "startLabel": "Gdy woda zawrze",
               "alert": {
                 "title": "Ziemniaki gotowe?",
                 "body": "Nóż ma wchodzić bez oporu."
@@ -132,7 +132,7 @@
             "id": "s4",
             "phase": "PREP",
             "stage": null,
-            "title": "Przygotuj trzy talerze do panierki",
+            "title": "Przygotuj talerze do panierki",
             "body": "Do pierwszego talerza wsyp mąkę, w drugim roztrzep jajko widelcem, do trzeciego wsyp bułkę tartą. Ustaw je w rzędzie w tej kolejności — przyda się to przy podwójnej panierce.",
             "ingredients": [
               {
@@ -227,7 +227,7 @@
               "minSeconds": 600,
               "maxSeconds": 720,
               "trigger": "NOW",
-              "startLabel": "Na patelni — odliczaj 10 min",
+              "startLabel": "Kotlety na patelni",
               "alert": {
                 "title": "Sprawdź kolor",
                 "body": "Blade? Dosmaż jeszcze chwilę."
@@ -243,7 +243,7 @@
             "id": "s9",
             "phase": "COOK",
             "stage": null,
-            "title": "Przełóż kotlety do piekarnika na 5 minut",
+            "title": "Dopiecz kotlety w piekarniku",
             "body": "Przełóż je do naczynia żaroodpornego albo na blachę i wstaw na środkową półkę.",
             "ingredients": [],
             "mentions": ["filet z kurczaka"],
@@ -257,7 +257,7 @@
               "minSeconds": 300,
               "maxSeconds": 300,
               "trigger": "NOW",
-              "startLabel": "W piekarniku — odliczaj 5 min",
+              "startLabel": "Kotlety w piekarniku",
               "alert": {
                 "title": "Kotlety gotowe",
                 "body": "Wyjmij je z piekarnika."
@@ -308,7 +308,7 @@
             "id": "s11",
             "phase": "FINISH",
             "stage": null,
-            "title": "Odcedź ziemniaki i posyp koperkiem",
+            "title": "Odcedź i posyp koperkiem",
             "body": "Odcedź ziemniaki i odstaw na chwilę na gorącej płycie bez pokrywki, żeby odparowały. Posyp koperkiem.",
             "ingredients": [
               {
