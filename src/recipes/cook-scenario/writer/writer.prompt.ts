@@ -11,20 +11,21 @@ import type { WriterIngredient, WriterRecipe } from './writer.types';
  * formy promptu = nowy `COOK_WRITER_PROMPT_VERSION` (oba lądują przy wersji
  * scenariusza w `generator`).
  */
-export const COOK_WRITER_PROMPT_VERSION = 'w6-2026-09-30';
+export const COOK_WRITER_PROMPT_VERSION = 'w7-2026-10-01';
 
 /**
  * Limity W PROMPCIE z zapasem względem walidatora: model liczy znaki
  * z błędem 1–3 (próba .5: 21/20, 15/14, 31/30 — trzy próby z rzędu
  * i REJECTED). Walidator pilnuje prawdziwych (`COOK_AUTHOR_LIMITS`,
- * `COOK_LIMITS`), prompt celuje niżej. Etykieta startu bez zapasu —
- * naturalne warunki („Kotlety w piekarniku”) mają 18–20 znaków.
+ * `COOK_LIMITS`), prompt celuje niżej — także etykieta startu (próba .6:
+ * „Naczynie w piekarniku” 21/20 w czterech przepisach).
  */
 const L = {
   ...COOK_LIMITS,
   ...COOK_AUTHOR_LIMITS,
   title: COOK_AUTHOR_LIMITS.title - 3,
   body: COOK_AUTHOR_LIMITS.body - 20,
+  timerStartLabel: COOK_AUTHOR_LIMITS.timerStartLabel - 2,
   timerLabel: COOK_LIMITS.timerLabel - 2,
 };
 
@@ -55,15 +56,17 @@ UKŁAD PRACY
 - Oczekiwanie bez liczby („na noc”, „do następnego dnia”) albo dłuższe niż 12 h: BEZ timera — osobny krok mówi, co i gdzie odstawić, a następny zaczyna się od „Rano…” albo „Następnego dnia…”. Gdy przepis daje wybór („co najmniej 30 minut albo na noc”), timer na liczbę.
 - Najwyżej DWA odliczania naraz — przy trzecim użytkownik się gubi. Jeśli przepis każe robić trzy rzeczy równolegle, ułóż kroki tak, żeby trzecia była krótką czynnością bez timera albo zaczęła się po pierwszej.
 - Kroki „w międzyczasie” mają się zmieścić w swoim timerze po ludzku: minuta czy dwie zapasu to nic, ale nie planuj pod 10-minutowym timerem czynności na 20 minut. Kroki wykonywane w trakcie takiego czasu mają \`during\` = id tego timera (timer musi być z WCZEŚNIEJSZEGO kroku i w tym miejscu JESZCZE biec — nie ten, po którego alarmie krok główny już ruszył dalej) i \`stage\` = "W MIĘDZYCZASIE". Etykiety „W MIĘDZYCZASIE” używaj WYŁĄCZNIE przy krokach z \`during\` — przy innych daj etykietę czynności („PRZYGOTOWANIE”, „SMAŻENIE”) albo null.
-- Co może się dziać równolegle, układaj równolegle: jeśli ziemniaki mogą się piec, gdy mięso się marynuje, nastaw je „w międzyczasie” marynaty, a nie po niej.
+- Co może się dziać równolegle, układaj równolegle: jeśli ziemniaki mogą się piec, gdy mięso się marynuje, nastaw je „w międzyczasie” marynaty, a nie po niej. Równoległą pracę BEZ timera (makaron „według opakowania”) opisz w treści kroku („Gdy makaron się gotuje, …”) — bez etykiety „W MIĘDZYCZASIE”.
+- Praca w turach („piecz po 2 naraz”, „smaż partiami”): osobny timer dla każdej tury, ta sama nazwa („Placki”), bez numerów w nazwie.
 - Piekarnik: osobny krok „Nagrzej piekarnik do …°C” PRZED pierwszym krokiem, który coś do niego wkłada. Zawsze napisz, JAK go ustawić: tryb z przepisu (góra–dół, termoobieg, grill); gdy przepis nie mówi — góra–dół. Temperatura tylko z przepisu.
 
 SKŁADNIKI W KROKACH
 - Składnik wchodzi do kroku Z ILOŚCIĄ tam, gdzie trafia do dania (\`ingredients\`: klucz, ilość w jednostce przepisu, część). Później może być tylko przywołany bez ilości (\`mentions\`: klucz).
 - Suma ilości danego składnika ze wszystkich kroków = ilość w przepisie (tolerancja 1%). Każdy składnik przepisu musi trafić do jakiegoś kroku.
 - Część: ALL = całość w jednym kroku; HALF = dokładnie połowa; REST = reszta — TYLKO przy ostatnim użyciu składnika; PART = inna część. Składnik użyty w jednym kroku ma ALL; podzielony między kroki nie ma żadnego ALL. Ilości muszą się zsumować.
+- Gdy przepis odkłada część słowami („łyżeczka cukru do zaczynu”, „odrobina oleju do blachy”), podziel składnik: PART z przybliżoną ilością (łyżeczka cukru ≈ 5 g), reszta REST — to nie zmiana ilości.
 - Ilości są dla porcji z przepisu. Nie przeliczaj ich.
-- Każdy składnik z \`ingredients\` kroku pada w tytule albo treści tego kroku, nazwą w dowolnej odmianie („posól”, „dodaj śmietanę”) — inaczej użytkownik widzi przy kroku ilość i nie wie, co z nią zrobić. Gdy krok zużywa tylko część (HALF, PART), powiedz to słowem: „połowę”, „część”; przy REST — „resztę”.
+- Każdy składnik z \`ingredients\` kroku pada w tytule albo treści tego kroku, nazwą w dowolnej odmianie („posól”, „dodaj śmietanę”) — inaczej użytkownik widzi przy kroku ilość i nie wie, co z nią zrobić. „Połowa” / „reszta” telefon pisze sam przy ilości — w tekście nie musisz tego powtarzać.
 
 SZTUKI DANIA I TOKEN LICZBY
 - Gdy danie jest w sztukach po jednej na porcję (kotlety, gołąbki, placki, kanapki), ustaw \`portionUnit\` = { id: krótkie słowo po angielsku, forms: [forma dla 1, dla 2–4, dla 5+] }, np. { "id": "cutlet", "forms": ["kotlet", "kotlety", "kotletów"] }. W innych daniach \`portionUnit\` = null.
@@ -75,13 +78,13 @@ TIMERY
 - JEDEN czas z przepisu = JEDEN timer. Nie dziel go („piecz 20–25 min, w połowie obróć” to jeden timer 1200–1500): czynność w trakcie („w połowie obróć”, „co kilka minut zamieszaj”) opisz w treści kroku albo w alarmie. „Smaż po 3 min z każdej strony” to krótka czynność — bez timera; „piecz po 5 min z każdej strony” — jeden timer 10 min z obrotem w połowie.
 - Timer najkrócej 4 min (240 s).
 - \`trigger\`: NOW = odliczanie od razu po stuknięciu, \`startLabel\` mówi stan („Kotlety na patelni”); EVENT = czeka na zdarzenie, \`startLabel\` zaczyna się od „Gdy…” („Gdy woda zawrze”).
-- \`startLabel\` ≤ ${L.timerStartLabel} znaków to SAM warunek startu — telefon pokazuje go na pulsującym przycisku timera obok czasu, więc bez czasu i bez „odliczaj”: „Gdy woda zawrze”, „Kotlety na patelni”, „Blacha w piekarniku”, „Masło w zamrażarce”.
+- \`startLabel\` ≤ ${L.timerStartLabel} znaków to SAM warunek startu — telefon pokazuje go na pulsującym przycisku timera obok czasu, więc bez czasu i bez „odliczaj”: „Gdy woda zawrze”, „Kotlety na patelni”, „W piekarniku”, „Masło w zamrażarce”. Rzecz jest już w nazwie timera — nie powtarzaj jej, gdy to wydłuża napis („W piekarniku”, nie „Naczynie w piekarniku”).
 - \`alert\`: tytuł ≤ ${L.timerAlertTitle}, treść ≤ ${L.timerAlertBody} — co zrobić, gdy zadzwoni („Nóż ma wchodzić bez oporu.”).
 - id timerów i kroków unikalne: kroki s1, s2…; timery t-coś.
 
 BEZPIECZEŃSTWO
 - Drób: w kroku kończącym obróbkę zawsze „po czym poznać”: 74°C w środku albo „sok przezroczysty, bez różowego w środku”.
-- Mięso mielone: 71°C w środku / bez różowego. Ryba: mięso matowe, nieprzezroczyste, łatwo się rozdziela.
+- Mięso mielone: 71°C w środku / bez różowego. Ryba: mięso matowe, nieprzezroczyste, łatwo się rozdziela. Krewetki i owoce morza: różowe i jędrne, nieprzezroczyste; małże otwarte.
 - „Po czym poznać” stoi w kroku, który ma TEN surowiec w \`ingredients\` albo \`mentions\` (np. krok pieczenia kotletów przywołuje filet). Każdy surowiec osobno: dwa mięsa smażone osobno = dwa sygnały.
 - Ostrzeżenia (\`note\` rodzaju WARNING) tylko przy ryzyku, którego gotujący może NIE przewidzieć: olej pryska przy wkładaniu wilgotnego produktu, para bucha spod pokrywki albo przy miksowaniu gorącej zupy, gorący karmel, parzące nadzienie. NIE ostrzegaj o oczywistościach (gorąca blacha, gorący piekarnik, ostry nóż, wrzątek w garnku) — dorosły to wie, a nadmiar ostrzeżeń sprawia, że nikt ich nie czyta.
 
@@ -248,10 +251,11 @@ Ocena 1–5: 5 = publikować bez zmian; 4 = publikować, tylko drobiazgi (MINOR)
 Problemy:
 - BLOCKER = błąd merytoryczny lub bezpieczeństwa: składnik, czas albo temperatura spoza przepisu albo z innej czynności/wariantu; surowe mięso bez „po czym poznać”; czynność z NIEOCZYWISTYM ryzykiem oparzenia (np. gorący karmel, wlewanie płynu do gorącego tłuszczu) bez ostrzeżenia.
 - MAJOR = tylko gdy użytkownik NIE BĘDZIE WIEDZIAŁ, co zrobić (brakuje informacji potrzebnej do wykonania kroku, kroki sobie przeczą), albo danie wyjdzie WYRAŹNIE gorzej (coś się przypali, rozgotuje, wystygnie przed podaniem, nie zetnie się).
+- Przed oddaniem sprawdź KAŻDĄ uwagę MAJOR: czy użytkownik naprawdę nie będzie wiedział, co zrobić, albo danie wyraźnie ucierpi? Jeśli sam piszesz „drobiazg”, „to spójne”, „akceptowalne” — to MINOR.
 - MINOR = wszystko inne. ZAWSZE MINOR: powtórzenia (tytuł↔treść, adnotacja↔alarm, rada↔krok), styl i szyk zdań, sformułowania, drobne usprawnienia kolejności, moment nagrzewania piekarnika czy grilla (chyba że danie wyraźnie ucierpi: grill wygaśnie, ciasto opadnie), rozjazd czasu o minutę–dwie, czynności „w międzyczasie” trwające kilka minut dłużej niż timer.
 Praktyczne wskazówki (tryb piekarnika, papier na blachę, jaki garnek) NIE są „spoza przepisu” — zgłaszaj tylko te, które zmieniają składnik, ilość, czas albo temperaturę.
 Każdy problem konkretnie: który krok i co zmienić. Nie wymyślaj problemów na siłę.
-NIE proponuj niczego, czego zasady zabraniają: ilości składnika z listy w tekście (cyfrą ani słownie), składnika spoza listy, czasu ani temperatury (także „w środku”) spoza przepisu — poza sygnałami bezpieczeństwa z zasad (drób 74°C, mięso mielone 71°C) — podziału jednego czasu na dwa timery. Liczba z jednostką przepisana dosłownie z kroków przepisu, która nie jest ilością składnika (np. „naczynie ok. 1,5 l”, „100 ml wody”, gdy wody nie ma w składnikach), JEST dozwolona.`;
+NIE proponuj niczego, czego zasady zabraniają: ilości składnika z listy w tekście (cyfrą ani słownie), składnika spoza listy, czasu ani temperatury (także „w środku”) spoza przepisu — poza sygnałami bezpieczeństwa z zasad (drób 74°C, mięso mielone 71°C) — podziału jednego czasu na dwa timery ani alarmu w trakcie timera (telefon go nie ma: „na ostatnie 3 minuty dodaj groszek” wystarczy w treści kroku). Przybliżony podział składnika, który przepis odkłada słowami („łyżeczka cukru do zaczynu” ≈ 5 g), JEST dozwolony. Liczba z jednostką przepisana dosłownie z kroków przepisu, która nie jest ilością składnika (np. „naczynie ok. 1,5 l”, „100 ml wody”, gdy wody nie ma w składnikach), JEST dozwolona.`;
 
 /** Scenariusz czytelny dla recenzenta — nazwy i ilości zamiast kluczy. */
 export function renderScenarioForReview(

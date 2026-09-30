@@ -1181,6 +1181,86 @@ describe('system pisania — walidatory twarde', () => {
       ]);
     });
 
+    it('dosłowna ilość spoza listy wolno, choć składnik ma tę samą ilość (próba .6: gulasz, pudding chia)', () => {
+      const numberErrors = (recipe: WriterRecipe, body: string) => {
+        const content = clone(example.content);
+        step(content, 's12').body = body;
+        return qualityChecks(recipe, content).errors.filter((e) =>
+          /liczba „(300|150)”/.test(e),
+        );
+      };
+      const gulasz: WriterRecipe = {
+        ...kotlet,
+        ingredients: [
+          ...kotlet.ingredients,
+          {
+            ingredientId: 'passata',
+            name: 'passata pomidorowa',
+            amount: 300,
+            unit: 'ml',
+          },
+        ],
+        instructions: [
+          ...kotlet.instructions,
+          'Wlej bulion warzywny i 300 ml wody, zagotuj i gotuj pod przykryciem.',
+        ],
+      };
+      expect(numberErrors(gulasz, 'Wlej bulion i 300 ml wody.')).toEqual([]);
+      expect(numberErrors(gulasz, 'Wlej 300 ml passaty.')).toHaveLength(1);
+      const pudding: WriterRecipe = {
+        ...kotlet,
+        ingredients: [
+          ...kotlet.ingredients,
+          {
+            ingredientId: 'mleko-k',
+            name: 'mleko kokosowe z puszki',
+            amount: 150,
+            unit: 'ml',
+          },
+        ],
+        instructions: [
+          ...kotlet.instructions,
+          'Nasiona chia wymieszaj w słoiku z mlekiem kokosowym, 150 ml wody i cynamonem.',
+        ],
+      };
+      expect(
+        numberErrors(
+          pudding,
+          'Wymieszaj chia z mlekiem, 150 ml wody i cynamonem.',
+        ),
+      ).toEqual([]);
+    });
+
+    it('praca w turach („piecz po 2 naraz”): dwa timery tej samej długości wolno, trzy — nie', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        instructions: kotlet.instructions.map((line, i) =>
+          i === 4 ? `${line} Placki piecz po 2 naraz przez 8–10 minut.` : line,
+        ),
+      };
+      const withTurns = (count: number) => {
+        const content = clone(example.content);
+        const turns = ['s10', 's11', 's12'].slice(0, count);
+        for (const id of turns) {
+          step(content, id).timer = {
+            ...content.steps[7].timer!,
+            id: `t-${id}`,
+            label: 'Placki',
+            minSeconds: 480,
+            maxSeconds: 600,
+          };
+          step(content, id).during = null;
+          step(content, id).stage = null;
+        }
+        content.totalMinutes = 120;
+        return qualityChecks(recipe, content).errors.filter((e) =>
+          /mniej razy|takiego czasu/.test(e),
+        );
+      };
+      expect(withTurns(2)).toEqual([]);
+      expect(withTurns(3)).toHaveLength(1);
+    });
+
     it('totalMinutes nie krótszy niż odliczania po kolei', () => {
       // Masło 15 min, potem kotlety 10 i piekarnik 5 — ziemniaki w tle.
       expect(timelineFloorSeconds(example.content)).toBe(1800);

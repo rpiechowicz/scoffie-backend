@@ -210,6 +210,9 @@ const ACTIVE_PAN = /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel)/iu;
  */
 const ACTIVE_WORK =
   /(smaż|podsmaż|usmaż|opiekaj|obsmaż|szklij|podgrzej|podgrzew|wyrabiaj|zagniataj|ugniataj|miksuj|ubijaj)/iu;
+/** Praca w turach — ten sam czas z przepisu dla każdej tury. */
+const BATCH_WORK =
+  /(po\s+(?:\d+|dwa|dwie|trzy|cztery)\s+naraz|partiami|w\s+(?:dwóch|kilku|trzech)\s+turach|turami|w\s+dwóch\s+partiach)/iu;
 const WAITING_WORK =
   /(duś|dus[zi]|gotuj|piecz|zapiekaj|pod\s+przykryciem|odstaw|marynuj|chłodź|mroź)/iu;
 
@@ -229,6 +232,12 @@ export interface DurationPool {
    * (review Codexa; prompt: krótka aktywna czynność bez timera).
    */
   perSide: { singles: [number, number]; combined: number | null }[];
+  /**
+   * Indeksy `ranges` dopisane dla kolejnych tur („piecz po 2 naraz”) —
+   * pozwalają na drugi timer tej samej długości, ale bez nich nie ma
+   * ostrzeżenia „nie ma timera”.
+   */
+  extraTurns: Set<number>;
   /**
    * Indeksy `ranges` ze zdań o AKTYWNEJ pracy („smaż 5 minut, mieszając”,
    * „wyrabiaj 8–10 minut”) — prompt każe je pisać bez timera, więc brak
@@ -319,6 +328,7 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
   const found: [number, number][] = [];
   const perSide: DurationPool['perSide'] = [];
   const active = new Set<number>();
+  const extraTurns = new Set<number>();
   for (const line of instructions) {
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
@@ -331,6 +341,11 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
         active.add(found.length);
       }
       found.push(range);
+      if (BATCH_WORK.test(own)) {
+        // Druga tura tym samym czasem (więcej tur — przy skali, scaleNote).
+        extraTurns.add(found.length);
+        found.push(range);
+      }
       // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
       // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
       const after = line
@@ -361,7 +376,7 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
   }
-  return { ranges: found, perSide, active };
+  return { ranges: found, perSide, active, extraTurns };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -464,10 +479,14 @@ function mentionsIngredient(
   const tail = text
     .slice(unitEnd)
     .split(/[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s/u)[0];
-  const around = [
-    ...words(text.slice(0, numberStart)).slice(-1),
-    ...words(tail),
-  ];
+  // Słowo tuż przed liczbą — tylko z tej samej części wyliczenia: w „z mlekiem
+  // kokosowym, 150 ml wody” „kokosowym” należy do poprzedniej pozycji.
+  const before =
+    text
+      .slice(0, numberStart)
+      .split(/[,;:.()—–]/)
+      .pop() ?? '';
+  const around = [...words(before).slice(-1), ...words(tail)];
   const stems = recipe.ingredients
     .filter((row) => sameUnit(row.unit, unit))
     .flatMap((row) =>
@@ -491,10 +510,10 @@ function isRecipeQuantity(
   amount: number,
   unit: string,
 ): boolean {
-  const isIngredientAmount = recipe.ingredients.some(
-    (row) => row.amount === amount && sameUnit(row.unit, unit),
-  );
-  if (isIngredientAmount) return false;
+  // Bez wczesnego „ta sama ilość co składnik = zakaz” (próba .6: passata
+  // 300 ml blokowała dosłowne „300 ml wody” z przepisu, a recenzent go
+  // żądał — gulasz i pudding chia odrzucone). Kontekst zdania w przepisie
+  // i w scenariuszu rozstrzyga, czego ilość dotyczy.
   return recipe.instructions.some((line) =>
     [...line.matchAll(QUANTITY_IN_RECIPE)].some((match) => {
       if (toAmount(match[1]) !== amount || !sameUnit(match[2], unit)) {
@@ -707,7 +726,7 @@ function checkStageDuring(content: CookScenarioContent, errors: string[]) {
     }
     if (step.stage && /MI[EĘ]DZYCZASIE/i.test(step.stage) && !step.during) {
       errors.push(
-        `${step.id}.stage: „W MIĘDZYCZASIE” bez \`during\` — krok nie dzieje się w trakcie timera; daj etykietę czynności albo null`,
+        `${step.id}.stage: „W MIĘDZYCZASIE” bez \`during\` — krok nie dzieje się w trakcie timera; daj etykietę czynności albo null. Równoległą pracę BEZ timera (np. makaron „według opakowania”) opisz w treści: „Gdy makaron się gotuje, …”`,
       );
     }
   }
@@ -1532,7 +1551,8 @@ function checkTimers(
     if (
       range[1] >= MIN_TIMER_SECONDS &&
       !result.owner.has(index) &&
-      !pool.active.has(index)
+      !pool.active.has(index) &&
+      !pool.extraTurns.has(index)
     ) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }

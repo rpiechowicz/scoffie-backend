@@ -178,7 +178,7 @@
             "phase": "PREP",
             "stage": null,
             "title": "Zawiń kotlety z masłem",
-            "body": "Wyjmij wałeczki z zamrażarki. Każdy połóż na brzegu kotleta, krótszym bokiem do siebie. Zawiń raz, załóż boki kotleta do środka, jak przy naleśniku z nadzieniem, i zwijaj dalej ciasno do końca. Łączeniem do dołu — tak roladka się nie rozwinie.",
+            "body": "Wyjmij wałeczki z zamrażarki. Każdy połóż na krótszym brzegu kotleta. Zawiń raz, załóż boki kotleta do środka, jak przy naleśniku z nadzieniem, i zwijaj dalej ciasno do końca. Łączeniem do dołu — tak roladka się nie rozwinie.",
             "ingredients": [],
             "mentions": ["masło", "filet z kurczaka"],
             "note": {
@@ -257,7 +257,7 @@
               "minSeconds": 300,
               "maxSeconds": 300,
               "trigger": "NOW",
-              "startLabel": "Kotlety w piekarniku",
+              "startLabel": "W piekarniku",
               "alert": {
                 "title": "Kotlety gotowe",
                 "body": "Wyjmij je z piekarnika."
