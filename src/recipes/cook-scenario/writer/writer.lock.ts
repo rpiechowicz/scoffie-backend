@@ -1,4 +1,7 @@
-import { open, readFile, unlink } from 'node:fs/promises';
+import { open, readFile, stat, unlink } from 'node:fs/promises';
+
+/** Pusta/uszkodzona blokada starsza niż to = porzucona w trakcie zakładania. */
+const UNREADABLE_STALE_MS = 60_000;
 
 /**
  * Wyłączna blokada dziennika przebiegu paczek (review Codexa): dwa procesy
@@ -27,7 +30,9 @@ export class LockHeldError extends Error {
               ? ' — nadal działa'
               : ' — nie działa; jeśli na pewno padł, uruchom z --break-lock'
           }`
-        : `dziennik jest zajęty (${path})`,
+        : alive
+          ? `dziennik jest zajęty (${path}): blokada bez danych — ktoś właśnie ją zakłada`
+          : `dziennik jest zajęty (${path}): blokada bez danych, porzucona — jeśli żaden przebieg nie działa, uruchom z --break-lock`,
     );
     this.name = 'LockHeldError';
   }
@@ -67,8 +72,15 @@ export async function acquireLock(
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const handle = await open(path, 'wx');
-      await handle.writeFile(JSON.stringify(info));
-      await handle.close();
+      try {
+        await handle.writeFile(JSON.stringify(info));
+        await handle.close();
+      } catch (error) {
+        // Blokada bez danych właściciela byłaby nie do zdjęcia — sprzątamy.
+        await handle.close().catch(() => undefined);
+        await unlink(path).catch(() => undefined);
+        throw error;
+      }
       let released = false;
       return async () => {
         if (released) return;
@@ -78,7 +90,12 @@ export async function acquireLock(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       const holder = await readHolder(path);
-      const alive = holder ? isAlive(holder.pid) : true;
+      // Bez danych właściciela (proces padł w trakcie zakładania): świeża =
+      // ktoś właśnie ją zakłada; starsza niż minuta = porzucona.
+      const alive = holder
+        ? isAlive(holder.pid)
+        : Date.now() - (await stat(path).catch(() => null))!.mtimeMs <
+          UNREADABLE_STALE_MS;
       if (alive || !options.breakStale || attempt > 0) {
         throw new LockHeldError(path, holder, alive);
       }

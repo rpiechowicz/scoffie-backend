@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { acquireLock, LockHeldError } from './writer.lock';
@@ -48,5 +48,19 @@ describe('system pisania — wyłączna blokada dziennika', () => {
     });
     await release();
     expect(existsSync(path)).toBe(false);
+  });
+  it('pusta blokada (proces padł w trakcie zakładania): świeża — odmowa, porzucona — --break-lock ją zdejmuje', async () => {
+    const path = lockPath();
+    writeFileSync(path, '');
+    await expect(acquireLock(path, { breakStale: true })).rejects.toMatchObject(
+      {
+        alive: true,
+      },
+    );
+    const old = new Date(Date.now() - 5 * 60_000);
+    utimesSync(path, old, old);
+    await expect(acquireLock(path)).rejects.toThrow('--break-lock');
+    const release = await acquireLock(path, { breakStale: true });
+    await release();
   });
 });
