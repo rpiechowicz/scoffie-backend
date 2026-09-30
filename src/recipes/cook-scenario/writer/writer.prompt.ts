@@ -58,7 +58,7 @@ UKŁAD PRACY
 - Najwyżej DWA odliczania naraz — przy trzecim użytkownik się gubi. Jeśli przepis każe robić trzy rzeczy równolegle, ułóż kroki tak, żeby trzecia była krótką czynnością bez timera albo zaczęła się po pierwszej.
 - Kroki „w międzyczasie” mają się zmieścić w swoim timerze po ludzku: minuta czy dwie zapasu to nic, ale nie planuj pod 10-minutowym timerem czynności na 20 minut. Kroki wykonywane w trakcie takiego czasu mają \`during\` = id tego timera (timer musi być z WCZEŚNIEJSZEGO kroku i w tym miejscu JESZCZE biec — nie ten, po którego alarmie krok główny już ruszył dalej) i \`stage\` = "W MIĘDZYCZASIE". Etykiety „W MIĘDZYCZASIE” używaj WYŁĄCZNIE przy krokach z \`during\` — przy innych daj etykietę czynności („PRZYGOTOWANIE”, „SMAŻENIE”) albo null.
 - Co może się dziać równolegle, układaj równolegle: jeśli ziemniaki mogą się piec, gdy mięso się marynuje, nastaw je „w międzyczasie” marynaty, a nie po niej. Równoległą pracę BEZ timera (makaron „według opakowania”) opisz w treści kroku („Gdy makaron się gotuje, …”) — bez etykiety „W MIĘDZYCZASIE”.
-- Praca w turach („piecz po 2 naraz”, „smaż partiami”): osobny timer dla każdej tury, ta sama nazwa („Placki”), bez numerów w nazwie.
+- Praca w turach, gdy tura to czekanie od 4 min („piecz po 2 naraz”, „gotuj pierogi partiami”): osobny timer dla każdej tury — najwyżej trzy; przy większej liczbie tur kolejne opisz tekstem („powtórz z resztą”). Ta sama nazwa („Placki”), bez numerów w nazwie.
 - Piekarnik: osobny krok „Nagrzej piekarnik do …°C” PRZED pierwszym krokiem, który coś do niego wkłada. Zawsze napisz, JAK go ustawić: tryb z przepisu (góra–dół, termoobieg, grill); gdy przepis nie mówi — góra–dół. Temperatura tylko z przepisu.
 
 SKŁADNIKI W KROKACH

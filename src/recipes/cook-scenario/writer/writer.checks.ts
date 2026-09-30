@@ -212,7 +212,12 @@ const ACTIVE_WORK =
   /(smaż|podsmaż|usmaż|opiekaj|obsmaż|szklij|podgrzej|podgrzew|wyrabiaj|zagniataj|ugniataj|miksuj|ubijaj)/iu;
 /** Praca w turach — ten sam czas z przepisu dla każdej tury. */
 const BATCH_WORK =
-  /(po\s+(?:\d+|dwa|dwie|trzy|cztery)\s+naraz|partiami|w\s+(?:dwóch|kilku|trzech)\s+turach|turami|w\s+dwóch\s+partiach)/iu;
+  /(po\s+(?:\d+|dwa|dwie|trzy|cztery)\s+naraz|partiami|porcjami|kolejne\s+parti|w\s+(?:\d+(?:[–-]\d+)?|dwóch|kilku|trzech)\s+turach|turami|w\s+dwóch\s+partiach)/iu;
+/** „Wlewaj partiami po chochli” to dolewanie stopniowo, nie tury (kaszotto). */
+const ADDING_GRADUALLY =
+  /(wlew|dolew|dodaw|wsyp|dosyp|dolewając|dodając|wlewając)/iu;
+/** Ile dodatkowych tur tym samym czasem wolno (prompt: najwyżej trzy tury). */
+const EXTRA_TURNS = 2;
 const WAITING_WORK =
   /(duś|dus[zi]|gotuj|piecz|zapiekaj|pod\s+przykryciem|odstaw|marynuj|chłodź|mroź)/iu;
 
@@ -363,12 +368,14 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
           found.push([range[0] * 2, range[1] * 2]);
           perSide.push({ singles: [first, first + 1], combined: first + 2 });
         }
-      } else if (BATCH_WORK.test(own)) {
-        // Druga tura tym samym czasem (więcej tur — przy skali, scaleNote).
-        // Dopisana PO grupie „z każdej strony” i tylko bez niej — kopia
-        // przed grupą przesuwała jej indeksy (przegląd nocny).
-        extraTurns.add(found.length);
-        found.push(range);
+      } else if (BATCH_WORK.test(own) && !ADDING_GRADUALLY.test(own)) {
+        // Kolejne tury tym samym czasem (najwyżej trzy z timerem, więcej —
+        // tekstem). Dopisane PO grupie „z każdej strony” i tylko bez niej —
+        // kopia przed grupą przesuwała jej indeksy (przegląd nocny).
+        for (let turn = 0; turn < EXTRA_TURNS; turn += 1) {
+          extraTurns.add(found.length);
+          found.push(range);
+        }
       }
     }
     const lower = line.toLowerCase();
@@ -403,9 +410,11 @@ const NUMBER_IN_TEXT = new RegExp(
   'g',
 );
 // Wymiar „3 × 4 cm”, „20 x 30 cm” — pierwsza liczba też jest rozmiarem.
+// Czas przechowywania („do 5 dni”, „2 tygodnie”) to też czas (próba .5:
+// kulki proteinowe).
 const ALLOWED_AFTER_NUMBER = new RegExp(
-  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|°|stopni|cm|mm|%|[×x]\\s*\\d+(?:[.,]\\d+)?\\s*(?:cm|mm))`,
-  'i',
+  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|dni(?![${PL}])|dzień|dnia|tydz|tygod|miesi|°|stopni|cm|mm|%|[×x]\\s*\\d+(?:[.,]\\d+)?\\s*(?:cm|mm))`,
+  'iu',
 );
 
 function textFields(content: CookScenarioContent): [string, string][] {
@@ -436,11 +445,25 @@ const QUANTITY_IN_RECIPE = new RegExp(
 );
 const UNIT_AFTER = new RegExp(`^\\s*([${PL}]+)`, 'iu');
 const toAmount = (raw: string) => Number(raw.replace(',', '.'));
-const sameUnit = (a: string, b: string) => {
-  const x = a.toLowerCase();
-  const y = b.toLowerCase();
-  return x.startsWith(y) || y.startsWith(x);
+/**
+ * Jednostka w formie kanonicznej (przegląd nocny: porównanie prefiksem
+ * robiło z „g” składnika „1 godzinę” z przepisu).
+ */
+const UNIT_FORMS: [RegExp, string][] = [
+  [/^(g|gr|gram|gramy|gramów|grama|gramach)$/u, 'g'],
+  [/^(kg|kilogram\p{L}*)$/u, 'kg'],
+  [/^(ml|mililitr\p{L}*)$/u, 'ml'],
+  [/^(l|litr|litry|litrów|litra|litrze)$/u, 'l'],
+  [/^(szt|sztuk\p{L}*)$/u, 'szt'],
+  [/^(łyżeczk\p{L}*|łyżeczek)$/u, 'łyżeczka'],
+  [/^(łyżk\p{L}*|łyżek)$/u, 'łyżka'],
+  [/^(szczypt\p{L}*|szczypt)$/u, 'szczypta'],
+];
+const canonUnit = (unit: string): string => {
+  const x = unit.toLowerCase();
+  return UNIT_FORMS.find(([form]) => form.test(x))?.[1] ?? x;
 };
+const sameUnit = (a: string, b: string) => canonUnit(a) === canonUnit(b);
 
 /**
  * Liczba z jednostką przepisana DOSŁOWNIE z kroków przepisu, która nie
@@ -474,12 +497,14 @@ function mentionsIngredient(
   // Do granicy ZDANIA albo nawiasu — przecinek bywa wewnątrz wyrażenia
   // („przegotowanego, zimnego mleka”), a nawias zamyka dopowiedzenie
   // („ciepłej wody (100 ml), oleju” — 100 ml to woda, nie olej).
-  // Nowa część zdania po przecinku („100 ml wody, a potem mleko”) mówi już
-  // o czymś innym (review Codexa, noc 30.09) — gołe „i” nie: „2 g soli
-  // i pieprz”, „25 g zimnej i gęstej śmietany”.
+  // Nowa część zdania („100 ml wody, a potem mleko”, „120 ml letniej wody
+  // i oliwę”) mówi już o czymś innym (review Codexa i próba .6: lahmacun).
+  // „2 g soli i pieprz” łapie sama „sól” (rdzenie bez polskich znaków).
   const tail = text
     .slice(unitEnd)
-    .split(/[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s/u)[0];
+    .split(
+      /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:i|a|oraz|albo|lub)\s/u,
+    )[0];
   // Słowo tuż przed liczbą — tylko z tej samej części wyliczenia: w „z mlekiem
   // kokosowym, 150 ml wody” „kokosowym” należy do poprzedniej pozycji.
   const before =
@@ -506,28 +531,58 @@ function mentionsIngredient(
  * — całość („320 g”) ALBO część („100 ml mleka” z 200 ml) — nadal tylko
  * przy kroku: w tekście nie przeskalowałaby się z porcjami.
  */
-function isRecipeQuantity(
+/**
+ * Rzecz, której dotyczy liczba z jednostką: do 3 słów PO jednostce (do
+ * przecinka, kropki, nawiasu), a gdy tam nic — do 3 słów PRZED liczbą
+ * („naczynie ok. 1,5 l”). Rdzenie po 3 litery, bez polskich znaków.
+ */
+function quantityThing(text: string, numberStart: number, unitEnd: number) {
+  const stems = (fragment: string) =>
+    normalizeText(fragment)
+      .split(/[^a-z]+/)
+      .filter((word) => word.length >= 3)
+      .map((word) => word.slice(0, 3));
+  // Po jednostce — do granicy frazy: „1,5 l i dolej wody” mówi o naczyniu
+  // przed liczbą, nie o wodzie z kolejnej części zdania.
+  const after = stems(
+    text.slice(unitEnd).split(/[,.;:!?()—–]|\s(?:i|a|oraz|albo|lub)\s/u)[0],
+  ).slice(0, 3);
+  if (after.length) return after;
+  // Przed liczbą: bez „ok.” i otwarcia nawiasu — w „ciepłej wody (100 ml)”
+  // rzecz stoi przed nawiasem.
+  const before = text
+    .slice(0, numberStart)
+    .replace(/(^|[^\p{L}])(ok|około|ca)\.?\s*$/iu, '$1')
+    .replace(/\(\s*$/u, '')
+    .split(/[,.;:!?()—–]/u)
+    .pop();
+  return stems(before ?? '').slice(-3);
+}
+
+/**
+ * Dosłowne ilości z kroków przepisu, które NIE są ilością składnika —
+ * dla każdej: rzecz, której dotyczy („300 ml wody” → „wod”). Scenariusz
+ * może tę liczbę powtórzyć tylko przy tej samej rzeczy (przegląd nocny:
+ * „Wlej passatę (300 ml)”, „Wlej 300 ml przecieru” czy „300 ml i zagotuj”
+ * przemycały ilość składnika, która nie skaluje się z porcjami).
+ */
+function recipeLiterals(
   recipe: WriterRecipe,
   amount: number,
   unit: string,
-): boolean {
+): string[][] {
   // Bez wczesnego „ta sama ilość co składnik = zakaz” (próba .6: passata
   // 300 ml blokowała dosłowne „300 ml wody” z przepisu, a recenzent go
-  // żądał — gulasz i pudding chia odrzucone). Kontekst zdania w przepisie
-  // i w scenariuszu rozstrzyga, czego ilość dotyczy.
-  return recipe.instructions.some((line) =>
-    [...line.matchAll(QUANTITY_IN_RECIPE)].some((match) => {
+  // żądał — gulasz i pudding chia odrzucone).
+  return recipe.instructions.flatMap((line) =>
+    [...line.matchAll(QUANTITY_IN_RECIPE)].flatMap((match) => {
       if (toAmount(match[1]) !== amount || !sameUnit(match[2], unit)) {
-        return false;
+        return [];
       }
       const start = match.index ?? 0;
-      return !mentionsIngredient(
-        recipe,
-        line,
-        start,
-        start + match[0].length,
-        unit,
-      );
+      const end = start + match[0].length;
+      if (mentionsIngredient(recipe, line, start, end, unit)) return [];
+      return [quantityThing(line, start, end)];
     }),
   );
 }
@@ -579,14 +634,18 @@ function checkNumbersInText(
       const start = match.index ?? 0;
       const unitEnd =
         start + match[0].length + (UNIT_AFTER.exec(after)?.[0].length ?? 0);
-      if (
-        unit &&
-        single &&
-        isRecipeQuantity(recipe, toAmount(match[0]), unit) &&
+      if (unit && single) {
+        const thing = quantityThing(value, start, unitEnd);
+        const literal = recipeLiterals(recipe, toAmount(match[0]), unit).some(
+          (stems) => stems.some((stem) => thing.includes(stem)),
+        );
         // Także w tekście scenariusza liczba nie może stać przy składniku.
-        !mentionsIngredient(recipe, value, start, unitEnd, unit)
-      ) {
-        continue;
+        if (
+          literal &&
+          !mentionsIngredient(recipe, value, start, unitEnd, unit)
+        ) {
+          continue;
+        }
       }
       errors.push(
         `${path}: liczba „${match[0]}” w tekście — ilości składników tylko przy kroku, sztuki tokenem {count:…}; cyframi wolno czas, temperaturę, rozmiar albo liczbę z jednostką przepisaną dosłownie z kroków przepisu (np. „1,5 l”, gdy nie jest ilością składnika)`,

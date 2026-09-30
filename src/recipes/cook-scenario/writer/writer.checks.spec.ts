@@ -1230,9 +1230,67 @@ describe('system pisania — walidatory twarde', () => {
           'Wymieszaj chia z mlekiem, 150 ml wody i cynamonem.',
         ),
       ).toEqual([]);
+      // Przegląd nocny: ilość SKŁADNIKA przemycona bez rzeczownika,
+      // w nawiasie, po przecinku albo synonimem — dalej błąd.
+      for (const body of [
+        'Wlej passatę (300 ml) i wymieszaj.',
+        'Wlej passatę, 300 ml.',
+        'Passata: 300 ml.',
+        'Wlej 300 ml i zagotuj.',
+        'Wlej 300 ml przecieru.',
+      ]) {
+        expect(numberErrors(gulasz, body)).toHaveLength(1);
+      }
     });
 
-    it('praca w turach („piecz po 2 naraz”): dwa timery tej samej długości wolno, trzy — nie', () => {
+    it('„120 ml letniej wody i oliwę” (lahmacun) — ilość wody, nie oliwy; „2 g soli i pieprz” — dalej błąd; „do 5 dni” to czas', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        ingredients: [
+          ...kotlet.ingredients,
+          {
+            ingredientId: 'oliwa',
+            name: 'oliwa z oliwek',
+            amount: 15,
+            unit: 'ml',
+          },
+        ],
+        instructions: [
+          ...kotlet.instructions,
+          'Wymieszaj mąkę, dolej letnią wodę (120 ml) i oliwę. Przechowuj do 5 dni.',
+        ],
+      };
+      const numberErrors = (body: string) => {
+        const content = clone(example.content);
+        step(content, 's12').body = body;
+        return qualityChecks(recipe, content).errors.filter((e) =>
+          e.includes('liczba'),
+        );
+      };
+      expect(numberErrors('Dolej 120 ml letniej wody i oliwę.')).toEqual([]);
+      expect(numberErrors('Wytrzymają do 5 dni.')).toEqual([]);
+      expect(numberErrors('Dodaj 2 g soli i pieprz.')).toHaveLength(1);
+    });
+
+    it('jednostka „g” to nie „godzinę” — „cynamon (1 g)” nie przechodzi przez „odstaw na 1 godzinę”', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        ingredients: [
+          ...kotlet.ingredients,
+          { ingredientId: 'cynamon', name: 'cynamon', amount: 1, unit: 'g' },
+        ],
+        instructions: [...kotlet.instructions, 'Odstaw ciasto na 1 godzinę.'],
+      };
+      const content = clone(example.content);
+      step(content, 's12').body = 'Dodaj cynamon (1 g).';
+      expect(
+        qualityChecks(recipe, content).errors.filter((e) =>
+          e.includes('liczba „1”'),
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('praca w turach („piecz po 2 naraz”): do trzech timerów tej samej długości wolno, cztery — nie', () => {
       const recipe: WriterRecipe = {
         ...kotlet,
         instructions: kotlet.instructions.map((line, i) =>
@@ -1241,7 +1299,7 @@ describe('system pisania — walidatory twarde', () => {
       };
       const withTurns = (count: number) => {
         const content = clone(example.content);
-        const turns = ['s10', 's11', 's12'].slice(0, count);
+        const turns = ['s6', 's10', 's11', 's12'].slice(0, count);
         for (const id of turns) {
           step(content, id).timer = {
             ...content.steps[7].timer!,
@@ -1259,7 +1317,16 @@ describe('system pisania — walidatory twarde', () => {
         );
       };
       expect(withTurns(2)).toEqual([]);
-      expect(withTurns(3)).toHaveLength(1);
+      expect(withTurns(3)).toEqual([]);
+      expect(withTurns(4)).toHaveLength(1);
+    });
+
+    it('„wlewaj partiami po chochli” to dolewanie, nie tury — drugi timer 25 min nie przejdzie', () => {
+      const pool = recipeDurationPool([
+        'Bulion wlewaj partiami po chochli, mieszając i gotując na małym ogniu około 25 minut.',
+      ]);
+      expect(pool.ranges).toEqual([[1500, 1500]]);
+      expect([...pool.extraTurns]).toEqual([]);
     });
 
     it('tury i „z każdej strony” w jednym zdaniu nie psują grupy stron', () => {

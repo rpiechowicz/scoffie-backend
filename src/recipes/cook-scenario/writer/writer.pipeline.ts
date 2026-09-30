@@ -416,7 +416,9 @@ export class ScenarioJob {
     };
     this.attempts.push(report);
 
-    this.writerTruncated = written.stopReason === 'max_tokens';
+    // Raz ucięty = długi przepis: wyższy limit do końca zadania (przegląd
+    // nocny — inaczej trzecia próba wracała do 12 tys. i znów się ucinała).
+    this.writerTruncated ||= written.stopReason === 'max_tokens';
     if (written.stopReason === 'max_tokens') {
       report.errors.push(
         'odpowiedź ucięta (max_tokens) — pisz zwięźlej, najwyżej 30 kroków',
