@@ -69,8 +69,13 @@ export class BudgetGuard {
     this.spent = spentMicroUsd;
   }
 
+  /** Rozliczone — BEZ rezerwacji w locie (te dziennik trzyma osobno). */
   get spentMicroUsd(): number {
     return this.spent;
+  }
+
+  get reservedMicroUsd(): number {
+    return this.reserved;
   }
 
   reserve(amount: number): void {

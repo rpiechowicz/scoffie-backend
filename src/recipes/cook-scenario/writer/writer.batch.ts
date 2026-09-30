@@ -65,13 +65,15 @@ export const batchCallId = (recipeId: string, round: number) =>
   `${recipeId.replace(/-/g, '')}-r${round}`;
 
 export class BatchStoppedError extends Error {
-  constructor(readonly reason: 'budget' | 'transport' | 'save') {
+  constructor(readonly reason: 'budget' | 'transport' | 'save' | 'incomplete') {
     super(
-      reason === 'budget'
-        ? 'budżet wyczerpany — doładuj i wznów (--resume)'
-        : reason === 'save'
-          ? 'nie wszystkie gotowe wyniki są zapisane w bazie — sprawdź bazę i wznów (--resume)'
-          : 'przerwa w komunikacji z Batch API — wznów (--resume)',
+      {
+        budget: 'budżet wyczerpany — doładuj i wznów (--resume)',
+        save: 'nie wszystkie gotowe wyniki są zapisane w bazie — sprawdź bazę i wznów (--resume)',
+        incomplete:
+          'część przepisów bez wyniku po ponowieniach (błędy API) — wznów (--resume), dostaną nową serię prób',
+        transport: 'przerwa w komunikacji z Batch API — wznów (--resume)',
+      }[reason],
     );
     this.name = 'BatchStoppedError';
   }
@@ -146,7 +148,7 @@ export async function runBatchRounds(
       const outcome = results.get(id);
       if (!outcome) continue; // niewysłane / w locie — zadanie czeka
       if (outcome.ok) job.accept(outcome.result);
-      else job.abort(outcome.error);
+      else job.transportFailure(outcome.error);
     }
   };
 
@@ -154,7 +156,9 @@ export async function runBatchRounds(
   const saveDone = async () => {
     const attempts = options.saveAttempts ?? 3;
     for (const job of jobs) {
-      if (!job.done || handled.has(job.jobId)) continue;
+      // Zapisujemy tylko WYNIKI; zadanie nieudane (błędy API) nie jest
+      // „obsłużone” — przebieg skończy się jako niekompletny.
+      if (!job.done || job.failure || handled.has(job.jobId)) continue;
       for (let attempt = 1; attempt <= attempts; attempt += 1) {
         try {
           await options.onDone(job);
@@ -173,7 +177,11 @@ export async function runBatchRounds(
     await persist();
   };
 
-  // Wznowienie: najpierw odbiór paczek opłaconych przed przerwą.
+  // Wznowienie: nieudane zadania dostają nową serię prób…
+  if (options.resume) {
+    for (const job of jobs) job.resetFailure();
+  }
+  // …a najpierw odbiór paczek opłaconych przed przerwą.
   if (inflight.length) {
     const pending = callsOf(round);
     const byId = new Map(pending.map((entry) => [entry.id, entry]));
@@ -203,8 +211,11 @@ export async function runBatchRounds(
     if (!pending.length) {
       // Sukces tylko wtedy, gdy KAŻDY gotowy wynik jest w bazie (review
       // Codexa) — inaczej opłacony, a niezapisany wynik zniknąłby z oczu.
-      if (jobs.some((job) => job.done && !handled.has(job.jobId))) {
+      if (jobs.some((job) => job.hasResult && !handled.has(job.jobId))) {
         throw new BatchStoppedError('save');
+      }
+      if (jobs.some((job) => job.failure)) {
+        throw new BatchStoppedError('incomplete');
       }
       return;
     }
@@ -395,12 +406,12 @@ export class AnthropicBatchModel implements BatchModel {
       }
       return true;
     } catch (error) {
-      // Przyjęta, a nieodebrana: pieniądze mogły pójść — rezerwacja zostaje
-      // w dzienniku (`reservedMicroUsd`); tu liczymy ją jako wydaną, żeby ten
-      // proces nie wysłał więcej, niż wolno.
-      for (const entry of byId.values()) {
-        this.guard.settle(entry.reserved, entry.reserved);
-      }
+      // Przyjęta, a nieodebrana: pieniądze mogły pójść — rezerwacja ZOSTAJE
+      // (nierozliczona), więc ten proces nie wyda ponad limit, a w dzienniku
+      // żyje osobno jako `inflight.reservedMicroUsd`. Rozliczone
+      // (`spentMicroUsd`) nigdy jej nie zawiera — jedna, jednoznaczna
+      // semantyka niezależnie od tego, czy proces padł, czy odbiór się urwał
+      // (review Codexa).
       this.log(`paczka ${batch.batchId} nieodebrana: ${messageOf(error)}`);
       return false;
     }

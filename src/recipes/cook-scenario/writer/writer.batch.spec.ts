@@ -166,39 +166,58 @@ describe('system pisania — rundy paczek', () => {
     );
   });
 
-  it('błąd pozycji przerywa tylko to zadanie (bez wyniku, do ponowienia)', async () => {
+  it('błąd pozycji API jest ponawiany w kolejnych rundach; po 3 pod rząd przebieg jest NIEKOMPLETNY, a wznowienie daje nową serię prób', async () => {
+    let failuresLeftForA = 5;
     const model: BatchModel = {
       run: (calls) =>
         Promise.resolve({
           results: new Map(
-            calls.map((c): [string, BatchCallResult] => [
-              c.id,
-              c.id.startsWith(key(idA))
-                ? { ok: false, error: 'błąd API: overloaded' }
-                : { ok: true, result: result(good()) },
-            ]),
+            calls.map((c): [string, BatchCallResult] => {
+              if (c.id.startsWith(key(idA)) && failuresLeftForA > 0) {
+                failuresLeftForA -= 1;
+                return [c.id, { ok: false, error: 'błąd API: overloaded' }];
+              }
+              const isReview =
+                c.call.model === DEFAULT_WRITER_OPTIONS.reviewerModel &&
+                c.call.system.startsWith('Jesteś recenzentem');
+              return [
+                c.id,
+                { ok: true, result: result(isReview ? review(5) : good()) },
+              ];
+            }),
           ),
           interrupted: [],
           stopReason: null,
         }),
       collect: () => Promise.reject(new Error('nieużywane')),
     };
-    const jobs = [
-      new ScenarioJob(recipeWithId(idA), example),
-      new ScenarioJob(recipeWithId(idB), example, {
-        ...DEFAULT_WRITER_OPTIONS,
-        maxAttempts: 1,
-      }),
-    ];
-    const done: ScenarioJob[] = [];
-    await runBatchRounds(jobs, model, {
-      onDone: (job) => {
-        done.push(job);
+    const jobs = newJobs();
+    const saved: string[] = [];
+    let journal: BatchJournal | null = null;
+    const options = {
+      onDone: (job: ScenarioJob) => {
+        saved.push(job.recipe.id);
         return Promise.resolve();
       },
+      persist: (j: BatchJournal) => {
+        journal = clone(j);
+        return Promise.resolve();
+      },
+    };
+    await expect(runBatchRounds(jobs, model, options)).rejects.toMatchObject({
+      reason: 'incomplete',
     });
+    // A: 3 błędy pod rząd → nieudane; B normalnie zapisany.
     expect(jobs[0].failure).toBe('błąd API: overloaded');
-    expect(done).toHaveLength(2);
+    expect(saved).toEqual([idB]);
+
+    // Wznowienie: A dostaje nową serię prób (jeszcze 2 błędy, potem OK).
+    const restored = journal!.jobs.map((st) =>
+      ScenarioJob.restore(st, example),
+    );
+    await runBatchRounds(restored, model, { ...options, resume: journal! });
+    expect(saved).toEqual([idB, idA]);
+    expect(restored[0].outcome().status).toBe('VALIDATED');
   });
 
   it('padający zapis jednego przepisu nie gubi pozostałych; trwały błąd zapisu = stop do wznowienia', async () => {
@@ -472,19 +491,22 @@ describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
     });
     expect(outcome.stopReason).toBe('transport');
     expect(outcome.interrupted).toEqual(submitted);
-    // W tym procesie rezerwacja liczy się jako wydana (ostrożnie).
-    expect(guard.spentMicroUsd).toBe(outcome.interrupted[0].reservedMicroUsd);
-
-    // Nowy proces: wydane bez rezerwacji paczek w locie, potem odbiór.
-    const resumed = new BudgetGuard(
-      worst * 3,
-      guard.spentMicroUsd - outcome.interrupted[0].reservedMicroUsd,
+    // Jedna semantyka: rozliczone NIE zawiera paczki w locie — ta zostaje
+    // zarezerwowana (proces nie wyda ponad limit), a w dzienniku osobno.
+    expect(guard.spentMicroUsd).toBe(0);
+    expect(guard.reservedMicroUsd).toBe(
+      outcome.interrupted[0].reservedMicroUsd,
     );
+
+    // Nowy proces (tak samo po padzie tuż po wysłaniu): start od rozliczonego,
+    // rezerwacja wraca dokładnie raz przy odbiorze.
+    const resumed = new BudgetGuard(worst * 3, guard.spentMicroUsd);
     const collected = await model(fakeClient(created), resumed).collect(
       outcome.interrupted[0],
       [{ id: 'a-r1', call }],
     );
     expect(collected.results.get('a-r1')).toMatchObject({ ok: true });
     expect(resumed.spentMicroUsd).toBe(ACTUAL);
+    expect(resumed.reservedMicroUsd).toBe(0);
   });
 });

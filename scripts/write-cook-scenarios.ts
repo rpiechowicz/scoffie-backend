@@ -358,14 +358,12 @@ async function main() {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY jest pusty');
     const client = new Anthropic({ apiKey });
-    // Budżet dotyczy CAŁEJ serii: przy wznowieniu startujemy od wydanego
-    // (bez rezerwacji paczek w locie — te wrócą przy ich odbiorze).
+    // Budżet dotyczy CAŁEJ serii: przy wznowieniu startujemy od ROZLICZONEGO
+    // (dziennik nie wlicza w nie paczek w locie — ich rezerwacje wracają
+    // dokładnie raz, przy odbiorze paczki).
     const budget = new BudgetGuard(
       Math.round(args.budgetUsd * 1_000_000),
-      resumed
-        ? resumed.spentMicroUsd -
-            resumed.inflight.reduce((sum, b) => sum + b.reservedMicroUsd, 0)
-        : 0,
+      resumed ? resumed.spentMicroUsd : 0,
     );
 
     const report: ReportEntry[] = [];
@@ -476,14 +474,14 @@ async function main() {
           jobs,
           new AnthropicBatchModel(client, budget, (line) => console.log(line)),
           {
-            onDone: async (job) => {
-              const loaded = {
-                recipe: job.recipe,
-                signature: signatures[job.jobId],
-              };
-              if (job.failure) failed(loaded, job.failure);
-              else await save(loaded, job.outcome(), 'batch', job.jobId);
-            },
+            // Tylko zadania z wynikiem; nieudane raportujemy na końcu.
+            onDone: (job) =>
+              save(
+                { recipe: job.recipe, signature: signatures[job.jobId] },
+                job.outcome(),
+                'batch',
+                job.jobId,
+              ),
             log: (line) => console.log(line),
             persist: (journal) =>
               writeJournal(journalPath, {
@@ -503,6 +501,9 @@ async function main() {
       } catch (error) {
         if (!(error instanceof BatchStoppedError)) throw error;
         stoppedBatch = error;
+      }
+      for (const job of jobs) {
+        if (job.failure) failed({ recipe: job.recipe }, job.failure);
       }
     } else {
       const model = new BudgetedWriterModel(

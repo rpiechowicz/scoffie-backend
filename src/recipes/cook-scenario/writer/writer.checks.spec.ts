@@ -581,4 +581,36 @@ describe('system pisania — walidatory twarde', () => {
       's2.body: pisownia „poloz” → „połóż”',
     ]);
   });
+  it('„po X min z każdej strony”: dwa odliczania ALBO jedno łączne — oba naraz = błąd', () => {
+    const recipe: WriterRecipe = {
+      ...kotlet,
+      instructions: [
+        ...kotlet.instructions,
+        'Piecz kotlety po 5 minut z każdej strony.',
+      ],
+    };
+    const withTimers = (seconds: number[]) => {
+      const content = clone(example.content);
+      const free = content.steps
+        .filter((st) => !st.timer && !st.during)
+        .slice(0, seconds.length);
+      free.forEach((st, i) => {
+        st.timer = {
+          ...content.steps[8].timer!,
+          id: `t-side-${i}`,
+          label: 'Strona',
+          minSeconds: seconds[i],
+          maxSeconds: seconds[i],
+        };
+      });
+      return qualityChecks(recipe, content).errors.filter((e) =>
+        e.includes('z każdej strony'),
+      );
+    };
+    expect(withTimers([300, 300])).toEqual([]);
+    expect(withTimers([600])).toEqual([]);
+    expect(withTimers([300, 300, 600])).toEqual([
+      expect.stringContaining('timery dublują czas „z każdej strony”'),
+    ]);
+  });
 });

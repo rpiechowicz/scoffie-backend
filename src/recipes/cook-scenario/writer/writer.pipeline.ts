@@ -166,7 +166,12 @@ export interface JobState {
   } | null;
   result: WriteOutcome | null;
   failure: string | null;
+  /** Ile razy z rzędu pozycja paczki tego zadania padła po stronie API. */
+  transportErrors?: number;
 }
+
+/** Tyle błędów API pod rząd na zadanie, zanim uznamy je za nieudane. */
+export const MAX_TRANSPORT_ERRORS = 3;
 
 export class ScenarioJob {
   /** Klucz zadania — zapis tego samego zadania drugi raz nic nie dopisuje. */
@@ -191,6 +196,7 @@ export class ScenarioJob {
   private result: WriteOutcome | null = null;
   /** Błąd API (sieć, limit, paczka) — zadanie przerwane bez wyniku. */
   failure: string | null = null;
+  private transportErrors = 0;
 
   constructor(
     readonly recipe: WriterRecipe,
@@ -226,6 +232,7 @@ export class ScenarioJob {
           : null,
         result: this.result,
         failure: this.failure,
+        transportErrors: this.transportErrors,
       } satisfies JobState),
     ) as JobState;
   }
@@ -254,11 +261,17 @@ export class ScenarioJob {
       : null;
     job.result = state.result;
     job.failure = state.failure;
+    job.transportErrors = state.transportErrors ?? 0;
     return job;
   }
 
   get done(): boolean {
     return this.result !== null || this.failure !== null;
+  }
+
+  /** Zadanie ma wynik (VALIDATED/REJECTED/SKIPPED) — do zapisu w bazie. */
+  get hasResult(): boolean {
+    return this.result !== null;
   }
 
   /** Następne potrzebne wywołanie modelu albo `null`, gdy zadanie skończone. */
@@ -291,6 +304,7 @@ export class ScenarioJob {
 
   accept(response: WriterModelResult): void {
     if (this.done) throw new Error('zadanie już zakończone');
+    this.transportErrors = 0;
     if (this.pendingReview) this.acceptReview(response);
     else this.acceptWriter(response);
   }
@@ -298,6 +312,24 @@ export class ScenarioJob {
   /** Przerywa zadanie po błędzie API — bez wyniku, do ponowienia później. */
   abort(reason: string): void {
     if (!this.done) this.failure = reason;
+  }
+
+  /**
+   * Pozycja paczki padła po stronie API (przeciążenie, wygaśnięcie): zadanie
+   * zostaje w miejscu i to samo wywołanie idzie w następnej rundzie;
+   * dopiero `MAX_TRANSPORT_ERRORS` pod rząd kończy je jako nieudane.
+   */
+  transportFailure(reason: string): void {
+    if (this.done) return;
+    this.transportErrors += 1;
+    if (this.transportErrors >= MAX_TRANSPORT_ERRORS) this.abort(reason);
+  }
+
+  /** Wznowienie daje nieudanemu zadaniu nową serię prób. */
+  resetFailure(): void {
+    if (this.result) return;
+    this.failure = null;
+    this.transportErrors = 0;
   }
 
   outcome(): WriteOutcome {

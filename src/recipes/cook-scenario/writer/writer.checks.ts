@@ -160,8 +160,23 @@ const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 const PER_SIDE =
   /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
 
+/**
+ * Czasy przepisu z informacją, które są WYMIENNE: „po X min z każdej
+ * strony” = dwa odliczania po X (`singles`) ALBO jedno łączne 2X
+ * (`combined`) — nigdy wszystkie trzy (review Codexa).
+ */
+export interface DurationPool {
+  ranges: [number, number][];
+  perSide: { singles: [number, number]; combined: number }[];
+}
+
 export function recipeDurations(instructions: string[]): [number, number][] {
+  return recipeDurationPool(instructions).ranges;
+}
+
+export function recipeDurationPool(instructions: string[]): DurationPool {
   const found: [number, number][] = [];
+  const perSide: DurationPool['perSide'] = [];
   for (const line of instructions) {
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
@@ -175,7 +190,9 @@ export function recipeDurations(instructions: string[]): [number, number][] {
         .slice((match.index ?? 0) + match[0].length)
         .slice(0, 40);
       if (PER_SIDE.test(after)) {
+        const first = found.length - 1;
         found.push(range, [range[0] * 2, range[1] * 2]);
+        perSide.push({ singles: [first, first + 1], combined: first + 2 });
       }
     }
     const lower = line.toLowerCase();
@@ -184,7 +201,7 @@ export function recipeDurations(instructions: string[]): [number, number][] {
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
   }
-  return found;
+  return { ranges: found, perSide };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -672,10 +689,11 @@ function checkTextClaims(
  */
 function checkTimers(
   content: CookScenarioContent,
-  recipeRanges: [number, number][],
+  pool: DurationPool,
   errors: string[],
   warnings: string[],
 ) {
+  const recipeRanges = pool.ranges;
   const timers = content.steps.flatMap((step) =>
     step.timer ? [{ step: step.id, timer: step.timer }] : [],
   );
@@ -706,7 +724,27 @@ function checkTimers(
           })`,
     );
   });
+  // „Z każdej strony”: dwa odliczania po X ALBO jedno 2X — nie oba naraz.
+  const alternative = new Set<number>();
+  for (const group of pool.perSide) {
+    const singlesUsed = group.singles.some((i) => owner[i] >= 0);
+    const combinedUsed = owner[group.combined] >= 0;
+    if (singlesUsed && combinedUsed) {
+      errors.push(
+        `timery dublują czas „z każdej strony” ${describeRange(recipeRanges[group.singles[0]])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`,
+      );
+    }
+    // Użyta jedna z alternatyw pokrywa grupę — druga nie jest „bez timera”.
+    if (singlesUsed || combinedUsed) {
+      alternative.add(group.combined);
+      group.singles.forEach((i) => alternative.add(i));
+    } else {
+      // Nic nie użyte: ostrzegamy raz, o łącznym czasie.
+      group.singles.forEach((i) => alternative.add(i));
+    }
+  }
   recipeRanges.forEach((range, index) => {
+    if (alternative.has(index) && owner[index] < 0) return;
     if (range[1] >= MIN_TIMER_SECONDS && owner[index] < 0) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
@@ -790,14 +828,15 @@ export function qualityChecks(
 ): CheckResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const recipeRanges = recipeDurations(recipe.instructions);
+  const pool = recipeDurationPool(recipe.instructions);
+  const recipeRanges = pool.ranges;
 
   checkNumbersInText(recipe, content, errors);
   checkSpelling(content, errors);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
   checkTextClaims(recipe, content, recipeRanges, errors, warnings);
-  checkTimers(content, recipeRanges, errors, warnings);
+  checkTimers(content, pool, errors, warnings);
 
   if (recipe.prepTimeMinutes > 0) {
     const ratio = content.totalMinutes / recipe.prepTimeMinutes;
