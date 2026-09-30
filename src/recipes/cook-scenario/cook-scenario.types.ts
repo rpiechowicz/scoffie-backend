@@ -27,7 +27,7 @@ export const COOK_SCENARIO_SCHEMA_VERSION = 1;
  * odliczania naraz, kroki „w międzyczasie” mieszczą się po ludzku (±2 min),
  * tryb piekarnika zawsze podany, praktyczne wskazówki dozwolone.
  */
-export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.4';
+export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.5';
 
 export const COOK_STEP_PHASES = ['PREP', 'COOK', 'FINISH', 'SERVE'] as const;
 export type CookStepPhase = (typeof COOK_STEP_PHASES)[number];
@@ -64,6 +64,21 @@ export const COOK_LIMITS = {
   stepsMin: 1,
   stepsMax: 30,
   timerSecondsMax: 12 * 60 * 60,
+} as const;
+
+/**
+ * Ostrzejsze limity dla NOWO pisanych scenariuszy (zasady .5, design doku
+ * 30.09, zmierzone w przeglądarce). Osobno od \`COOK_LIMITS\` celowo (review
+ * Codexa): tamte sprawdza też ODCZYT (\`parseCookScenarioContent\` w WS),
+ * więc zaostrzenie ich schowałoby zapisy .3/.4. Pilnuje ich system pisania.
+ */
+export const COOK_AUTHOR_LIMITS = {
+  // Tytuł kroku ma 40 pt — dwie linijki na szerokość telefonu.
+  title: 30,
+  // Tytuł + treść + adnotacja mieszczą się nad dokiem z dwoma timerami.
+  body: 260,
+  // Mała linijka kapsuły „do włączenia” w doku (przy dwóch timerach ~118 pt).
+  timerStartLabel: 20,
 } as const;
 
 export interface CookStepIngredient {

@@ -1,4 +1,6 @@
+import { normalizeText } from '../../../common/normalize-text.util';
 import {
+  ingredientNamed,
   qualityChecks,
   recipeDurations,
   resolveWriterOutput,
@@ -99,6 +101,165 @@ describe('system pisania — walidatory twarde', () => {
         expect.stringContaining('zły token'),
       ]);
     });
+  });
+
+  it('startLabel to sam warunek startu — bez czasu i „odliczaj” (zasady .5)', () => {
+    const content = clone(example.content);
+    const step = content.steps.find((s) => s.timer)!;
+    expect(
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('startLabel'),
+      ),
+    ).toEqual([]);
+    step.timer!.startLabel = 'Woda wrze — odliczaj 20 min';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+    step.timer!.startLabel = 'Po 5 min zamieszaj';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+    // Liczba w nazwie składnika to nie czas (review Codexa).
+    step.timer!.startLabel = 'Śmietana 12% w misce';
+    expect(
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('startLabel'),
+      ),
+    ).toEqual([]);
+    // Czas słownie też jest powtórzeniem (review Codexa, runda 2).
+    for (const label of [
+      'Po pięciu minutach',
+      'Za dwie minuty',
+      'Po półtorej',
+      // Runda 3 Codexa: odmiana „minucie” i skróty bez liczby.
+      'Po minucie',
+      'Po min.',
+      'Po sek.',
+    ]) {
+      step.timer!.startLabel = label;
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(`${step.id}.timer.startLabel`),
+      );
+    }
+    step.timer!.startLabel = 'Za kwadrans';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+  });
+
+  it('limity pisania (.5): tytuł 30, treść 260 (token liczony jak widać), startLabel 20', () => {
+    const content = clone(example.content);
+    const step = content.steps.find((s) => s.timer)!;
+    step.title = 'x'.repeat(31);
+    step.body = `${'a'.repeat(240)} {count:cutlets|kotlet|kotlety|kotletów}`;
+    step.timer!.startLabel = 'Kotlety na dużej patelni';
+    const errors = qualityChecks(kotlet, content).errors;
+    expect(errors).toContainEqual(
+      expect.stringContaining(`${step.id}.title: 31 znaków, limit 30`),
+    );
+    // 240 liter + spacja + token (~10 znaków na ekranie) = 251 → mieści się.
+    expect(errors.filter((e) => e.startsWith(`${step.id}.body:`))).toEqual([]);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        `${step.id}.timer.startLabel: 24 znaków, limit 20`,
+      ),
+    );
+    step.body = 'a'.repeat(261);
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.body: 261 znaków, limit 260`),
+    );
+  });
+
+  it('„W MIĘDZYCZASIE” w obie strony: krok z during ma dokładnie tę etykietę (review Codexa)', () => {
+    for (const stage of [null, 'PRZYGOTOWANIE', 'W MIEDZYCZASIE']) {
+      const content = clone(example.content);
+      const step = content.steps.find((s) => s.during)!;
+      step.stage = stage;
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(`${step.id}.stage: krok w trakcie timera`),
+      );
+    }
+  });
+
+  it('składnik w tekście: rdzeń od początku słowa — „do smaku” to nie mąka, „serwuj” to nie ser, „posól” to sól', () => {
+    const content = clone(example.content);
+    const s4 = content.steps.find((s) => s.id === 's4')!;
+    s4.body =
+      'W drugim talerzu roztrzep jajko, do trzeciego wsyp bułkę tartą, dopraw do smaku.';
+    expect(qualityChecks(kotlet, content).warnings).toContainEqual(
+      expect.stringContaining('s4: składnik „mąka pszenna”'),
+    );
+    const s10 = content.steps.find((s) => s.id === 's10')!;
+    s10.title = 'Zrób mizerię';
+    s10.body =
+      'Pokrój ogórek, posól, dodaj śmietanę i pieprz — serwuj od razu.';
+    expect(
+      qualityChecks(kotlet, content).warnings.filter((w) =>
+        w.startsWith('s10:'),
+      ),
+    ).toEqual([]);
+    s10.body = 'Pokrój ogórek, dodaj śmietanę i pieprz — serwuj od razu.';
+    expect(qualityChecks(kotlet, content).warnings).toContainEqual(
+      expect.stringContaining('s10: składnik „sól”'),
+    );
+  });
+
+  describe('składnik w tekście — człony nazwy i oboczności (review Codexa, runda 2)', () => {
+    const words = (text: string) =>
+      normalizeText(text)
+        .split(/[^a-z]+/)
+        .filter(Boolean);
+    it.each([
+      // [nazwa, tekst, wymieniony?]
+      [
+        'przyprawa do kurczaka',
+        'Przygotuj kurczaka i przykryj go folią.',
+        false,
+      ],
+      ['przyprawa do kurczaka', 'Natrzyj mięso przyprawą.', true],
+      ['filet z kurczaka', 'Pokrój kurczaka w paski.', true],
+      ['cukier', 'Dodaj cukru i wymieszaj.', true],
+      ['ocet jabłkowy', 'Skrop buraki octem.', true],
+      ['mąka pszenna', 'Obtocz kotlety w mące.', true],
+      ['mąka pszenna', 'Dopraw do smaku.', false],
+      ['ser feta', 'Serwuj od razu.', false],
+      ['sól', 'Posól wodę.', true],
+      ['koperek', 'Posyp resztą koperku.', true],
+      // Runda 3 Codexa: samo określenie nie nazywa składnika.
+      ['pieprz czarny', 'Dodaj czarną fasolę.', false],
+      ['pieprz czarny', 'Dopraw pieprzem.', true],
+      ['mąka pszenna', 'Wsyp pszenną bułkę.', false],
+      ['ser feta', 'Pokrusz fetę.', true],
+      ['sos sojowy', 'Skrop sosem sojowym.', true],
+      // Pomiar na korpusie (runda 3): człon, który sam nazywa składnik.
+      ['papryczka chili', 'Chili pokrój w cienkie kawałki.', true],
+      ['nasiona chia', 'Ułóż pasek chia.', true],
+      ['cebula dymka', 'Dymkę pokrój w plasterki.', true],
+      ['makaron penne', 'Wrzuć penne do wrzątku.', true],
+      ['ser twaróg półtłusty', 'Rozgnieć twaróg widelcem.', true],
+      // Runda 4 Codexa: określenie za ogólnym rzeczownikiem nie nazywa rzeczy.
+      ['cebula czerwona', 'Dodaj czerwoną paprykę.', false],
+      ['sos pomidorowy', 'Wlej passatę pomidorową.', false],
+      ['mleko kokosowe z puszki', 'Posyp wiórkami kokosowymi.', false],
+      ['pestki dyni', 'Pokrój dynię w kostkę.', false],
+      // Pomiar na 728 parach (runda 4): imiesłów, synonim, ser bez „ser”.
+      ['sól', 'Wsyp ryż do osolonego wrzątku.', true],
+      ['sól', 'Zagotuj wodę i osól ją.', true],
+      ['sól', 'Podaj z sosem.', false],
+      ['proszek do pieczenia', 'Oprósz formę mąką.', false],
+      ['kmin rzymski', 'Dopraw kuminem.', true],
+      ['mozzarella tarta', 'Posyp tortille połową sera.', true],
+      ['makaron cannelloni', 'Napełnij rurki farszem.', true],
+    ])('%s ← „%s” → %s', (name, text, expected) => {
+      expect(ingredientNamed(name, words(text))).toBe(expected);
+    });
+  });
+
+  it('wzorzec kotleta przechodzi też ostrzeżenia reguł .4/.5 (składniki w tekście, tytuł bez echa)', () => {
+    const warnings = qualityChecks(kotlet, clone(example.content)).warnings;
+    expect(
+      warnings.filter((w) => /nie wymienia|powtórzenia tytułu/.test(w)),
+    ).toEqual([]);
   });
 
   it('„W MIĘDZYCZASIE” tylko przy kroku z during (zasady .4)', () => {

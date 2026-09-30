@@ -86,6 +86,19 @@ describe('parseCookScenarioContent', () => {
     expect(parsed.content?.steps).toHaveLength(2);
   });
 
+  it('odczyt przyjmuje zapisy starszych zasad (.3/.4): tytuł 45, treść 300, startLabel 30 — limity pisania .5 go nie dotyczą', () => {
+    // Review Codexa: zaostrzenie limitów FORMATU schowałoby opublikowane
+    // scenariusze (WS zwraca scenario: null). Ostrzejsze limity .5 pilnuje
+    // tylko system pisania (COOK_AUTHOR_LIMITS).
+    const raw = valid();
+    const [first] = steps(raw);
+    first.title = 'x'.repeat(45);
+    first.body = 'y'.repeat(300);
+    const parsed = parse(raw);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.content?.steps[0].title).toHaveLength(45);
+  });
+
   it('odrzuca nie-obiekt', () => {
     expect(parse(null)).toEqual({
       content: null,
