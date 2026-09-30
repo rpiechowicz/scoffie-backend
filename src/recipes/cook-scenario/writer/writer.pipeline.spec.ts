@@ -73,12 +73,31 @@ describe('system pisania — przebieg', () => {
     expect(outcome.attempts[0].errors).toEqual([
       'steps[0].ingredients[0]: klucza „i99” nie ma w przepisie',
     ]);
-    expect(model.calls[1].user).toContain(
-      'POPRZEDNIA WERSJA NIE PRZESZŁA KONTROLI',
-    );
+    expect(model.calls[1].user).toContain('NIE PRZESZŁA KONTROLI');
     expect(model.calls[1].user).toContain('klucza „i99”');
     // Stała część promptu ta sama przy każdej próbie — cache działa.
     expect(model.calls[1].system).toBe(model.calls[0].system);
+  });
+
+  it('poprawka dostaje poprzednią wersję, a recenzent swoje wcześniejsze uwagi', async () => {
+    const model = new StubModel([
+      badKey(),
+      good(),
+      review(3, [
+        { stepId: 's6', severity: 'MAJOR', text: 'niejasne zawijanie' },
+      ]),
+      good(),
+      review(4),
+    ]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    // Próba 2: poprawka poprzedniej wersji (z kluczem i99), nie pisanie od zera.
+    expect(model.calls[1].user).toContain('TWOJA POPRZEDNIA WERSJA');
+    expect(model.calls[1].user).toContain('"key":"i99"');
+    // Pierwsza recenzja bez historii, druga z uwagami do poprzedniej wersji.
+    expect(model.calls[2].user).not.toContain('TWOJE UWAGI');
+    expect(model.calls[4].user).toContain('TWOJE UWAGI DO POPRZEDNIEJ WERSJI');
+    expect(model.calls[4].user).toContain('[s6] MAJOR: niejasne zawijanie');
   });
 
   it('niska ocena recenzenta = poprawka z jego uwagami (bez MINOR)', async () => {

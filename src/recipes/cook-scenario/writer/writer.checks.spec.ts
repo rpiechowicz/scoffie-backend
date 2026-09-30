@@ -445,4 +445,43 @@ describe('system pisania — walidatory twarde', () => {
       expect(noCueErrors(name, department)).toEqual([]);
     });
   });
+  describe('liczby z jednostką przepisane z kroków przepisu', () => {
+    const cheesecake: WriterRecipe = {
+      ...kotlet,
+      instructions: [
+        ...kotlet.instructions,
+        'Żelatynę zalej 100 ml zimnej wody, a masę przełóż do naczynia ok. 1,5 l.',
+      ],
+    };
+    const withBody = (recipe: WriterRecipe, body: string) => {
+      const content = clone(example.content);
+      content.steps[1].body = body;
+      return qualityChecks(recipe, content).errors;
+    };
+
+    it('ilość spoza listy składników, dosłownie z przepisu, przechodzi', () => {
+      expect(
+        withBody(
+          cheesecake,
+          'Zalej żelatynę 100 ml zimnej wody, przełóż do naczynia ok. 1,5 l.',
+        ),
+      ).toEqual([]);
+    });
+
+    it('ta sama liczba spoza przepisu nie przechodzi', () => {
+      expect(withBody(kotlet, 'Zalej żelatynę 100 ml zimnej wody.')).toEqual([
+        expect.stringContaining('liczba „100”'),
+      ]);
+    });
+
+    it('ilość składnika z listy nie przechodzi, nawet gdy stoi w przepisie', () => {
+      const withAmount: WriterRecipe = {
+        ...kotlet,
+        instructions: [...kotlet.instructions, 'Rozbij 320 g filetu.'],
+      };
+      expect(withBody(withAmount, 'Rozbij 320 g filetu na kotlety.')).toEqual([
+        expect.stringContaining('liczba „320”'),
+      ]);
+    });
+  });
 });

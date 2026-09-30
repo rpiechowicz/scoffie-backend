@@ -143,6 +143,10 @@ export async function writeCookScenario(
   const attempts: AttemptReport[] = [];
   let usage = ZERO_USAGE;
   let feedback: string[] = [];
+  // Poprzednia odpowiedź autora (do poprawki zamiast pisania od zera)
+  // i uwagi recenzenta do niej (żeby się z nich nie wycofywał).
+  let previous: unknown = null;
+  let previousIssues: string[] = [];
   let lastContent: CookScenarioContent | null = null;
   let lastReview: Review | null = null;
   let lastWarnings: string[] = [];
@@ -152,7 +156,7 @@ export async function writeCookScenario(
       model: options.writerModel,
       effort: options.writerEffort,
       system,
-      user: buildWriterUser(recipe, feedback),
+      user: buildWriterUser(recipe, feedback, previous),
       schema: WRITER_OUTPUT_SCHEMA,
       maxTokens: options.maxTokens,
     });
@@ -175,6 +179,10 @@ export async function writeCookScenario(
       continue;
     }
 
+    previous =
+      typeof written.json === 'object' && written.json !== null
+        ? written.json
+        : null;
     const resolved = resolveWriterOutput(recipe, written.json);
     report.decision = resolved.decision;
     report.errors.push(...resolved.errors);
@@ -213,7 +221,12 @@ export async function writeCookScenario(
       model: options.reviewerModel,
       effort: options.reviewerEffort,
       system: REVIEWER_SYSTEM,
-      user: buildReviewerUser(recipe, resolved.content, quality.warnings),
+      user: buildReviewerUser(
+        recipe,
+        resolved.content,
+        quality.warnings,
+        previousIssues,
+      ),
       schema: REVIEWER_OUTPUT_SCHEMA,
       maxTokens: options.maxTokens,
     });
@@ -240,6 +253,10 @@ export async function writeCookScenario(
       };
     }
     feedback = reviewFeedback(review).slice(0, FEEDBACK_LIMIT);
+    previousIssues = review.issues.map(
+      (issue) =>
+        `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
+    );
   }
 
   return {

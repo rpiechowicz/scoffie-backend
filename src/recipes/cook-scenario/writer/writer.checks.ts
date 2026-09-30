@@ -211,6 +211,41 @@ function textFields(content: CookScenarioContent): [string, string][] {
   return fields;
 }
 
+const QUANTITY_IN_RECIPE = new RegExp(
+  `(\\d+(?:[.,]\\d+)?)\\s*([${PL}]+)`,
+  'giu',
+);
+const UNIT_AFTER = new RegExp(`^\\s*([${PL}]+)`, 'iu');
+const toAmount = (raw: string) => Number(raw.replace(',', '.'));
+const sameUnit = (a: string, b: string) => {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x.startsWith(y) || y.startsWith(x);
+};
+
+/**
+ * Liczba z jednostką przepisana DOSŁOWNIE z kroków przepisu, która nie
+ * jest ilością składnika z listy (pilot E3b, 30.09): „naczynie ok. 1,5 l”,
+ * „100 ml zimnej wody”, gdy wody nie ma w składnikach — tego telefon nie
+ * pokaże przy kroku, więc tekst musi to powiedzieć. Ilość składnika z listy
+ * („320 g”) nadal wolno podać tylko przy kroku.
+ */
+function isRecipeQuantity(
+  recipe: WriterRecipe,
+  amount: number,
+  unit: string,
+): boolean {
+  const inRecipe = recipe.instructions.some((line) =>
+    [...line.matchAll(QUANTITY_IN_RECIPE)].some(
+      (match) => toAmount(match[1]) === amount && sameUnit(match[2], unit),
+    ),
+  );
+  const isIngredientAmount = recipe.ingredients.some(
+    (row) => row.amount === amount && sameUnit(row.unit, unit),
+  );
+  return inRecipe && !isIngredientAmount;
+}
+
 function checkNumbersInText(
   recipe: WriterRecipe,
   content: CookScenarioContent,
@@ -236,11 +271,19 @@ function checkNumbersInText(
     }
     for (const match of value.matchAll(NUMBER_IN_TEXT)) {
       const after = value.slice((match.index ?? 0) + match[0].length);
-      if (!ALLOWED_AFTER_NUMBER.test(after)) {
-        errors.push(
-          `${path}: liczba „${match[0]}” w tekście — ilości tylko przy kroku, sztuki tokenem {count:…}; cyfry wolno tylko dla czasu, temperatury i rozmiaru`,
-        );
+      if (ALLOWED_AFTER_NUMBER.test(after)) continue;
+      const unit = UNIT_AFTER.exec(after)?.[1];
+      const single = /^\d+(?:[.,]\d+)?$/.test(match[0]);
+      if (
+        unit &&
+        single &&
+        isRecipeQuantity(recipe, toAmount(match[0]), unit)
+      ) {
+        continue;
       }
+      errors.push(
+        `${path}: liczba „${match[0]}” w tekście — ilości składników tylko przy kroku, sztuki tokenem {count:…}; cyframi wolno czas, temperaturę, rozmiar albo liczbę z jednostką przepisaną dosłownie z kroków przepisu (np. „1,5 l”, gdy nie jest ilością składnika)`,
+      );
     }
   }
 }
