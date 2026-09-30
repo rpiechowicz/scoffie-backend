@@ -172,7 +172,7 @@ describe('system pisania — rundy paczek', () => {
     );
   });
 
-  it('bramka jakości zatrzymuje serię po rundzie — z pełnym dziennikiem', async () => {
+  it('bramka jakości zatrzymuje serię PRZED kolejną rundą — z pełnym dziennikiem', async () => {
     const model = new FakeBatchModel(replies());
     const jobs = newJobs();
     const journals: BatchJournal[] = [];
@@ -187,9 +187,23 @@ describe('system pisania — rundy paczek', () => {
         gate: () => (++rounds === 2 ? 'odrzuceń za dużo' : null),
       }),
     ).rejects.toMatchObject({ reason: 'gate' });
-    // Stanęła po drugiej rundzie — trzecia paczka nie poszła.
-    expect(model.batches).toHaveLength(2);
-    expect(journals.at(-1)?.round).toBe(2);
+    // Pytana przed każdą rundą: przed drugą powiedziała „stop” — druga
+    // paczka nie poszła.
+    expect(model.batches).toHaveLength(1);
+    expect(journals.at(-1)?.round).toBe(1);
+  });
+
+  it('wznowienie z bramką, która dalej mówi „stop”, nie płaci ani jednej rundy', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        resume: { round: 1, handled: [], inflight: [] },
+        gate: () => 'wydatek za duży',
+      }),
+    ).rejects.toMatchObject({ reason: 'gate' });
+    expect(model.batches).toHaveLength(0);
   });
 
   it('bramka nie zatrzymuje serii, która już się skończyła', async () => {

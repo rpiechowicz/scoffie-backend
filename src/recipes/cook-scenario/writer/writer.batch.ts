@@ -342,6 +342,16 @@ export async function runBatchRounds(
 
   for (;;) {
     const pending = callsOf(round + 1);
+    // Bramka PRZED wydaniem pieniędzy na rundę — także pierwszą po
+    // wznowieniu, inaczej `--resume` z tą samą bramką płaci jeszcze jedną
+    // pełną rundę (przegląd nocny). Po ostatniej rundzie nie ma czego
+    // bronić, więc bez zadań w toku jej nie pytamy.
+    const gate = pending.length ? (options.gate?.() ?? null) : null;
+    if (gate) {
+      log(`bramka jakości: ${gate}`);
+      await persist();
+      throw new BatchStoppedError('gate', gate);
+    }
     if (!pending.length) {
       // Sukces tylko wtedy, gdy KAŻDY gotowy wynik jest w bazie (review
       // Codexa) — inaczej opłacony, a niezapisany wynik zniknąłby z oczu.
@@ -387,15 +397,6 @@ export async function runBatchRounds(
     await saveDone();
     if (outcome.stopReason) throw new BatchStoppedError(outcome.stopReason);
     if (journalBroken) throw new BatchStoppedError('journal');
-    // Bramka ma sens tylko, gdy jest jeszcze co wydać — po ostatniej rundzie
-    // zatrzymanie oznaczałoby skończoną serię jako przerwaną.
-    const gate = jobs.some((job) => !job.done)
-      ? (options.gate?.() ?? null)
-      : null;
-    if (gate) {
-      log(`bramka jakości: ${gate}`);
-      throw new BatchStoppedError('gate', gate);
-    }
   }
 }
 

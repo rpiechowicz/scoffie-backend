@@ -391,6 +391,8 @@ async function catalogSummary(prisma: PrismaClient): Promise<string> {
         JOIN "Recipe" r ON r."id" = c."recipeId"
        WHERE r."isCatalog" AND r."isActive"
          AND c."rulesVersion" = ${COOK_SCENARIO_RULES_VERSION}
+         -- tylko wynik dla OBECNEJ treści przepisu (przegląd nocny)
+         AND c."recipeContentHash" = recipe_content_signature(c."recipeId")
        ORDER BY c."recipeId", c."version" DESC) s
      GROUP BY 1 ORDER BY 1`;
   const [{ total }] = await prisma.$queryRaw<{ total: number }[]>`

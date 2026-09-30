@@ -75,6 +75,11 @@ export interface WriteOutcome {
   warnings: string[];
   attempts: AttemptReport[];
   usage: WriterUsage;
+  /**
+   * VALIDATED z wersji w odwodzie: bez BLOCKER/MAJOR, ale ocena poniżej
+   * progu — publikacja wymaga świadomej zgody (`publishWrittenScenario`).
+   */
+  belowThreshold?: boolean;
 }
 
 /** Najwięcej punktów z raportu wracających do autora — reszta to szum. */
@@ -182,6 +187,8 @@ export interface JobState {
   transportErrors?: number;
   /** Ile razy z rzędu recenzja tej treści wróciła ucięta albo zepsuta. */
   reviewFailures?: number;
+  /** Ostatnia recenzja ucięta (max_tokens) — ponowienie z wyższym limitem. */
+  reviewTruncated?: boolean;
   /** Ostatnia wersja bez BLOCKER/MAJOR — wynik, gdy dalsze poprawki padną. */
   acceptable?: {
     content: CookScenarioContent;
@@ -194,11 +201,15 @@ export interface JobState {
 export const MAX_TRANSPORT_ERRORS = 3;
 
 /**
- * Tyle razy ponawiamy SAMĄ recenzję, gdy wróci ucięta (max_tokens) albo
- * niezgodna ze schematem — to nie wina autora, nie zużywa jego prób
- * (review Codexa, noc 30.09).
+ * Tyle razy ponawiamy SAMĄ recenzję, gdy wróci ucięta (max_tokens),
+ * niezgodna ze schematem albo niespójna — to nie wina autora, nie zużywa
+ * jego prób (review Codexa, noc 30.09). Raz: przy systematycznym ucinaniu
+ * więcej ponowień tylko mnoży koszt (przegląd nocny).
  */
-export const MAX_REVIEW_FAILURES = 2;
+export const MAX_REVIEW_FAILURES = 1;
+
+/** Ponowienie po uciętej recenzji dostaje tyle razy wyższy limit tokenów. */
+const TRUNCATED_REVIEW_BOOST = 1.5;
 
 export class ScenarioJob {
   /** Klucz zadania — zapis tego samego zadania drugi raz nic nie dopisuje. */
@@ -225,6 +236,7 @@ export class ScenarioJob {
   failure: string | null = null;
   private transportErrors = 0;
   private reviewFailures = 0;
+  private reviewTruncated = false;
   private acceptable: JobState['acceptable'] = null;
 
   constructor(
@@ -263,6 +275,7 @@ export class ScenarioJob {
         failure: this.failure,
         transportErrors: this.transportErrors,
         reviewFailures: this.reviewFailures,
+        reviewTruncated: this.reviewTruncated,
         acceptable: this.acceptable,
       } satisfies JobState),
     ) as JobState;
@@ -294,6 +307,7 @@ export class ScenarioJob {
     job.failure = state.failure;
     job.transportErrors = state.transportErrors ?? 0;
     job.reviewFailures = state.reviewFailures ?? 0;
+    job.reviewTruncated = state.reviewTruncated ?? false;
     job.acceptable = state.acceptable ?? null;
     return job;
   }
@@ -327,7 +341,9 @@ export class ScenarioJob {
           this.previousIssues,
         ),
         schema: REVIEWER_OUTPUT_SCHEMA,
-        maxTokens: this.options.maxTokens,
+        maxTokens: this.reviewTruncated
+          ? Math.round(this.options.maxTokens * TRUNCATED_REVIEW_BOOST)
+          : this.options.maxTokens,
       };
     }
     return {
@@ -446,14 +462,24 @@ export class ScenarioJob {
     report.usage = addUsage(report.usage, reviewed.usage);
     const truncated = reviewed.stopReason === 'max_tokens';
     const review = truncated ? null : parseReview(reviewed.json);
-    if (!review) {
-      // Ucięta albo zepsuta recenzja nie jest winą autora: ponawiamy SAMĄ
-      // recenzję tej samej treści (review Codexa, noc 30.09) — dopiero po
-      // kolejnych porażkach odrzucamy.
+    // Ocena musi zgadzać się z wagami (prompt): poniżej progu bez BLOCKER/
+    // MAJOR wolno tylko o jeden punkt i tylko z uwagami do poprawy — „1/5
+    // bez uwag” to recenzja zepsuta, nie wynik (przegląd nocny).
+    const inconsistent =
+      review !== null &&
+      !reviewPasses(review, this.options.minScore) &&
+      !isBlocking(review) &&
+      (review.score < this.options.minScore - 1 || !review.issues.length);
+    if (!review || inconsistent) {
+      // Ucięta, zepsuta albo niespójna recenzja nie jest winą autora:
+      // ponawiamy SAMĄ recenzję tej samej treści (review Codexa, noc 30.09).
       const why = truncated
         ? 'recenzent: odpowiedź ucięta (max_tokens)'
-        : 'recenzent: odpowiedź niezgodna ze schematem';
+        : inconsistent
+          ? `recenzent: ocena ${review.score}/5 bez BLOCKER/MAJOR${review.issues.length ? '' : ' i bez uwag'} — niespójna z zasadami oceny`
+          : 'recenzent: odpowiedź niezgodna ze schematem';
       this.reviewFailures += 1;
+      this.reviewTruncated = truncated;
       if (this.reviewFailures <= MAX_REVIEW_FAILURES) {
         report.warnings = [...report.warnings, `${why} — ponawiam recenzję`];
         return;
@@ -465,6 +491,7 @@ export class ScenarioJob {
     }
     this.pendingReview = null;
     this.reviewFailures = 0;
+    this.reviewTruncated = false;
     report.review = review;
     this.lastReview = review;
     if (reviewPasses(review, this.options.minScore)) {
@@ -482,10 +509,13 @@ export class ScenarioJob {
         `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
     );
     if (!isBlocking(review)) {
-      // Ocena poniżej progu, a same MINOR: nic nie blokuje publikacji.
-      // Autor próbuje je poprawić, a ta wersja zostaje w odwodzie — gdyby
-      // dalsze poprawki padły, wynikiem jest ona, nie REJECTED.
-      this.acceptable = { content, review, warnings };
+      // Ocena o punkt poniżej progu, same MINOR: nic nie blokuje publikacji.
+      // Autor próbuje je poprawić, a NAJLEPSZA taka wersja zostaje
+      // w odwodzie — gdyby dalsze poprawki padły, wynikiem jest ona
+      // (oznaczona `belowThreshold`), nie REJECTED.
+      if (!this.acceptable || review.score >= this.acceptable.review.score) {
+        this.acceptable = { content, review, warnings };
+      }
       this.retryOrReject(reviewFeedback(review, true));
       return;
     }
@@ -507,6 +537,7 @@ export class ScenarioJob {
         skipReason: null,
         review: this.acceptable.review,
         warnings: this.acceptable.warnings,
+        belowThreshold: this.acceptable.review.score < this.options.minScore,
       });
       return;
     }

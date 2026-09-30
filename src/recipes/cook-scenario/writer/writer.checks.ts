@@ -40,7 +40,7 @@ export interface ResolvedOutput {
  */
 function forAuthor(error: string, scenario: Rec): string {
   const match =
-    /^((?:steps|tips)\[\d+\](?:\.[A-Za-z]+|\[\d+\])*|nextTimeTip)(:.*)$/.exec(
+    /^((?:steps|tips)\[\d+\](?:\.[A-Za-z]+|\[\d+\])*|nextTimeTip)((?: \([^)]*\))?:.*)$/.exec(
       error,
     );
   if (!match) return error;
@@ -153,18 +153,21 @@ export function resolveWriterOutput(
     steps,
   });
   errors.push(
-    ...parsed.errors
-      .filter(
-        (error) =>
-          !unresolved.some(
-            (place) =>
-              error.startsWith(`${place}.`) || error.startsWith(`${place}:`),
-          ),
-      )
-      .map((error) => forAuthor(error, scenario)),
+    ...parsed.errors.filter(
+      (error) =>
+        !unresolved.some(
+          (place) =>
+            error.startsWith(`${place}.`) || error.startsWith(`${place}:`),
+        ),
+    ),
   );
   if (!parsed.content || errors.length) {
-    return { decision: 'WRITE', skipReason: null, content: null, errors };
+    return {
+      decision: 'WRITE',
+      skipReason: null,
+      content: null,
+      errors: errors.map((error) => forAuthor(error, scenario)),
+    };
   }
   const consistency = checkScenarioAgainstRecipe(parsed.content, {
     servings: recipe.servings,
@@ -174,7 +177,7 @@ export function resolveWriterOutput(
     decision: 'WRITE',
     skipReason: null,
     content: consistency.length ? null : parsed.content,
-    errors: consistency,
+    errors: consistency.map((error) => forAuthor(error, scenario)),
   };
 }
 
@@ -200,9 +203,15 @@ const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
 const ACTIVE_PAN = /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel)/iu;
-/** Aktywna praca rąk albo przy garnku — bez timera (prompt). */
+/**
+ * Aktywna praca rąk albo przy patelni — bez timera (prompt). Zdanie
+ * z czekaniem („duś pod przykryciem”, „gotuj, mieszając”) aktywne nie jest
+ * (przegląd nocny: samo „patel”/„mieszając” zabierało recenzentowi sygnał).
+ */
 const ACTIVE_WORK =
-  /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel|szklij|podgrzew|podgrzej|wyrabiaj|zagniataj|ugniataj|mieszając|miksuj|ubijaj)/iu;
+  /(smaż|podsmaż|usmaż|opiekaj|obsmaż|szklij|podgrzej|podgrzew|wyrabiaj|zagniataj|ugniataj|miksuj|ubijaj)/iu;
+const WAITING_WORK =
+  /(duś|dus[zi]|gotuj|piecz|zapiekaj|pod\s+przykryciem|odstaw|marynuj|chłodź|mroź)/iu;
 
 const PER_SIDE =
   /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
@@ -318,7 +327,9 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
       const range: [number, number] = [Math.min(from, to), Math.max(from, to)];
       const at = match.index ?? 0;
       const own = line.slice(sentenceStart(line, at), sentenceEnd(line, at));
-      if (ACTIVE_WORK.test(own)) active.add(found.length);
+      if (ACTIVE_WORK.test(own) && !WAITING_WORK.test(own)) {
+        active.add(found.length);
+      }
       found.push(range);
       // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
       // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
@@ -438,18 +449,21 @@ function mentionsIngredient(
   unitEnd: number,
   unit: string,
 ): boolean {
+  // Bez polskich znaków po obu stronach — „sól” musi pasować do „soli”
+  // (przegląd nocny: wcześniej maskował to przypadek).
   const words = (fragment: string): string[] =>
-    fragment.toLowerCase().match(new RegExp(`[${PL}]+`, 'giu')) ?? [];
+    normalizeText(fragment)
+      .split(/[^a-z]+/)
+      .filter(Boolean);
   // Do granicy ZDANIA albo nawiasu — przecinek bywa wewnątrz wyrażenia
   // („przegotowanego, zimnego mleka”), a nawias zamyka dopowiedzenie
   // („ciepłej wody (100 ml), oleju” — 100 ml to woda, nie olej).
-  // Nowa część zdania („100 ml wody, a potem mleko”) mówi już o czymś
-  // innym (review Codexa, noc 30.09).
+  // Nowa część zdania po przecinku („100 ml wody, a potem mleko”) mówi już
+  // o czymś innym (review Codexa, noc 30.09) — gołe „i” nie: „2 g soli
+  // i pieprz”, „25 g zimnej i gęstej śmietany”.
   const tail = text
     .slice(unitEnd)
-    .split(
-      /[.;:!?()—–]|,\s*(?:a|i|oraz|potem|następnie|później)\s|\s(?:a|i|oraz|albo|lub|potem|następnie)\s/u,
-    )[0];
+    .split(/[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s/u)[0];
   const around = [
     ...words(text.slice(0, numberStart)).slice(-1),
     ...words(tail),
@@ -512,7 +526,7 @@ function checkNumbersInText(
     const tokens = raw.match(COUNT_TOKEN) ?? [];
     // Review Codexa (noc 30.09): telefon podstawia liczbę TYLKO w treści
     // kroku — token w tytule, alarmie czy etykiecie zostałby surowym tekstem.
-    if (tokens.length && !path.endsWith('.body')) {
+    if (tokens.length && !/^[^.]+\.body$/.test(path)) {
       errors.push(
         `${path}: token {count:…} wolno tylko w treści kroku (body) — tu napisz bez liczby („każdy kotlet”)`,
       );
@@ -1062,9 +1076,15 @@ function checkAuthorLimits(content: CookScenarioContent, errors: string[]) {
 
 const OVEN_USE = /(do piekarnika|w piekarniku|z piekarnika)(?!\s*mikrofal)/i;
 const OVEN_PREHEAT = new RegExp(
-  // „Włącz piekarnik na 180°C” też nagrzewa (review Codexa, noc 30.09) —
-  // ale „ustaw blachę w piekarniku” już nie, stąd temperatura zaraz potem.
-  `(nagrzej|rozgrzej|nagrzewaj)[${PL}]*\\s[^.]*piekarnik|(włącz|ustaw|nastaw)[${PL}]*\\s+piekarnik[${PL}]*\\s+(?:na|do)\\s+\\d{2,3}`,
+  // Czasownik TUŻ przed „piekarnik” (przegląd nocny: „rozgrzej olej na
+  // patelni… przełóż do piekarnika” nie jest nagrzewaniem); „włącz
+  // piekarnik na 180°C” też nagrzewa, „ustaw blachę w piekarniku” — nie.
+  `(nagrzej|rozgrzej|nagrzewaj)[${PL}]*\\s+piekarnik|(włącz|ustaw|nastaw)[${PL}]*\\s+piekarnik[${PL}]*\\s+(?:na|do)\\s+\\d{2,3}`,
+  'iu',
+);
+/** Wkładanie do piekarnika — krok, który to robi, jest UŻYCIEM, nawet gdy też nagrzewa. */
+const OVEN_INSERT = new RegExp(
+  `(wstaw|włóż|wsuń|przełóż|umieść|piecz|zapiekaj|dopiecz)[${PL}]*\\s[^.]*(do\\s+piekarnika|w\\s+piekarniku)`,
   'iu',
 );
 
@@ -1074,9 +1094,12 @@ const stepText = (step: CookScenarioContent['steps'][number]) =>
 function checkOven(content: CookScenarioContent, errors: string[]) {
   const texts = content.steps.map(stepText);
   // Krok nagrzewania sam mówi „ustaw w piekarniku grill” — to nie użycie
-  // (próba .5: szaszłyki odrzucone trzy razy za własny krok nagrzewania).
+  // (próba .5: szaszłyki odrzucone trzy razy za własny krok nagrzewania);
+  // ale krok, który nagrzewa i od razu coś wkłada, jest użyciem.
   const firstUse = texts.findIndex(
-    (line) => OVEN_USE.test(line) && !OVEN_PREHEAT.test(line),
+    (line) =>
+      OVEN_USE.test(line) &&
+      (!OVEN_PREHEAT.test(line) || OVEN_INSERT.test(line)),
   );
   if (firstUse < 0) return;
   const preheat = texts.findIndex((line) => OVEN_PREHEAT.test(line));
@@ -1165,7 +1188,7 @@ const SAFETY: {
   {
     label: 'owoce morza',
     ingredient: SHELLFISH,
-    cue: /6[3-9]\s*°C|różow|nieprzezroczyst|jędrn|matow|zwin|skręc|otworz/giu,
+    cue: /6[3-9]\s*°C|różowe|różowi|różowie|nieprzezroczyst|jędrn|matow|skręc|zwijają\s+się|otworzą\s+się|otworzył|otwarte/giu,
     hint: 'krewetki różowe i jędrne, nieprzezroczyste; małże otwarte',
   },
   {
@@ -1515,7 +1538,9 @@ function checkTimers(
     }
   }
   pool.perSide.forEach((group, g) => {
-    if (result.modes[g] !== 'none') return;
+    // Aktywne smażenie „po X z każdej strony” (bez łącznego wariantu) idzie
+    // bez timera — to nie sygnał.
+    if (result.modes[g] !== 'none' || group.combined === null) return;
     // Bez łącznego wariantu (patelnia) ostrzegamy o czasie jednej strony.
     const range = recipeRanges[group.combined ?? group.singles[0]];
     if (range[1] >= MIN_TIMER_SECONDS) {

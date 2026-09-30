@@ -52,7 +52,7 @@ describe('system pisania — walidatory twarde', () => {
     const resolved = resolveWriterOutput(kotlet, bad);
     expect(resolved.content).toBeNull();
     expect(resolved.errors).toContain(
-      'steps[0].ingredients[0]: klucza „i99” nie ma w przepisie',
+      's1.ingredients[0]: klucza „i99” nie ma w przepisie',
     );
   });
 

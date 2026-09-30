@@ -71,7 +71,7 @@ describe('system pisania — przebieg', () => {
     expect(outcome.status).toBe('VALIDATED');
     expect(outcome.attempts).toHaveLength(2);
     expect(outcome.attempts[0].errors).toEqual([
-      'steps[0].ingredients[0]: klucza „i99” nie ma w przepisie',
+      's1.ingredients[0]: klucza „i99” nie ma w przepisie',
     ]);
     expect(model.calls[1].user).toContain('NIE PRZESZŁA KONTROLI');
     expect(model.calls[1].user).toContain('klucza „i99”');
@@ -213,15 +213,61 @@ describe('system pisania — przebieg', () => {
     );
   });
 
-  it('recenzja zepsuta za każdym razem = REJECTED po ponowieniach, bez przepisywania w kółko', async () => {
-    const model = new StubModel([good(), { score: 9 }, { score: 9 }, {}]);
+  it('recenzja zepsuta za każdym razem = REJECTED po jednym ponowieniu, bez przepisywania w kółko', async () => {
+    const model = new StubModel([good(), { score: 9 }, {}]);
     const outcome = await writeCookScenario(model, kotlet, example);
     expect(outcome.status).toBe('REJECTED');
     expect(outcome.attempts).toHaveLength(1);
     expect(outcome.attempts[0].errors).toEqual([
       'recenzent: odpowiedź niezgodna ze schematem',
     ]);
-    expect(model.calls).toHaveLength(4);
+    expect(model.calls).toHaveLength(3);
+  });
+
+  it('niespójna recenzja (1/5 bez uwag) to recenzja do powtórki, nie VALIDATED ani wersja w odwodzie', async () => {
+    const model = new StubModel([good(), review(1), review(1)]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('REJECTED');
+    expect(outcome.attempts[0].errors[0]).toContain('niespójna');
+    expect(model.calls).toHaveLength(3);
+  });
+
+  it('w odwodzie zostaje NAJLEPSZA wersja 3/5 z MINOR, oznaczona jako poniżej progu', async () => {
+    const minor = (text: string) => [{ stepId: 's7', severity: 'MINOR', text }];
+    const worse = good() as { scenario: { tips: string[] } };
+    worse.scenario.tips = ['Inna rada.'];
+    const model = new StubModel([
+      good(),
+      review(3, minor('A')),
+      worse,
+      review(3, minor('B')),
+      badKey(),
+    ]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.belowThreshold).toBe(true);
+    // Remis ocen — zostaje nowsza (po poprawce).
+    expect(outcome.content?.tips).toEqual(['Inna rada.']);
+  });
+
+  it('ponowienie po uciętej recenzji dostaje wyższy limit tokenów', async () => {
+    const model = new StubModel([good(), review(5), review(5)]);
+    const original = model.complete.bind(model);
+    let reviews = 0;
+    model.complete = async (call) => {
+      const result = await original(call);
+      if (call.system === REVIEWER_SYSTEM && !reviews++) {
+        return { ...result, stopReason: 'max_tokens' };
+      }
+      return result;
+    };
+    await writeCookScenario(model, kotlet, example);
+    const reviewerCalls = model.calls.filter(
+      (call) => call.system === REVIEWER_SYSTEM,
+    );
+    expect(reviewerCalls[1].maxTokens).toBeGreaterThan(
+      reviewerCalls[0].maxTokens,
+    );
   });
 
   it('ucięta recenzja (max_tokens) też idzie jeszcze raz — to nie wina autora', async () => {
@@ -258,6 +304,7 @@ describe('system pisania — przebieg', () => {
     expect(model.calls[2].user).toContain('Alarm powtarza adnotację.');
     expect(outcome.status).toBe('VALIDATED');
     expect(outcome.review?.score).toBe(3);
+    expect(outcome.belowThreshold).toBe(true);
     expect(outcome.attempts).toHaveLength(3);
   });
 
