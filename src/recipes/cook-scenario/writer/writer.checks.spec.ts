@@ -603,19 +603,44 @@ describe('system pisania — walidatory twarde', () => {
           maxSeconds: seconds[i],
         };
       });
-      return qualityChecks(recipe, content).errors.filter((e) =>
-        e.includes('z każdej strony'),
+      // Błąd może trafić w „stronę” albo w zwykły czas, który stracił timer.
+      return qualityChecks(recipe, content).errors.filter(
+        (e) => e.includes('z każdej strony') || e.includes('mniej razy'),
       );
     };
     expect(withTimers([300, 300])).toEqual([]);
     expect(withTimers([600])).toEqual([]);
-    expect(withTimers([300, 300, 600])).toEqual([
-      expect.stringContaining('timery dublują czas „z każdej strony”'),
-    ]);
+    expect(withTimers([300, 300, 600])).toHaveLength(1);
     // Jedno odliczanie „po stronie” = połowa smażenia.
     expect(withTimers([300])).toEqual([
       expect.stringContaining('tylko dla jednej strony'),
     ]);
+
+    // Zwykły czas o tej samej długości NIE jest brany za „stronę”.
+    const alsoPlain: WriterRecipe = {
+      ...recipe,
+      instructions: [...recipe.instructions, 'Odstaw na 5 minut.'],
+    };
+    const withTimersPlain = (seconds: number[]) => {
+      const content = clone(example.content);
+      const free = content.steps
+        .filter((st) => !st.timer && !st.during)
+        .slice(0, seconds.length);
+      free.forEach((st, i) => {
+        st.timer = {
+          ...content.steps[8].timer!,
+          id: `t-plain-${i}`,
+          label: 'Czas',
+          minSeconds: seconds[i],
+          maxSeconds: seconds[i],
+        };
+      });
+      return qualityChecks(alsoPlain, content).errors.filter(
+        (e) => e.includes('z każdej strony') || e.includes('mniej razy'),
+      );
+    };
+    expect(withTimersPlain([300])).toEqual([]);
+    expect(withTimersPlain([300, 300, 300])).toEqual([]);
   });
   it('częściowa ilość składnika z przepisu („100 ml mleka” z 200 ml) nie może stać w tekście; naczynie i woda spoza listy — mogą', () => {
     const withMilk: WriterRecipe = {

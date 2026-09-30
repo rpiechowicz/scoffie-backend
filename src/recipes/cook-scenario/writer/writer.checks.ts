@@ -756,63 +756,121 @@ function checkTimers(
   const timers = content.steps.flatMap((step) =>
     step.timer ? [{ step: step.id, timer: step.timer }] : [],
   );
-  const candidates = timers.map(({ timer }) =>
-    recipeRanges.flatMap((range, index) =>
-      fitsRange([timer.minSeconds, timer.maxSeconds], range) ? [index] : [],
-    ),
+  const fits = (timerIndex: number, range: number) => {
+    const { timer } = timers[timerIndex];
+    return fitsRange([timer.minSeconds, timer.maxSeconds], recipeRanges[range]);
+  };
+  const inGroup = new Set(
+    pool.perSide.flatMap((g) => [...g.singles, g.combined]),
   );
-  const owner = new Array<number>(recipeRanges.length).fill(-1);
-  const assign = (timer: number, seen: Set<number>): boolean => {
-    for (const range of candidates[timer]) {
-      if (seen.has(range)) continue;
-      seen.add(range);
-      if (owner[range] < 0 || assign(owner[range], seen)) {
-        owner[range] = timer;
-        return true;
+  const ordinary = recipeRanges
+    .map((_, index) => index)
+    .filter((index) => !inGroup.has(index));
+
+  /** Skojarzenie timerów z dozwolonymi wystąpieniami (graf dwudzielny). */
+  const match = (allowed: number[]) => {
+    const owner = new Map<number, number>();
+    const assign = (timer: number, seen: Set<number>): boolean => {
+      for (const range of allowed) {
+        if (seen.has(range) || !fits(timer, range)) continue;
+        seen.add(range);
+        const current = owner.get(range);
+        if (current === undefined || assign(current, seen)) {
+          owner.set(range, timer);
+          return true;
+        }
+      }
+      return false;
+    };
+    const unmatched = timers
+      .map((_, index) => index)
+      .filter((index) => !assign(index, new Set()));
+    return { owner, unmatched };
+  };
+
+  // „Z każdej strony” to wybór wariantu PER GRUPA (review Codexa): bez
+  // timera / dwa po X / jedno 2X. Sprawdzamy wszystkie kombinacje (grup jest
+  // 0–2, więc najwyżej 9) i bierzemy tę, w której wszystko się zgadza —
+  // zwykły czas o tej samej długości nie zostanie wzięty za „stronę”.
+  type Mode = 'none' | 'singles' | 'combined';
+  const combos: Mode[][] = [[]];
+  for (let g = 0; g < pool.perSide.length; g += 1) {
+    const next: Mode[][] = [];
+    for (const combo of combos) {
+      for (const mode of ['none', 'singles', 'combined'] as const) {
+        next.push([...combo, mode]);
       }
     }
-    return false;
-  };
-  timers.forEach(({ step, timer }, index) => {
-    if (assign(index, new Set())) return;
-    errors.push(
-      candidates[index].length
-        ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`
-        : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
-            recipeRanges.map(describeRange).join(', ') || 'brak czasów'
-          })`,
-    );
-  });
-  // „Z każdej strony”: dwa odliczania po X ALBO jedno 2X — nie oba naraz.
-  const alternative = new Set<number>();
-  for (const group of pool.perSide) {
-    const singlesOwned = group.singles.filter((i) => owner[i] >= 0).length;
-    const singlesUsed = singlesOwned > 0;
-    const combinedUsed = owner[group.combined] >= 0;
-    // Wariant „po stronie” = OBA odliczania; jedno to połowa obróbki
-    // (review Codexa — niedopieczone jedzenie).
-    if (singlesOwned === 1 && !combinedUsed) {
-      errors.push(
-        `timer „z każdej strony” ${describeRange(recipeRanges[group.singles[0]])} tylko dla jednej strony — daj dwa odliczania albo jedno łączne`,
-      );
-    }
-    if (singlesUsed && combinedUsed) {
-      errors.push(
-        `timery dublują czas „z każdej strony” ${describeRange(recipeRanges[group.singles[0]])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`,
-      );
-    }
-    // Użyta jedna z alternatyw pokrywa grupę — druga nie jest „bez timera”.
-    if (singlesUsed || combinedUsed) {
-      alternative.add(group.combined);
-      group.singles.forEach((i) => alternative.add(i));
-    } else {
-      // Nic nie użyte: ostrzegamy raz, o łącznym czasie.
-      group.singles.forEach((i) => alternative.add(i));
+    combos.splice(0, combos.length, ...next);
+  }
+  let best: {
+    modes: Mode[];
+    owner: Map<number, number>;
+    unmatched: number[];
+    half: number[];
+    score: number;
+  } | null = null;
+  for (const modes of combos) {
+    const allowed = [...ordinary];
+    pool.perSide.forEach((group, g) => {
+      if (modes[g] === 'singles') allowed.push(...group.singles);
+      if (modes[g] === 'combined') allowed.push(group.combined);
+    });
+    const { owner, unmatched } = match(allowed);
+    const half = pool.perSide
+      .map((group, g) => ({ group, g }))
+      .filter(
+        ({ group, g }) =>
+          modes[g] === 'singles' &&
+          group.singles.filter((i) => owner.has(i)).length === 1,
+      )
+      .map(({ g }) => g);
+    // Wariant „dwa po X” bez żadnego odliczania nie ma sensu — nie liczymy
+    // go jako trafienia.
+    const empty = pool.perSide.filter(
+      (group, g) =>
+        modes[g] === 'singles' && !group.singles.some((i) => owner.has(i)),
+    ).length;
+    const score = unmatched.length * 100 + half.length * 10 + empty;
+    if (!best || score < best.score) {
+      best = { modes, owner, unmatched, half, score };
     }
   }
-  recipeRanges.forEach((range, index) => {
-    if (alternative.has(index) && owner[index] < 0) return;
-    if (range[1] >= MIN_TIMER_SECONDS && owner[index] < 0) {
+  const result = best!;
+
+  for (const index of result.unmatched) {
+    const { step, timer } = timers[index];
+    const any = recipeRanges.some((_, range) => fits(index, range));
+    const perSide = pool.perSide.some((group) =>
+      [...group.singles, group.combined].some((range) => fits(index, range)),
+    );
+    errors.push(
+      !any
+        ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
+            recipeRanges.map(describeRange).join(', ') || 'brak czasów'
+          })`
+        : perSide
+          ? `timery dublują czas „z każdej strony” ${describeRange([timer.minSeconds, timer.maxSeconds])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`
+          : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`,
+    );
+  }
+  for (const g of result.half) {
+    errors.push(
+      `timer „z każdej strony” ${describeRange(recipeRanges[pool.perSide[g].singles[0]])} tylko dla jednej strony — daj dwa odliczania albo jedno łączne`,
+    );
+  }
+
+  // Ostrzeżenia: zwykły czas bez timera; grupa bez żadnego wariantu — raz,
+  // o łącznym czasie.
+  for (const index of ordinary) {
+    const range = recipeRanges[index];
+    if (range[1] >= MIN_TIMER_SECONDS && !result.owner.has(index)) {
+      warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
+    }
+  }
+  pool.perSide.forEach((group, g) => {
+    const range = recipeRanges[group.combined];
+    if (result.modes[g] === 'none' && range[1] >= MIN_TIMER_SECONDS) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   });
