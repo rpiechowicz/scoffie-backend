@@ -261,10 +261,11 @@ const sameUnit = (a: string, b: string) => {
  */
 /**
  * Czy ilość w tekście dotyczy składnika z listy (review Codexa): po polsku
- * ilość określa rzeczownik ZARAZ po jednostce („100 ml mleka”, „100 ml
- * zimnej wody”) — sprawdzamy najwyżej 2 słowa po jednostce (do przecinka
- * czy kropki) i 1 słowo tuż przed liczbą, i tylko składniki w TEJ SAMEJ
- * jednostce („1,5 l” nie dotyczy masła w gramach). Porównanie po pierwszych
+ * ilość określa rzeczownik po jednostce, czasem po przymiotnikach („100 ml
+ * świeżo wyciśniętego soku”) — sprawdzamy CAŁĄ resztę zdania po jednostce
+ * i 1 słowo tuż przed liczbą, i tylko składniki w TEJ
+ * SAMEJ jednostce („1,5 l” nie dotyczy masła w gramach). Zachowawczo:
+ * fałszywy alarm każe tylko przepisać zdanie bez liczby. Porównanie po pierwszych
  * 3 literach słów nazwy — z zapasem na odmianę („mleko” / „mleka”).
  */
 function mentionsIngredient(
@@ -276,10 +277,13 @@ function mentionsIngredient(
 ): boolean {
   const words = (fragment: string): string[] =>
     fragment.toLowerCase().match(new RegExp(`[${PL}]+`, 'giu')) ?? [];
-  const tail = text.slice(unitEnd).split(/[.,;:!?(—–]/)[0];
+  // Do granicy ZDANIA albo nawiasu — przecinek bywa wewnątrz wyrażenia
+  // („przegotowanego, zimnego mleka”), a nawias zamyka dopowiedzenie
+  // („ciepłej wody (100 ml), oleju” — 100 ml to woda, nie olej).
+  const tail = text.slice(unitEnd).split(/[.;:!?()—–]/)[0];
   const around = [
     ...words(text.slice(0, numberStart)).slice(-1),
-    ...words(tail).slice(0, 2),
+    ...words(tail),
   ];
   const stems = recipe.ingredients
     .filter((row) => sameUnit(row.unit, unit))

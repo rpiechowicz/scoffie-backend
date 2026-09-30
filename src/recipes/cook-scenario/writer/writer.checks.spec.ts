@@ -639,6 +639,10 @@ describe('system pisania — walidatory twarde', () => {
     expect(withBody('Wlej 100 ml mleka do rondla.')).toEqual([
       expect.stringContaining('liczba „100”'),
     ]);
+    // Rzeczownik po przymiotnikach — dalej ilość składnika.
+    expect(
+      withBody('Wlej 100 ml świeżo przegotowanego, zimnego mleka.'),
+    ).toEqual([expect.stringContaining('liczba „100”')]);
     expect(
       withBody('Przygotuj naczynie ok. 1,5 l i dolej 100 ml zimnej wody.'),
     ).toEqual([]);
@@ -673,11 +677,12 @@ describe('system pisania — walidatory twarde', () => {
       instructions: [
         ...kotlet.instructions,
         'Naczynie o pojemności ok. 1,5 l wysmaruj masłem. Wlej bulion i 300 ml wody.',
+        'Z mąki, ciepłej wody (100 ml), bulionu i soli zagnieć ciasto.',
       ],
     };
     const content = clone(example.content);
     content.steps[1].body =
-      'Naczynie ok. 1,5 l wysmaruj masłem. Wlej bulion i 300 ml wody, zagotuj.';
+      'Naczynie ok. 1,5 l wysmaruj masłem. Wlej bulion i 300 ml wody, zagotuj. Dodaj 100 ml ciepłej wody.';
     expect(
       qualityChecks(recipe, content).errors.filter((e) => e.includes('liczba')),
     ).toEqual([]);
