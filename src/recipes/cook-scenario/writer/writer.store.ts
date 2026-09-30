@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { HttpStatus } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { AppException } from '../../../common/app-exception';
@@ -7,9 +8,9 @@ import type { WriterRecipe } from './writer.types';
 
 /**
  * Przepis dla systemu pisania + podpis jego treści z TEJ SAMEJ migawki
- * (REPEATABLE READ). Podpis zapisujemy przy wersji — jeśli przepis zmieni
- * się, zanim model skończy, wersja trafi do bazy jako STALE, a nie jako
- * treść „do przepisu, którego już nie ma”.
+ * (REPEATABLE READ). Podpis zapisujemy przy wersji (`recipeContentHash`,
+ * po nim baza unieważnia opublikowany scenariusz), a przy zapisie
+ * porównujemy CAŁE wejście modelu — patrz `saveWrittenScenario`.
  */
 export async function loadWriterRecipe(
   prisma: PrismaClient,
@@ -17,52 +18,59 @@ export async function loadWriterRecipe(
 ): Promise<{ recipe: WriterRecipe; signature: string } | null> {
   return prisma.$transaction(
     async (tx) => {
-      const row = await tx.recipe.findUnique({
-        where: { id: recipeId },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          servings: true,
-          mealType: true,
-          difficulty: true,
-          prepTimeMinutes: true,
-          dishType: true,
-          equipment: true,
-          sourceInstructions: true,
-          ingredients: {
-            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            select: {
-              ingredientId: true,
-              name: true,
-              amount: true,
-              unit: true,
-            },
-          },
-        },
-      });
-      if (!row) return null;
+      const recipe = await readWriterRecipe(tx, recipeId);
+      if (!recipe) return null;
       const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
         SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
-      return {
-        signature,
-        recipe: {
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          servings: row.servings,
-          mealType: row.mealType,
-          difficulty: row.difficulty,
-          prepTimeMinutes: row.prepTimeMinutes,
-          dishType: row.dishType,
-          equipment: row.equipment,
-          instructions: instructionLines(row.sourceInstructions),
-          ingredients: row.ingredients,
-        },
-      };
+      return { recipe, signature };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
+}
+
+/** Wszystko, co widzą autor i recenzent — w transakcji wołającego. */
+async function readWriterRecipe(
+  tx: Prisma.TransactionClient,
+  recipeId: string,
+): Promise<WriterRecipe | null> {
+  const row = await tx.recipe.findUnique({
+    where: { id: recipeId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      servings: true,
+      mealType: true,
+      difficulty: true,
+      prepTimeMinutes: true,
+      dishType: true,
+      equipment: true,
+      sourceInstructions: true,
+      ingredients: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          ingredientId: true,
+          name: true,
+          amount: true,
+          unit: true,
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    servings: row.servings,
+    mealType: row.mealType,
+    difficulty: row.difficulty,
+    prepTimeMinutes: row.prepTimeMinutes,
+    dishType: row.dishType,
+    equipment: row.equipment,
+    instructions: instructionLines(row.sourceInstructions),
+    ingredients: row.ingredients,
+  };
 }
 
 /** `sourceInstructions`: `[{ step, text }]` albo lista napisów. */
@@ -82,8 +90,9 @@ export function instructionLines(value: Prisma.JsonValue | null): string[] {
 }
 
 export interface SaveWrittenInput {
-  recipeId: string;
-  /** Podpis z `loadWriterRecipe` — treść, do której pisał model. */
+  /** Przepis z `loadWriterRecipe` — dokładnie to, co widział model. */
+  recipe: WriterRecipe;
+  /** Podpis z tej samej migawki. */
   signature: string;
   outcome: WriteOutcome;
   generator: Prisma.InputJsonValue;
@@ -97,13 +106,18 @@ export interface SaveWrittenInput {
  * Najpierw blokada wiersza przepisu (jak `publishCookScenario`): numer
  * wersji liczony pod blokadą, a reguła migracji E2 mówi, że wiersze
  * scenariuszy zmienia tylko ten, kto trzyma przepis.
+ *
+ * „Zmienił się” = zmieniło się COKOLWIEK z wejścia modelu, nie tylko pola
+ * podpisu (review Codexa, E3a runda 1): nazwa składnika, opis, czas, sprzęt
+ * też kształtują treść i walidatory (np. bezpieczeństwo drobiu czyta nazwy).
+ * Pod blokadą czytamy przepis jeszcze raz i porównujemy w całości.
  */
 export async function saveWrittenScenario(
   tx: Prisma.TransactionClient,
   input: SaveWrittenInput,
 ): Promise<{ version: number; status: string }> {
   const locked = await tx.$queryRaw<{ id: string }[]>`
-    SELECT "id" FROM "Recipe" WHERE "id" = ${input.recipeId}::uuid FOR UPDATE`;
+    SELECT "id" FROM "Recipe" WHERE "id" = ${input.recipe.id}::uuid FOR UPDATE`;
   if (locked.length === 0) {
     throw new AppException(
       'RECIPE_NOT_FOUND',
@@ -112,19 +126,21 @@ export async function saveWrittenScenario(
     );
   }
   const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
-    SELECT recipe_content_signature(${input.recipeId}::uuid) AS "signature"`;
-  const changed = signature !== input.signature;
+    SELECT recipe_content_signature(${input.recipe.id}::uuid) AS "signature"`;
+  const current = await readWriterRecipe(tx, input.recipe.id);
+  const changed =
+    signature !== input.signature || !isDeepStrictEqual(current, input.recipe);
   const status = changed ? 'STALE' : input.outcome.status;
 
   const last = await tx.recipeCookScenario.aggregate({
-    where: { recipeId: input.recipeId },
+    where: { recipeId: input.recipe.id },
     _max: { version: true },
   });
   const version = (last._max.version ?? 0) + 1;
   const { outcome } = input;
   await tx.recipeCookScenario.create({
     data: {
-      recipeId: input.recipeId,
+      recipeId: input.recipe.id,
       version,
       status,
       recipeContentHash: input.signature,

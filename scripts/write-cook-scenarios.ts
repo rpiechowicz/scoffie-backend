@@ -15,7 +15,8 @@
  *   pnpm cook-scenarios:write --pilot 20 --limit 3        # pierwsze 3 z pilota
  *   pnpm cook-scenarios:write --pilot 20 --skip-written   # reszta pilota
  *   pnpm cook-scenarios:write --recipe <id> [--recipe <id>…]
- * Opcje: --budget-usd 5 (stop po przekroczeniu), --concurrency 3,
+ * Opcje: --budget-usd 5 (twardy limit: wywołanie, na które nie starczy
+ *   w najgorszym razie, się nie odbywa), --concurrency 3,
  *   --out raport.json. Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL,
  *   COOK_WRITER_EFFORT, COOK_REVIEWER_EFFORT.
  */
@@ -34,7 +35,13 @@ import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
 } from '../src/recipes/cook-scenario/cook-scenario.validate';
+import { priceFor } from '../src/config/model-prices';
 import { AnthropicWriterModel } from '../src/recipes/cook-scenario/writer/writer.anthropic';
+import {
+  BudgetedWriterModel,
+  BudgetExceededError,
+  BudgetGuard,
+} from '../src/recipes/cook-scenario/writer/writer.budget';
 import { qualityChecks } from '../src/recipes/cook-scenario/writer/writer.checks';
 import {
   DEFAULT_WRITER_OPTIONS,
@@ -258,20 +265,23 @@ async function main() {
 
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY jest pusty');
-    const model = new AnthropicWriterModel(new Anthropic({ apiKey }));
+    // Twardy limit: każde wywołanie modelu rezerwuje najgorszy koszt, zanim
+    // pójdzie; bez budżetu wywołanie się nie odbywa (writer.budget.ts).
+    const budget = new BudgetGuard(Math.round(args.budgetUsd * 1_000_000));
+    const model = new BudgetedWriterModel(
+      new AnthropicWriterModel(new Anthropic({ apiKey })),
+      budget,
+    );
+    const priceKnown =
+      priceFor(options.writerModel).known &&
+      priceFor(options.reviewerModel).known;
 
     const report: ReportEntry[] = [];
-    let spentMicroUsd = 0;
-    let priceKnown = true;
     let stopped = false;
     const queue = [...ids];
 
     const worker = async () => {
       while (queue.length && !stopped) {
-        if (spentMicroUsd >= args.budgetUsd * 1_000_000) {
-          stopped = true;
-          break;
-        }
         const recipeId = queue.shift()!;
         const loaded = await loadWriterRecipe(prisma, recipeId);
         if (!loaded) {
@@ -291,8 +301,6 @@ async function main() {
             example,
             options,
           );
-          spentMicroUsd += outcome.usage.costMicroUsd;
-          priceKnown &&= outcome.usage.priceKnown;
           const generator: Prisma.InputJsonValue = {
             source: 'writer',
             promptVersion: COOK_WRITER_PROMPT_VERSION,
@@ -304,7 +312,7 @@ async function main() {
           };
           const saved = await prisma.$transaction((tx) =>
             saveWrittenScenario(tx, {
-              recipeId,
+              recipe,
               signature,
               outcome,
               generator,
@@ -331,13 +339,19 @@ async function main() {
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
+          // Brak budżetu: przepis nie zapisany (bez pełnego przejścia nie ma
+          // czego zapisać), a reszta serii staje.
+          const overBudget = error instanceof BudgetExceededError;
+          if (overBudget) stopped = true;
           report.push({
             recipeId,
             title: recipe.title,
-            status: 'FAILED',
+            status: overBudget ? 'BUDGET' : 'FAILED',
             failure: message,
           });
-          console.log(`FAILED    · ${recipe.title}: ${message}`);
+          console.log(
+            `${overBudget ? 'BUDGET   ' : 'FAILED   '} · ${recipe.title}: ${message}`,
+          );
         }
       }
     };
@@ -348,13 +362,16 @@ async function main() {
     const count = (status: string) =>
       report.filter((r) => r.status === status).length;
     console.log(
-      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')}`,
+      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}`,
     );
     console.log(
-      `koszt: ${(spentMicroUsd / 1_000_000).toFixed(3)} $${priceKnown ? '' : ' (szacunek: model spoza cennika liczony po najdroższej stawce)'}`,
+      `koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $${priceKnown ? '' : ' (szacunek: model spoza cennika liczony po najdroższej stawce)'}`,
     );
-    if (stopped)
-      console.log(`ZATRZYMANO: budżet ${args.budgetUsd} $ wyczerpany`);
+    if (stopped) {
+      console.log(
+        `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza na kolejne wywołanie`,
+      );
+    }
     if (args.out) {
       await writeFile(args.out, JSON.stringify(report, null, 2));
       console.log(`raport: ${args.out}`);

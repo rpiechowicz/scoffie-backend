@@ -102,11 +102,14 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       where: { recipeId: KOTLET.recipeId },
       _max: { version: true },
     });
-    const { signature } = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+    const { recipe, signature } = (await loadWriterRecipe(
+      prisma,
+      KOTLET.recipeId,
+    ))!;
 
     const validated = await prisma.$transaction((tx) =>
       saveWrittenScenario(tx, {
-        recipeId: KOTLET.recipeId,
+        recipe,
         signature,
         outcome: outcome('VALIDATED', null),
         generator: { source: 'writer', test: true },
@@ -114,7 +117,7 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
     );
     const skipped = await prisma.$transaction((tx) =>
       saveWrittenScenario(tx, {
-        recipeId: KOTLET.recipeId,
+        recipe,
         signature,
         outcome: outcome('SKIPPED', null),
         generator: { source: 'writer', test: true },
@@ -166,9 +169,10 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
 
   it('treść zapisuje się w całości, a przepis zmieniony w trakcie pisania = STALE', async () => {
     const content = await kotletContent();
+    const { recipe } = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
     const saved = await prisma.$transaction((tx) =>
       saveWrittenScenario(tx, {
-        recipeId: KOTLET.recipeId,
+        recipe,
         signature: 'md5:przepis-sprzed-zmiany',
         outcome: outcome('VALIDATED', content),
         generator: { source: 'writer', test: true },
@@ -188,4 +192,79 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       recipeChangedDuringWrite: true,
     });
   });
+
+  // Pola spoza podpisu też kształtują treść i walidatory (np. nazwa składnika
+  // decyduje o regule dla drobiu) — zmiana w trakcie pisania = STALE.
+  it.each([
+    [
+      'nazwa składnika',
+      async () => {
+        const row = await prisma.recipeIngredient.findFirstOrThrow({
+          where: { recipeId: KOTLET.recipeId, name: 'filet z kurczaka' },
+          select: { id: true, name: true },
+        });
+        await prisma.recipeIngredient.update({
+          where: { id: row.id },
+          data: { name: 'filet z indyka' },
+        });
+        return () =>
+          prisma.recipeIngredient.update({
+            where: { id: row.id },
+            data: { name: row.name },
+          });
+      },
+    ],
+    [
+      'czas przygotowania',
+      async () => {
+        const row = await prisma.recipe.findUniqueOrThrow({
+          where: { id: KOTLET.recipeId },
+          select: { prepTimeMinutes: true },
+        });
+        await prisma.recipe.update({
+          where: { id: KOTLET.recipeId },
+          data: { prepTimeMinutes: row.prepTimeMinutes + 5 },
+        });
+        return () =>
+          prisma.recipe.update({
+            where: { id: KOTLET.recipeId },
+            data: { prepTimeMinutes: row.prepTimeMinutes },
+          });
+      },
+    ],
+  ])(
+    'zmiana poza podpisem w trakcie pisania (%s) = STALE',
+    async (_label, change) => {
+      const { recipe, signature } = (await loadWriterRecipe(
+        prisma,
+        KOTLET.recipeId,
+      ))!;
+      const restore = await change();
+      try {
+        const saved = await prisma.$transaction((tx) =>
+          saveWrittenScenario(tx, {
+            recipe,
+            signature,
+            outcome: outcome('VALIDATED', null),
+            generator: { source: 'writer', test: true },
+          }),
+        );
+        const row = await prisma.recipeCookScenario.findUniqueOrThrow({
+          where: {
+            recipeId_version: {
+              recipeId: KOTLET.recipeId,
+              version: saved.version,
+            },
+          },
+          select: { id: true, status: true, recipeContentHash: true },
+        });
+        created.push(row.id);
+        // Podpis się nie zmienił — to porównanie całego wejścia złapało zmianę.
+        expect(row.recipeContentHash).toBe(signature);
+        expect(saved.status).toBe('STALE');
+      } finally {
+        await restore();
+      }
+    },
+  );
 });

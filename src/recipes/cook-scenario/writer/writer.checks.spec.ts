@@ -187,4 +187,49 @@ describe('system pisania — walidatory twarde', () => {
       }),
     ).toBeNull();
   });
+  describe('bezpieczeństwo: tylko twierdzące „po czym poznać”', () => {
+    // Wzorzec ma sygnał w adnotacji kroku s9; podmieniamy ją na próbę.
+    const withCue = (text: string) => {
+      const content = clone(example.content);
+      const step = content.steps.find((s) => s.id === 's9')!;
+      step.note = { kind: 'CUE', text };
+      return qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('bezpieczeństwo'),
+      );
+    };
+
+    it.each([
+      'Mięso może zostać lekko różowe w środku.',
+      'Podawaj z różowym sosem.',
+      'Sok nie jest jeszcze przezroczysty — to normalne.',
+      'Nie musi mieć 74°C, wystarczy kolor.',
+    ])('„%s” nie wystarcza', (text) => {
+      expect(withCue(text)).toEqual([
+        expect.stringContaining('bezpieczeństwo (drób: „filet z kurczaka”)'),
+      ]);
+    });
+
+    it.each([
+      'Przekrój: w środku bez różowego.',
+      'Mięso nie jest już różowe, sok przezroczysty.',
+      'Termometr pokazuje 74°C w środku.',
+      'Po nakłuciu wypływa przezroczysty sok.',
+    ])('„%s” wystarcza', (text) => {
+      expect(withCue(text)).toEqual([]);
+    });
+
+    it('sygnał sprzed kroku, w którym surowiec wchodzi do pracy, się nie liczy', () => {
+      const content = clone(example.content);
+      content.steps.find((s) => s.id === 's9')!.note = null;
+      content.steps[0].note = {
+        kind: 'TIP',
+        text: 'Kurczak ma być bez różowego w środku.',
+      };
+      expect(
+        qualityChecks(kotlet, content).errors.filter((e) =>
+          e.includes('bezpieczeństwo'),
+        ),
+      ).toHaveLength(1);
+    });
+  });
 });

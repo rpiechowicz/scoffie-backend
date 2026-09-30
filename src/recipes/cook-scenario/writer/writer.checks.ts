@@ -272,11 +272,18 @@ function checkOven(content: CookScenarioContent, errors: string[]) {
 
 const PROCESSED =
   /(bulion|rosół|rosoł|wywar|kostk|wędzon|szynk|parówk|kiełbas|puszk|konserw|w sosie|sos |marynowan|solon|pasta|w oleju|pasztet)/i;
-const POULTRY = /(kurczak|kurczę|kurczak|indyk|indycz|kacz|drobi|gęś|gęsi)/i;
+const POULTRY = /(kurczak|kurczę|indyk|indycz|kacz|drobi|gęś|gęsi)/i;
 const MINCED = /mielon/i;
 const FISH =
   /(łoso|dorsz|mintaj|pstrąg|makrel|halibut|morszczuk|tilapi|panga|okoń|sandacz|karp|tuńczyk|ryb|krewet)/i;
 
+/**
+ * Sygnały „gotowe” muszą być TWIERDZĄCE (review Codexa, E3a runda 1): samo
+ * słowo „różowy” pasowało też do „mięso może zostać różowe” i „różowy sos”.
+ * Dlatego całe frazy („bez różowego”, „sok przezroczysty”, temperatura),
+ * a przed dopasowaniem nie może stać przeczenie ani „może”.
+ */
+const NO_PINK = String.raw`bez\s+(?:śladu\s+|odrobiny\s+)?różow|nie\s+(?:jest|są|ma|będzie|będą)\s+(?:już\s+)?różow|nic\s+różow`;
 const SAFETY: {
   label: string;
   ingredient: RegExp;
@@ -286,37 +293,68 @@ const SAFETY: {
   {
     label: 'drób',
     ingredient: POULTRY,
-    cue: /74\s*°C|przezroczyst|różow/i,
+    cue: new RegExp(
+      String.raw`7[4-9]\s*°C|przezroczyst[\p{L}]*\s+sok|sok\s+(?:jest\s+|będzie\s+|wypływa\s+|wypłynie\s+|ma\s+być\s+)?przezroczyst|${NO_PINK}`,
+      'giu',
+    ),
     hint: '74°C w środku albo „sok przezroczysty, bez różowego w środku”',
   },
   {
     label: 'mięso mielone',
     ingredient: MINCED,
-    cue: /7[14]\s*°C|różow/i,
+    cue: new RegExp(String.raw`7[1-9]\s*°C|${NO_PINK}`, 'giu'),
     hint: '71°C w środku albo „bez różowego w środku”',
   },
   {
     label: 'ryba',
     ingredient: FISH,
-    cue: /matow|nieprzezroczyst|rozdziela|rozpada|63\s*°C|różow/i,
+    cue: /6[3-9]\s*°C|matow|nieprzezroczyst|łatwo\s+(?:się\s+)?(?:rozdziela|rozpada|oddziela)|rozpada\s+się\s+na\s+płatki/giu,
     hint: 'mięso matowe, nieprzezroczyste, łatwo się rozdziela',
   },
 ];
+
+/** Przeczenie albo „może” tuż przed dopasowaniem („może zostać różowe”). */
+const NEGATED_BEFORE =
+  /(?:^|[\s,;(—-])(?:nie|może|mogą|chyba|czasem|jeszcze)(?:\s+[^\s.,;:!?]+){0,2}\s*$/iu;
+
+function hasAffirmativeCue(text: string, cue: RegExp): boolean {
+  for (const match of text.matchAll(cue)) {
+    const found = match[0].toLowerCase();
+    const before = text.slice(
+      Math.max(0, (match.index ?? 0) - 30),
+      match.index,
+    );
+    if (found.startsWith('nie') || found.startsWith('nic')) return true;
+    if (!NEGATED_BEFORE.test(before)) return true;
+  }
+  return false;
+}
 
 function checkSafety(
   recipe: WriterRecipe,
   content: CookScenarioContent,
   errors: string[],
 ) {
-  const all = content.steps.map(stepText).join(' ');
   for (const rule of SAFETY) {
-    const raw = recipe.ingredients.find(
-      (row) => rule.ingredient.test(row.name) && !PROCESSED.test(row.name),
-    );
-    if (raw && !rule.cue.test(all)) {
-      errors.push(
-        `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” — ${rule.hint}`,
+    for (const raw of recipe.ingredients) {
+      if (!rule.ingredient.test(raw.name) || PROCESSED.test(raw.name)) continue;
+      // Sygnał liczy się dopiero od kroku, w którym surowiec wchodzi do pracy
+      // — „bez różowego” w rozgrzewce nie mówi nic o gotowym mięsie.
+      const enters = content.steps.findIndex(
+        (step) =>
+          step.ingredients.some(
+            (item) => item.ingredientId === raw.ingredientId,
+          ) || step.mentions.includes(raw.ingredientId),
       );
+      const from = enters < 0 ? 0 : enters;
+      const cued = content.steps
+        .slice(from)
+        .some((step) => hasAffirmativeCue(stepText(step), rule.cue));
+      if (!cued) {
+        errors.push(
+          `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” — ${rule.hint}`,
+        );
+      }
     }
   }
 }
