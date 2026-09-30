@@ -11,6 +11,7 @@ import {
   type BatchModel,
   type BatchRunResult,
   type InflightBatch,
+  type ReconcileResult,
 } from './writer.batch';
 import { BudgetGuard, worstCaseMicroUsd } from './writer.budget';
 import { clone, kotletExample } from './writer.fixtures.spec-helper';
@@ -108,8 +109,8 @@ class FakeBatchModel implements BatchModel {
     return { results: this.answer(calls), interrupted: [], stopReason: null };
   }
 
-  reconcile(): Promise<InflightBatch | null> {
-    return Promise.resolve(null);
+  reconcile(): Promise<ReconcileResult> {
+    return Promise.resolve({ kind: 'absent' });
   }
 
   collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult> {
@@ -195,7 +196,7 @@ describe('system pisania — rundy paczek', () => {
           stopReason: null,
         }),
       collect: () => Promise.reject(new Error('nieużywane')),
-      reconcile: () => Promise.resolve(null),
+      reconcile: () => Promise.resolve({ kind: 'absent' as const }),
     };
     const jobs = newJobs();
     const saved: string[] = [];
@@ -528,7 +529,11 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
   const smartClient = (
     created: { ids: string[]; review: boolean[] }[],
     failResultsOf = new Set<number>(),
-    createFaults: { lostResponse?: number; rejected?: number } = {},
+    createFaults: {
+      lostResponse?: number;
+      rejected?: number;
+      hiddenListCalls?: number;
+    } = {},
   ) => {
     let createCalls = 0;
     return {
@@ -559,6 +564,11 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
           // Paczki u „dostawcy”, od najnowszych.
           list: () =>
             (async function* () {
+              // Lista dostawcy „spóźnia się” przez pierwsze wywołania.
+              if ((createFaults.hiddenListCalls ?? 0) > 0) {
+                createFaults.hiddenListCalls! -= 1;
+                return;
+              }
               for (let n = created.length; n >= 1; n -= 1) {
                 await Promise.resolve();
                 yield {
@@ -775,14 +785,19 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
     const resumeFrom = async (
       journal: BatchJournal,
       created: { ids: string[]; review: boolean[] }[],
+      options: { minutesLater?: number; client?: Anthropic } = {},
     ) => {
       const guard = new BudgetGuard(1e9, journal.spentMicroUsd);
       const jobs = journal.jobs.map((st) => ScenarioJob.restore(st, example));
+      const later = (options.minutesLater ?? 0) * 60_000;
       await runBatchRounds(
         jobs,
-        new AnthropicBatchModel(smartClient(created), guard, undefined, {
-          sleep: noSleep,
-        }),
+        new AnthropicBatchModel(
+          options.client ?? smartClient(created),
+          guard,
+          undefined,
+          { sleep: noSleep, now: () => Date.now() + later },
+        ),
         {
           onDone,
           persist: () => Promise.resolve(),
@@ -815,7 +830,7 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
       expect(guard.spentMicroUsd).toBe(4 * ACTUAL);
     });
 
-    it('paczki naprawdę nie przyjęto: wznowienie wysyła ją ponownie', async () => {
+    it('paczki naprawdę nie przyjęto: w oknie widoczności wznowienie czeka, po nim wysyła ponownie', async () => {
       const created: { ids: string[]; review: boolean[] }[] = [];
       const { run, journals } = start(created, { rejected: 1 });
       await expect(run).rejects.toMatchObject({ reason: 'transport' });
@@ -823,8 +838,37 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
       expect(last.submitting).not.toBeNull();
       expect(created).toHaveLength(0);
 
-      const { jobs } = await resumeFrom(last, created);
+      // Zaraz po przerwie: „nie ma na liście” to jeszcze nie „nie przyjęto”.
+      await expect(resumeFrom(last, created)).rejects.toMatchObject({
+        reason: 'transport',
+      });
+      expect(created).toHaveLength(0);
+
+      const { jobs } = await resumeFrom(last, created, { minutesLater: 21 });
       expect(created[0].review.some(Boolean)).toBe(false);
+      expect(jobs.map((j) => j.outcome().status)).toEqual([
+        'VALIDATED',
+        'VALIDATED',
+      ]);
+    });
+
+    it('paczka pojawia się na liście z opóźnieniem: najpierw czekamy, potem ją odbieramy — bez ponownej wysyłki', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, { lostResponse: 1 });
+      await expect(run).rejects.toMatchObject({ reason: 'transport' });
+      const last = journals[journals.length - 1];
+
+      // Lista jeszcze jej nie pokazuje — czekamy, niczego nie wysyłając.
+      await expect(
+        resumeFrom(last, created, {
+          client: smartClient(created, new Set(), { hiddenListCalls: 1 }),
+        }),
+      ).rejects.toMatchObject({ reason: 'transport' });
+      expect(created).toHaveLength(1);
+
+      // Chwilę później już widać — odbiór zamiast drugiej wysyłki.
+      const { jobs } = await resumeFrom(last, created, { minutesLater: 5 });
+      expect(created[1].review.every(Boolean)).toBe(true);
       expect(jobs.map((j) => j.outcome().status)).toEqual([
         'VALIDATED',
         'VALIDATED',

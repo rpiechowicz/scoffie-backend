@@ -56,6 +56,11 @@ export interface PendingSubmission {
   at: string;
 }
 
+export type ReconcileResult =
+  | { kind: 'found'; batch: InflightBatch }
+  | { kind: 'absent' }
+  | { kind: 'wait'; until: string };
+
 export interface BatchRunResult {
   results: Map<string, BatchCallResult>;
   /** Przyjęte, a nieodebrane (błąd sieci) — do odebrania przy wznowieniu. */
@@ -92,10 +97,11 @@ export interface BatchModel {
   /** Odbiór wyników paczki wysłanej wcześniej (wznowienie). */
   collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult>;
   /**
-   * Wysyłka o nieznanym wyniku: paczka z tymi pozycjami u dostawcy albo
-   * `null` = nie została przyjęta (można wysłać ponownie).
+   * Wysyłka o nieznanym wyniku: paczka z tymi pozycjami u dostawcy
+   * (`found`), pewność, że jej nie przyjęto (`absent` — po oknie
+   * widoczności), albo „jeszcze za wcześnie, by rozstrzygnąć” (`wait`).
    */
-  reconcile(pending: PendingSubmission): Promise<InflightBatch | null>;
+  reconcile(pending: PendingSubmission): Promise<ReconcileResult>;
 }
 
 /**
@@ -103,6 +109,12 @@ export interface BatchModel {
  * pozycja z innej serii (np. wcześniejszego testu) nigdy nie pomyli się
  * przy wyszukiwaniu paczki o nieznanym wyniku. Mieści się w 64 znakach.
  */
+/**
+ * Ile po zapowiedzi paczki czekamy, zanim „nie ma jej na liście” uznamy za
+ * „nie przyjęto” (review Codexa: lista dostawcy może się spóźniać).
+ */
+export const VISIBILITY_WINDOW_MS = 20 * 60_000;
+
 export const batchCallId = (recipeId: string, round: number, runId = '') =>
   `${recipeId.replace(/-/g, '')}-r${round}${runId ? `-${runId}` : ''}`;
 
@@ -265,9 +277,16 @@ export async function runBatchRounds(
       `wyjaśniam wysyłkę z ${submitting.at} (${submitting.ids.length} pozycji)`,
     );
     const found = await model.reconcile(submitting);
-    if (found) {
-      log(`paczka ${found.batchId} jednak przyjęta — odbieram ją`);
-      inflight.push(found);
+    if (found.kind === 'wait') {
+      // Paczka mogła zostać przyjęta, a jeszcze nie być widoczna na liście —
+      // do końca okna widoczności NIE wysyłamy niczego ponownie.
+      log(`za wcześnie, by rozstrzygnąć — wznów po ${found.until}`);
+      await persist();
+      throw new BatchStoppedError('transport');
+    }
+    if (found.kind === 'found') {
+      log(`paczka ${found.batch.batchId} jednak przyjęta — odbieram ją`);
+      inflight.push(found.batch);
     } else {
       log('paczki nie przyjęto — pozycje pójdą ponownie');
     }
@@ -499,10 +518,12 @@ export class AnthropicBatchModel implements BatchModel {
    * i sprawdza ich `custom_id` (id z `runId` serii, więc jednoznaczne).
    * Paczkę w toku trzeba doczekać: pozycje są widoczne dopiero w wynikach.
    */
-  async reconcile(pending: PendingSubmission): Promise<InflightBatch | null> {
+  async reconcile(pending: PendingSubmission): Promise<ReconcileResult> {
     const at = Date.parse(pending.at);
     const from = at - 5 * 60_000;
-    const until = at + 20 * 60_000;
+    // Okno widoczności: do tej chwili przyjęta paczka mogła się jeszcze nie
+    // pojawić na liście — wcześniej „nie ma” nie znaczy „nie przyjęto”.
+    const until = at + VISIBILITY_WINDOW_MS;
     const wanted = new Set(pending.ids);
     for await (const batch of this.client.messages.batches.list({
       limit: 100,
@@ -524,18 +545,30 @@ export class AnthropicBatchModel implements BatchModel {
       const lines = await this.retry(() =>
         this.client.messages.batches.results(batch.id),
       );
+      // Paczka „nasza” tylko przy DOKŁADNIE tym samym zbiorze pozycji.
+      const seen = new Set<string>();
+      let foreign = false;
       for await (const line of lines) {
-        if (wanted.has(line.custom_id)) {
-          return {
+        if (!wanted.has(line.custom_id)) {
+          foreign = true;
+          break;
+        }
+        seen.add(line.custom_id);
+      }
+      if (!foreign && seen.size === wanted.size) {
+        return {
+          kind: 'found',
+          batch: {
             batchId: batch.id,
             ids: pending.ids,
             reservedMicroUsd: pending.reservedMicroUsd,
-          };
-        }
-        break; // pierwsza pozycja rozstrzyga — id serii są unikalne
+          },
+        };
       }
     }
-    return null;
+    return this.now() < until
+      ? { kind: 'wait', until: new Date(until).toISOString() }
+      : { kind: 'absent' };
   }
 
   /** Czeka na koniec paczki i odbiera wyniki; `false` = nie udało się. */

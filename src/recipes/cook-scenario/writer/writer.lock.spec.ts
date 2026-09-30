@@ -63,4 +63,34 @@ describe('system pisania — wyłączna blokada dziennika', () => {
     const release = await acquireLock(path, { breakStale: true });
     await release();
   });
+  // Martwy jest tylko dawny właściciel (pid 4242); „łamacze” to żywe procesy.
+  it('dwóch „łamaczy” tej samej porzuconej blokady naraz: przejmuje dokładnie jeden', async () => {
+    for (let round = 0; round < 20; round += 1) {
+      const path = lockPath();
+      writeFileSync(path, JSON.stringify({ pid: 4242, startedAt: 'wczoraj' }));
+      const outcomes = await Promise.allSettled(
+        [0, 1, 2].map(() =>
+          acquireLock(path, {
+            breakStale: true,
+            isAlive: (pid) => pid !== 4242,
+          }),
+        ),
+      );
+      const won = outcomes.filter((o) => o.status === 'fulfilled');
+      expect(won).toHaveLength(1);
+      await (won[0] as PromiseFulfilledResult<() => Promise<void>>).value();
+    }
+  });
+
+  it('zwolnienie usuwa tylko SWOJĄ blokadę', async () => {
+    const path = lockPath();
+    const release = await acquireLock(path);
+    // Ktoś (błędnie) nadpisał blokadę — nasze zwolnienie jej nie ruszy.
+    writeFileSync(
+      path,
+      JSON.stringify({ pid: 1, startedAt: 'x', token: 'cudzy' }),
+    );
+    await release();
+    expect(existsSync(path)).toBe(true);
+  });
 });
