@@ -48,6 +48,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'catalog:changes',
   'recipes:householdState',
   'recipes:findById',
+  'recipes:cookScenario',
   'ingredients:search',
   'recipes:create',
   'recipes:update',
@@ -98,7 +99,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 57;
+const EXPECTED_HANDLER_COUNT = 58;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload

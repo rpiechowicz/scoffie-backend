@@ -5,6 +5,7 @@ import { RecipesService } from './recipes.service';
 import { IngredientsService } from './ingredients.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipeSharingService } from './sharing/recipe-sharing.service';
+import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
 
 // Gateway ma na własność trzy rzeczy: skąd bierze tożsamość (socket z tokenem
 // ignoruje payload.userId, socket legacy ufa mu jak dawniej, anonim dostaje
@@ -28,6 +29,7 @@ describe('RecipesGateway', () => {
   let emit: jest.Mock;
   let to: jest.Mock;
   let recipesService: Record<string, jest.Mock>;
+  let cookScenarios: { findPublished: jest.Mock };
 
   beforeEach(async () => {
     emit = jest.fn();
@@ -56,6 +58,12 @@ describe('RecipesGateway', () => {
       ),
     };
 
+    cookScenarios = {
+      findPublished: jest
+        .fn()
+        .mockResolvedValue({ recipeId: RECIPE, scenario: null }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RecipesGateway,
@@ -70,6 +78,7 @@ describe('RecipesGateway', () => {
           useValue: { onConnect: jest.fn(), onDisconnect: jest.fn() },
         },
         { provide: RecipeSharingService, useValue: {} },
+        { provide: CookScenariosService, useValue: cookScenarios },
       ],
     }).compile();
 
@@ -387,6 +396,46 @@ describe('RecipesGateway', () => {
       expect(response).toEqual(expect.objectContaining({ ok: false }));
       expect(emit).not.toHaveBeenCalled();
       expect(to).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recipes:cookScenario', () => {
+    it('tożsamość z tokenu (nie z payloadu) i przekazanie do serwisu', async () => {
+      const response = await gateway.cookScenario(tokenClient('user-1'), {
+        userId: 'ktos-inny',
+        recipeId: RECIPE,
+        householdId: HH,
+      });
+
+      expect(response).toEqual({
+        ok: true,
+        data: { recipeId: RECIPE, scenario: null },
+      });
+      expect(cookScenarios.findPublished).toHaveBeenCalledWith(
+        'user-1',
+        RECIPE,
+        HH,
+      );
+    });
+
+    it('koperta bez householdId = VALIDATION_ERROR, serwis nietknięty', async () => {
+      const response = await gateway.cookScenario(tokenClient('user-1'), {
+        recipeId: RECIPE,
+      } as any);
+
+      expect(response).toEqual(
+        expect.objectContaining({ ok: false, code: 'VALIDATION_ERROR' }),
+      );
+      expect(cookScenarios.findPublished).not.toHaveBeenCalled();
+    });
+
+    it('anonim dostaje UNAUTHORIZED przed walidacją koperty', async () => {
+      const response = await gateway.cookScenario(anonClient(), {} as any);
+
+      expect(response).toEqual(
+        expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
+      );
+      expect(cookScenarios.findPublished).not.toHaveBeenCalled();
     });
   });
 });

@@ -9659,6 +9659,224 @@
           "minimumVersion"
         ]
       },
+      "CookIngredientPart": {
+        "enum": ["ALL", "HALF", "PART", "REST"],
+        "type": "string"
+      },
+      "CookNoteKind": { "enum": ["CUE", "TIP", "WARNING"], "type": "string" },
+      "CookScenarioContent": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": { "type": "number", "enum": [1] },
+          "basePortions": {
+            "description": "Porcje, dla których są ilości (= `Recipe.servings` przy pisaniu).",
+            "type": "number"
+          },
+          "portionUnit": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "forms": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "type": "string" },
+                    { "type": "string" }
+                  ]
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": ["forms", "id"],
+            "nullable": true,
+            "description": "Sztuka dania do odmiany („kotlet”, „kotlety”, „kotletów”) — opcjonalna."
+          },
+          "totalMinutes": { "type": "number" },
+          "tips": {
+            "description": "Rady kucharza na powitaniu (§13.1), najwyżej 3.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "nextTimeTip": {
+            "description": "Rada „na następny raz” na zakończeniu (§13.3, D27).",
+            "type": "string",
+            "nullable": true
+          },
+          "steps": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CookStep" }
+          }
+        },
+        "required": [
+          "basePortions",
+          "nextTimeTip",
+          "portionUnit",
+          "schemaVersion",
+          "steps",
+          "tips",
+          "totalMinutes"
+        ]
+      },
+      "CookScenarioResponse": {
+        "description": "Odpowiedź `recipes:cookScenario`. `scenario: null` = brak trybu Gotuj.",
+        "type": "object",
+        "properties": {
+          "recipeId": { "type": "string" },
+          "scenario": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "number" },
+              "rulesVersion": { "type": "string" },
+              "content": { "$ref": "#/components/schemas/CookScenarioContent" }
+            },
+            "required": ["content", "rulesVersion", "version"],
+            "nullable": true
+          }
+        },
+        "required": ["recipeId", "scenario"]
+      },
+      "CookStep": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stabilne w obrębie scenariusza („s1”…).",
+            "type": "string"
+          },
+          "phase": { "$ref": "#/components/schemas/CookStepPhase" },
+          "stage": {
+            "description": "Etykieta nad tytułem („SMAŻENIE”, „W MIĘDZYCZASIE”); `null` = z fazy.",
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "description": "Co robisz teraz — jedno zdanie w trybie rozkazującym.",
+            "type": "string"
+          },
+          "body": {
+            "description": "Jak — prostym językem; liczby porcjowe tylko przez tokeny `{count:…}`.",
+            "type": "string"
+          },
+          "ingredients": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CookStepIngredient" }
+          },
+          "mentions": {
+            "description": "Przywołania bez ilości (`Ingredient.id`) — „z talerzy z panierką”.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "note": {
+            "allOf": [{ "$ref": "#/components/schemas/CookStepNote" }],
+            "nullable": true
+          },
+          "timer": {
+            "allOf": [{ "$ref": "#/components/schemas/CookTimer" }],
+            "nullable": true
+          },
+          "during": {
+            "description": "`id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.",
+            "type": "string",
+            "nullable": true
+          },
+          "scaleNote": {
+            "type": "object",
+            "properties": {
+              "fromPortions": { "type": "number" },
+              "text": { "type": "string" }
+            },
+            "required": ["fromPortions", "text"],
+            "nullable": true,
+            "description": "Nota skali pokazywana dopiero od `fromPortions` porcji."
+          }
+        },
+        "required": [
+          "body",
+          "during",
+          "id",
+          "ingredients",
+          "mentions",
+          "note",
+          "phase",
+          "scaleNote",
+          "stage",
+          "timer",
+          "title"
+        ]
+      },
+      "CookStepIngredient": {
+        "type": "object",
+        "properties": {
+          "ingredientId": {
+            "description": "`Ingredient.id` składnika przepisu (`RecipeIngredient.ingredientId`).",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Ilość w jednostce przepisu, dla `basePortions`.",
+            "type": "number"
+          },
+          "unit": {
+            "description": "Jednostka — ta sama co w `RecipeIngredient.unit`.",
+            "type": "string"
+          },
+          "part": { "$ref": "#/components/schemas/CookIngredientPart" }
+        },
+        "required": ["amount", "ingredientId", "part", "unit"]
+      },
+      "CookStepNote": {
+        "type": "object",
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/CookNoteKind" },
+          "text": { "type": "string" }
+        },
+        "required": ["kind", "text"]
+      },
+      "CookStepPhase": {
+        "enum": ["COOK", "FINISH", "PREP", "SERVE"],
+        "type": "string"
+      },
+      "CookTimer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": {
+            "description": "Nazwa w kapsule, Dynamic Island i alercie („Kotlety”).",
+            "type": "string"
+          },
+          "minSeconds": {
+            "description": "Po tylu sekundach dzwoni alarm.",
+            "type": "number"
+          },
+          "maxSeconds": {
+            "description": "Górna granica zakresu („10–12 min”); alarm proponuje „+2 min” do niej.",
+            "type": "number"
+          },
+          "trigger": { "$ref": "#/components/schemas/CookTimerTrigger" },
+          "startLabel": {
+            "description": "Etykieta startu, mówi KIEDY stuknąć („Woda wrze — odliczaj 20 min”).",
+            "type": "string"
+          },
+          "alert": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "body": { "type": "string" }
+            },
+            "required": ["body", "title"]
+          }
+        },
+        "required": [
+          "alert",
+          "id",
+          "label",
+          "maxSeconds",
+          "minSeconds",
+          "startLabel",
+          "trigger"
+        ]
+      },
+      "CookTimerTrigger": { "enum": ["EVENT", "NOW"], "type": "string" },
       "CreateConversationDto": {
         "type": "object",
         "properties": { "householdId": { "type": "string", "format": "uuid" } },
@@ -11077,6 +11295,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
+          "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -11102,6 +11321,7 @@
         },
         "required": [
           "allergens",
+          "cookScenarioVersion",
           "cuisine",
           "description",
           "dietTags",
@@ -11132,6 +11352,21 @@
           "suitableMealTypes",
           "title"
         ]
+      },
+      "RecipesCookScenarioPayload": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "recipeId": { "type": "string" },
+          "householdId": {
+            "description": "Dom pytającego — bramka członkostwa i widoczności przepisu domu.",
+            "type": "string"
+          }
+        },
+        "required": ["householdId", "recipeId"]
       },
       "RecipesCreatePayload": {
         "type": "object",
@@ -12699,6 +12934,11 @@
             "type": "string",
             "nullable": true
           },
+          "cookScenarioVersion": {
+            "description": "Wersja OPUBLIKOWANEGO scenariusza trybu Gotuj (`RecipeCookScenario`),\n`null` = przepis nie ma trybu Gotuj (brak scenariusza, przepis trywialny\nalbo scenariusz nieaktualny). Kopia z tabeli scenariuszy, bo tamta nie\nprzesuwa logu katalogu, a ta kolumna — tak (trigger `Recipe_catalog_change`\nwidzi zmianę wiersza): telefon dostaje „jest Gotuj / nowa wersja” zwykłą\ndeltą katalogu i pobiera scenariusz dopiero wtedy. Ustawia ją WYŁĄCZNIE\n`publishCookScenario` (w transakcji z wierszem scenariusza), a zeruje\ntrigger `cook_scenario_staleness`, gdy przepis się zmieni.",
+            "type": "number",
+            "nullable": true
+          },
           "authorId": { "type": "string" },
           "copiedFromRecipeId": {
             "description": "Źródło kopii „Zapisz u siebie” z udostępnionego linku. `SetNull`: kopia\njest już przepisem tego domu i żyje dalej, gdy oryginał zniknie.",
@@ -12709,6 +12949,7 @@
         "required": [
           "allergens",
           "authorId",
+          "cookScenarioVersion",
           "copiedFromRecipeId",
           "createdAt",
           "cuisine",
@@ -12803,6 +13044,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
+          "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -12828,6 +13070,7 @@
         },
         "required": [
           "allergens",
+          "cookScenarioVersion",
           "cuisine",
           "description",
           "dietTags",
@@ -12899,6 +13142,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
+          "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -12930,6 +13174,7 @@
         },
         "required": [
           "allergens",
+          "cookScenarioVersion",
           "cuisine",
           "description",
           "dietTags",
@@ -13008,6 +13253,7 @@
                 "equipment": { "type": "array", "items": { "type": "string" } },
                 "features": { "type": "array", "items": { "type": "string" } },
                 "slug": { "type": "string", "nullable": true },
+                "cookScenarioVersion": { "type": "number", "nullable": true },
                 "ingredients": {
                   "type": "array",
                   "items": {
@@ -13033,6 +13279,7 @@
               },
               "required": [
                 "allergens",
+                "cookScenarioVersion",
                 "cuisine",
                 "description",
                 "dietTags",
@@ -13116,6 +13363,7 @@
               "equipment": { "type": "array", "items": { "type": "string" } },
               "features": { "type": "array", "items": { "type": "string" } },
               "slug": { "type": "string", "nullable": true },
+              "cookScenarioVersion": { "type": "number", "nullable": true },
               "ingredients": {
                 "type": "array",
                 "items": {
@@ -13149,6 +13397,7 @@
             },
             "required": [
               "allergens",
+              "cookScenarioVersion",
               "cuisine",
               "description",
               "dietTags",
@@ -13244,6 +13493,7 @@
               "equipment": { "type": "array", "items": { "type": "string" } },
               "features": { "type": "array", "items": { "type": "string" } },
               "slug": { "type": "string", "nullable": true },
+              "cookScenarioVersion": { "type": "number", "nullable": true },
               "ingredients": {
                 "type": "array",
                 "items": {
@@ -13275,6 +13525,7 @@
             },
             "required": [
               "allergens",
+              "cookScenarioVersion",
               "cuisine",
               "description",
               "dietTags",
@@ -13353,6 +13604,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
+          "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -13384,6 +13636,7 @@
         },
         "required": [
           "allergens",
+          "cookScenarioVersion",
           "cuisine",
           "description",
           "dietTags",
@@ -13472,6 +13725,7 @@
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
           "slug": { "type": "string", "nullable": true },
+          "cookScenarioVersion": { "type": "number", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -13503,6 +13757,7 @@
         },
         "required": [
           "allergens",
+          "cookScenarioVersion",
           "cuisine",
           "description",
           "dietTags",

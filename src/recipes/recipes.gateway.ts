@@ -37,6 +37,7 @@ import { IngredientsService } from './ingredients.service';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipeSharingService } from './sharing/recipe-sharing.service';
+import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
 
 // Koperty zdarzeń: KAŻDE pole ma dekorator, bo `validateWsPayload` działa
 // z whitelistą i wycina pola bez dekoratora. `data`/`filters` tylko
@@ -145,6 +146,20 @@ class RecipesFindByIdPayload {
   @IsOptional()
   @IsUUID()
   householdId?: string;
+}
+
+class RecipesCookScenarioPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  recipeId: string;
+
+  /** Dom pytającego — bramka członkostwa i widoczności przepisu domu. */
+  @IsUUID()
+  householdId: string;
 }
 
 class RecipesCreatePayload {
@@ -264,6 +279,7 @@ export class RecipesGateway
     private readonly ingredientsService: IngredientsService,
     private readonly wsTelemetry: WsTelemetryService,
     private readonly sharing: RecipeSharingService,
+    private readonly cookScenarios: CookScenariosService,
   ) {}
 
   handleConnection(_client: Socket) {
@@ -385,6 +401,27 @@ export class RecipesGateway
       return this.recipesService.findById(
         userId,
         payload.id,
+        payload.householdId,
+      );
+    });
+  }
+
+  /**
+   * Scenariusz trybu Gotuj (opublikowany). `scenario: null` = przepis nie ma
+   * trybu Gotuj — brak scenariusza, przepis trywialny albo nieaktualny.
+   * Telefon pyta, gdy przepis niesie `cookScenarioVersion`.
+   */
+  @SubscribeMessage('recipes:cookScenario')
+  cookScenario(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesCookScenarioPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesCookScenarioPayload, payload);
+      return this.cookScenarios.findPublished(
+        userId,
+        payload.recipeId,
         payload.householdId,
       );
     });

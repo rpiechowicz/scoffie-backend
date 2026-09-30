@@ -25,6 +25,7 @@ klient:     head = MAX(revision) = 5267 → delta (5265, 5267] = {B}; zapisuje C
 T1: COMMIT;                                            -- 5266 widoczne, ale 5266 <= C
 klient:     delta (5267, …] = {}                       -- zmiana A zgubiona
 ```
+
 Log: `A=[5264(utworzenie),5266] B=[5265(utworzenie),5267]; kursor C=5267`.
 
 ## 3. Niezmiennik
@@ -42,16 +43,16 @@ Sonda `benchmark/catalog-change-commit-order/lock-probe.ts` na świeżych kopiac
 S1 = wyścig z §2; S2 = cykl z polecenia (T1 blokuje A, T2 blokuje B, T1 chce B); S3 = wzorzec panelu
 admina (`SELECT … FOR UPDATE` na wierszu przed zmianą — `AdminCatalogService.updateRecipe`).
 
-| Klasa | Wariant | S1 wyścig | S2 cykl | S3 panel | Zmiana API | Blokuje zapisujących |
-|---|---|---|---|---|---|---|
-| — | dziś (`develop`) | **ZGUBIONA 3/3** | OK | OK | — | nie |
-| A | zamek doradczy w triggerze wierszowym (w chwili DML) | OK | **DEADLOCK 3/3** | **DEADLOCK 3/3** | nie | cała transakcja |
-| A' | zamek w `BEFORE STATEMENT` | (analiza) | (analiza: jak S3 — wiersz zablokowany wcześniej `SELECT … FOR UPDATE`) | **DEADLOCK** | nie | cała transakcja, także przepisy domów |
-| A'' | `LOCK TABLE "CatalogChange"` | (analiza) | cykl jak A | cykl jak A | nie | cała transakcja |
-| B | transakcyjny licznik — wiersz singleton pod `FOR UPDATE` | OK | **DEADLOCK 3/3** | **DEADLOCK 3/3** | nie | cała transakcja |
-| C | kursor po horyzoncie `xid` (`pg_snapshot_xmin`) | (analiza: poprawny) | brak nowych blokad | brak nowych blokad | **tak** (format kursora) | nie |
-| C' | overlap / cofnięcie kursora / znacznik czasu | **niepoprawne** | — | — | tak | nie |
-| **D** | **trigger ODROCZONY do COMMIT (constraint trigger) + zamek doradczy dopiero w fazie commitu** | **OK 3/3** | **OK 3/3** | **OK 3/3** | **nie** | **tylko faza commitu transakcji katalogowej** |
+| Klasa | Wariant                                                                                       | S1 wyścig           | S2 cykl                                                                | S3 panel           | Zmiana API               | Blokuje zapisujących                          |
+| ----- | --------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------- | ------------------ | ------------------------ | --------------------------------------------- |
+| —     | dziś (`develop`)                                                                              | **ZGUBIONA 3/3**    | OK                                                                     | OK                 | —                        | nie                                           |
+| A     | zamek doradczy w triggerze wierszowym (w chwili DML)                                          | OK                  | **DEADLOCK 3/3**                                                       | **DEADLOCK 3/3**   | nie                      | cała transakcja                               |
+| A'    | zamek w `BEFORE STATEMENT`                                                                    | (analiza)           | (analiza: jak S3 — wiersz zablokowany wcześniej `SELECT … FOR UPDATE`) | **DEADLOCK**       | nie                      | cała transakcja, także przepisy domów         |
+| A''   | `LOCK TABLE "CatalogChange"`                                                                  | (analiza)           | cykl jak A                                                             | cykl jak A         | nie                      | cała transakcja                               |
+| B     | transakcyjny licznik — wiersz singleton pod `FOR UPDATE`                                      | OK                  | **DEADLOCK 3/3**                                                       | **DEADLOCK 3/3**   | nie                      | cała transakcja                               |
+| C     | kursor po horyzoncie `xid` (`pg_snapshot_xmin`)                                               | (analiza: poprawny) | brak nowych blokad                                                     | brak nowych blokad | **tak** (format kursora) | nie                                           |
+| C'    | overlap / cofnięcie kursora / znacznik czasu                                                  | **niepoprawne**     | —                                                                      | —                  | tak                      | nie                                           |
+| **D** | **trigger ODROCZONY do COMMIT (constraint trigger) + zamek doradczy dopiero w fazie commitu** | **OK 3/3**          | **OK 3/3**                                                             | **OK 3/3**         | **nie**                  | **tylko faza commitu transakcji katalogowej** |
 
 ### A — globalna serializacja w chwili DML (advisory xact lock / wiersz singleton / LOCK TABLE)
 
@@ -134,6 +135,7 @@ tylko przez fazę commitu transakcji katalogowej. Wynik sondy: S1/S2/S3 OK 3/3.
 ## 6. Deadlock analysis (D)
 
 Deadlock wymaga cyklu w grafie oczekiwań. Nowa krawędź to wyłącznie „czeka na G”.
+
 - Kto czeka na G: transakcja w fazie commitu (funkcja triggera) — może trzymać dowolne blokady wierszy.
 - Kto trzyma G: transakcja w fazie commitu, która zdobyła G i dokańcza zdarzenia odroczone. Co robi,
   trzymając G: (a) funkcja `Recipe`: tylko porównanie `OLD/NEW` (bez odczytu tabel) i `INSERT` do
@@ -157,6 +159,15 @@ Deadlock wymaga cyklu w grafie oczekiwań. Nowa krawędź to wyłącznie „czek
   nieużywane (sprawdzone: brak `SET CONSTRAINTS`, brak innych obiektów `DEFERRABLE` w bazie).
 - `PREPARE TRANSACTION` (2PC): zdarzenia odroczone odpalają się przy PREPARE, G trzymany do
   `COMMIT PREPARED` — 2PC w projekcie nieużywane (`max_prepared_transactions` domyślnie 0).
+- **Triggery trybu Gotuj** (`…_a_cook_scenario_staleness`, migracja `20260930120000`, 30.09.2026) też
+  są odroczone i w transakcji wieloprzepisowej działają już PO wzięciu G (zdarzenie przepisu A bierze
+  G, potem idzie sprawdzenie przepisu B). Mogą przy tym pisać: `UPDATE "Recipe"` i
+  `UPDATE "RecipeCookScenario"` — ale tylko wierszy, które transakcja JUŻ trzyma: zmieniony przez nią
+  przepis albo przepis zablokowany przy instrukcji na składnikach (triggery `FOR EACH STATEMENT`
+  `…_cook_scenario_lock_*`, `FOR NO KEY UPDATE` w kolejności id — czekanie przypada przed G). Wiersze
+  scenariuszy zmienia tylko ten, kto trzyma wiersz przepisu. Posiadacz G nadal nie czeka na blokadę
+  wiersza; test e2e „transakcja na dwóch przepisach…” w `cook-scenario.e2e-spec.ts` odtwarza cykl,
+  który powstawał, gdy blokada przypadała dopiero na COMMIT.
 
 ## 7. Rollback semantics
 
@@ -194,10 +205,11 @@ dziś i zmienia epokę.
 ## 11. Performance
 
 Czytelnik bez zmian. Zapisujący katalog: dodatkowy koszt = zdobycie G w commicie (bez rywalizacji ~µs)
-+ oczekiwanie na commit poprzednika (tylko przy równoległych zapisach KATALOGU). Przepisy domów: funkcja
-kończy się przed zamkiem (bez zmian kosztu). Zmierzone liczby: raport workstreamu.
-Reguła operacyjna: nie łączyć w jednej transakcji DDL/`LOCK TABLE`/`TRUNCATE` na `Recipe`,
-`RecipeIngredient`, `CatalogChange` ze zmianami wierszy katalogu.
+
+- oczekiwanie na commit poprzednika (tylko przy równoległych zapisach KATALOGU). Przepisy domów: funkcja
+  kończy się przed zamkiem (bez zmian kosztu). Zmierzone liczby: raport workstreamu.
+  Reguła operacyjna: nie łączyć w jednej transakcji DDL/`LOCK TABLE`/`TRUNCATE` na `Recipe`,
+  `RecipeIngredient`, `CatalogChange` ze zmianami wierszy katalogu.
 
 ## 12. Migration
 
@@ -221,6 +233,7 @@ catalog-sync.
 
 Migracje produkcyjne są **forward-only**. Stan „Prisma: migracja zastosowana / obiekty bazy: ręcznie
 cofnięte” jest niedopuszczalny.
+
 - Standardowy rollback po deployu = NOWA migracja korygująca z późniejszym znacznikiem czasu (DDL
   przywracający funkcje bez zamka i zwykłe triggery `AFTER … FOR EACH ROW`, usuwający
   `catalog_change_revision_lock()`), wdrożona zwykłym deployem. Wdrożonej `migration.sql` nie edytujemy
@@ -256,6 +269,6 @@ DDL / `LOCK TABLE` / `TRUNCATE` na tabelach katalogu w transakcji z DML katalogu
 
 ## 18. Konsekwencje
 
-+ Poprawność bez zmiany protokołu. + Zapis przepisów domów bez zmian. − Zapisy katalogu serializowane w
-fazie commitu (koszt zmierzony w raporcie). − Reguła operacyjna dla DDL (§11). − Funkcje czytają stan
-przepisu w chwili commitu, nie w chwili DML (świadoma zmiana, §8).
+- Poprawność bez zmiany protokołu. + Zapis przepisów domów bez zmian. − Zapisy katalogu serializowane w
+  fazie commitu (koszt zmierzony w raporcie). − Reguła operacyjna dla DDL (§11). − Funkcje czytają stan
+  przepisu w chwili commitu, nie w chwili DML (świadoma zmiana, §8).

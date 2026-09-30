@@ -122,6 +122,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     },
   },
   'recipes:findById': { id: RECIPE, householdId: HH },
+  'recipes:cookScenario': { recipeId: RECIPE, householdId: HH },
   'catalog:snapshot': { limit: 200 },
   'catalog:changes': {
     sinceRevision: '11111111-1111-4111-8111-111111111111.0',
@@ -379,6 +380,23 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
       name: 'householdId nie-UUID',
       payload: { id: RECIPE, householdId: NOT_UUID },
       detail: 'householdId must be a UUID',
+    },
+  ],
+  'recipes:cookScenario': [
+    {
+      name: 'brak recipeId',
+      payload: { householdId: HH },
+      detail: 'recipeId must be a UUID',
+    },
+    {
+      name: 'brak householdId',
+      payload: { recipeId: RECIPE },
+      detail: 'householdId must be a UUID',
+    },
+    {
+      name: 'recipeId nie-UUID',
+      payload: { recipeId: 'recipe-1', householdId: HH },
+      detail: UUID_DETAIL,
     },
   ],
   'recipes:shareLink': shareTargetInvalid(),
