@@ -388,7 +388,7 @@ async function main() {
       ? []
       : await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
     );
 
     if (args.dryRun) {
