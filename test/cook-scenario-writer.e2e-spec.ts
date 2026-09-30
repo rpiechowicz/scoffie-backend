@@ -9,6 +9,7 @@ import { parseCookScenarioContent } from '../src/recipes/cook-scenario/cook-scen
 import type { WriteOutcome } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
   loadWriterRecipe,
+  publishWrittenScenario,
   saveWrittenScenario,
   writerInputHash,
 } from '../src/recipes/cook-scenario/writer/writer.store';
@@ -64,15 +65,43 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
     return parseCookScenarioContent(resolved.content).content!;
   };
 
+  // Stan wzorca sprzed testu — publikacja (ostatni test) zmienia wersję na
+  // przepisie, więc przywracamy go w całości, jak cook-scenario.e2e.
+  let versionBefore: number | null = null;
+  let idsBefore: string[] = [];
+
+  beforeAll(async () => {
+    versionBefore = (
+      await prisma.recipe.findUniqueOrThrow({
+        where: { id: KOTLET.recipeId },
+        select: { cookScenarioVersion: true },
+      })
+    ).cookScenarioVersion;
+    idsBefore = (
+      await prisma.recipeCookScenario.findMany({
+        where: { recipeId: KOTLET.recipeId },
+        select: { id: true },
+      })
+    ).map((row) => row.id);
+  });
+
   afterAll(async () => {
-    if (created.length) {
-      await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "Recipe" WHERE "id" = ${KOTLET.recipeId}::uuid FOR UPDATE`;
-        await tx.recipeCookScenario.deleteMany({
-          where: { id: { in: created } },
-        });
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Recipe" WHERE "id" = ${KOTLET.recipeId}::uuid FOR UPDATE`;
+      await tx.recipeCookScenario.deleteMany({
+        where: { recipeId: KOTLET.recipeId, id: { notIn: idsBefore } },
       });
-    }
+      if (versionBefore !== null) {
+        await tx.recipeCookScenario.updateMany({
+          where: { recipeId: KOTLET.recipeId, version: versionBefore },
+          data: { status: 'PUBLISHED' },
+        });
+      }
+      await tx.recipe.update({
+        where: { id: KOTLET.recipeId },
+        data: { cookScenarioVersion: versionBefore },
+      });
+    });
     await prisma.$disconnect();
   });
 
@@ -325,5 +354,154 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       data: { validationReport: { outcome: 'VALIDATED' } },
     });
     expect(await current()).toBe(false);
+  });
+
+  describe('publikacja wersji VALIDATED (dla panelu, E3c)', () => {
+    const saveValidated = async () => {
+      const loaded = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+      const content = await kotletContent();
+      const saved = await prisma.$transaction((tx) =>
+        saveWrittenScenario(tx, {
+          recipe: loaded.recipe,
+          signature: loaded.signature,
+          outcome: outcome('VALIDATED', content),
+          generator: { source: 'writer', test: true },
+        }),
+      );
+      const row = await prisma.recipeCookScenario.findUniqueOrThrow({
+        where: {
+          recipeId_version: {
+            recipeId: KOTLET.recipeId,
+            version: saved.version,
+          },
+        },
+        select: { id: true },
+      });
+      created.push(row.id);
+      return row.id;
+    };
+    const statusOf = async (id: string) =>
+      (
+        await prisma.recipeCookScenario.findUniqueOrThrow({
+          where: { id },
+          select: { status: true },
+        })
+      ).status;
+    const recipeVersion = async () =>
+      (
+        await prisma.recipe.findUniqueOrThrow({
+          where: { id: KOTLET.recipeId },
+          select: { cookScenarioVersion: true },
+        })
+      ).cookScenarioVersion;
+
+    it('przepis zmieniony po napisaniu (nazwa składnika) = STALE, nie publikuje', async () => {
+      const id = await saveValidated();
+      const chicken = await prisma.recipeIngredient.findFirstOrThrow({
+        where: { recipeId: KOTLET.recipeId, name: 'filet z kurczaka' },
+        select: { id: true, name: true },
+      });
+      const before = await recipeVersion();
+      await prisma.recipeIngredient.update({
+        where: { id: chicken.id },
+        data: { name: 'filet z indyka' },
+      });
+      try {
+        await expect(
+          prisma.$transaction((tx) => publishWrittenScenario(tx, id)),
+        ).resolves.toEqual({ published: false, reason: 'STALE' });
+        expect(await statusOf(id)).toBe('STALE');
+        expect(await recipeVersion()).toBe(before);
+      } finally {
+        await prisma.recipeIngredient.update({
+          where: { id: chicken.id },
+          data: { name: chicken.name },
+        });
+      }
+      // STALE zostaje — po przywróceniu nazwy i tak trzeba napisać od nowa.
+      await expect(
+        prisma.$transaction((tx) => publishWrittenScenario(tx, id)),
+      ).resolves.toEqual({ published: false, reason: 'NOT_VALIDATED' });
+    });
+
+    it('zmienione kroki przepisu = STALE', async () => {
+      const id = await saveValidated();
+      const before = await prisma.recipe.findUniqueOrThrow({
+        where: { id: KOTLET.recipeId },
+        select: { sourceInstructions: true },
+      });
+      const steps = before.sourceInstructions as Array<{
+        step: number;
+        text: string;
+      }>;
+      await prisma.recipe.update({
+        where: { id: KOTLET.recipeId },
+        data: {
+          sourceInstructions: steps.map((step, i) =>
+            i === 0
+              ? { ...step, text: step.text + ' Dodatkowe zdanie.' }
+              : step,
+          ),
+        },
+      });
+      try {
+        await expect(
+          prisma.$transaction((tx) => publishWrittenScenario(tx, id)),
+        ).resolves.toEqual({ published: false, reason: 'STALE' });
+      } finally {
+        await prisma.recipe.update({
+          where: { id: KOTLET.recipeId },
+          data: { sourceInstructions: steps },
+        });
+      }
+    });
+
+    it('niezmieniony przepis = publikacja z odciskiem wejścia; SKIPPED się nie publikuje', async () => {
+      const id = await saveValidated();
+      const result = await prisma.$transaction((tx) =>
+        publishWrittenScenario(tx, id),
+      );
+      expect(result).toMatchObject({ published: true, changed: true });
+      if (!result.published) throw new Error('nie opublikowano');
+      const published = await prisma.recipeCookScenario.findUniqueOrThrow({
+        where: {
+          recipeId_version: {
+            recipeId: KOTLET.recipeId,
+            version: result.version,
+          },
+        },
+        select: { status: true, validationReport: true },
+      });
+      const loaded = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+      expect(published.status).toBe('PUBLISHED');
+      expect(published.validationReport).toMatchObject({
+        inputHash: writerInputHash(loaded.recipe),
+        publishedFrom: id,
+      });
+      expect(await recipeVersion()).toBe(result.version);
+      // Opublikowana wersja z odciskiem to „aktualny wynik” dla wznowień.
+      expect(loaded.current).toBe(true);
+
+      const skipped = await prisma.$transaction((tx) =>
+        saveWrittenScenario(tx, {
+          recipe: loaded.recipe,
+          signature: loaded.signature,
+          outcome: outcome('SKIPPED', null),
+          generator: { source: 'writer', test: true },
+        }),
+      );
+      const skippedRow = await prisma.recipeCookScenario.findUniqueOrThrow({
+        where: {
+          recipeId_version: {
+            recipeId: KOTLET.recipeId,
+            version: skipped.version,
+          },
+        },
+        select: { id: true },
+      });
+      await expect(
+        prisma.$transaction((tx) => publishWrittenScenario(tx, skippedRow.id)),
+      ).resolves.toEqual({ published: false, reason: 'NOT_VALIDATED' });
+    });
   });
 });

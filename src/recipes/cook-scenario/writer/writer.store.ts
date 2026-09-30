@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { HttpStatus } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { AppException } from '../../../common/app-exception';
+import { publishCookScenario } from '../cook-scenario.publish';
 import { COOK_SCENARIO_RULES_VERSION } from '../cook-scenario.types';
 import type { WriteOutcome } from './writer.pipeline';
 import type { WriterRecipe } from './writer.types';
@@ -215,4 +216,80 @@ async function hasCurrentWrite(
     const report = row.validationReport as { inputHash?: unknown } | null;
     return report?.inputHash === hash;
   });
+}
+
+export type PublishWrittenResult =
+  | { published: true; recipeId: string; version: number; changed: boolean }
+  | {
+      published: false;
+      reason: 'NOT_FOUND' | 'NOT_VALIDATED' | 'RULES_CHANGED' | 'STALE';
+    };
+
+/**
+ * Publikuje wersję VALIDATED systemu pisania (panel, E3c) — tylko jeśli
+ * przepis jest DOKŁADNIE tym, do którego ją napisano (review Codexa, E3a
+ * runda 7). Wersje robocze nie dostają STALE od triggera, więc pod blokadą
+ * przepisu czytamy wejście modelu jeszcze raz: inny podpis albo odcisk =
+ * wersja dostaje STALE i NIE jest publikowana (wynik zamiast wyjątku —
+ * wyjątek wycofałby oznaczenie STALE razem z transakcją wołającego).
+ * Wersja pisana według starszych zasad też nie przechodzi.
+ */
+export async function publishWrittenScenario(
+  tx: Prisma.TransactionClient,
+  scenarioId: string,
+): Promise<PublishWrittenResult> {
+  const head = await tx.recipeCookScenario.findUnique({
+    where: { id: scenarioId },
+    select: { recipeId: true },
+  });
+  if (!head) return { published: false, reason: 'NOT_FOUND' };
+  await tx.$queryRaw`
+    SELECT "id" FROM "Recipe" WHERE "id" = ${head.recipeId}::uuid FOR UPDATE`;
+  // Wiersze scenariuszy zmienia tylko ten, kto trzyma przepis — odczyt pod
+  // blokadą jest ostateczny.
+  const row = await tx.recipeCookScenario.findUnique({
+    where: { id: scenarioId },
+    select: {
+      recipeId: true,
+      status: true,
+      content: true,
+      rulesVersion: true,
+      recipeContentHash: true,
+      generator: true,
+      validationReport: true,
+    },
+  });
+  if (!row) return { published: false, reason: 'NOT_FOUND' };
+  if (row.status !== 'VALIDATED') {
+    return { published: false, reason: 'NOT_VALIDATED' };
+  }
+  if (row.rulesVersion !== COOK_SCENARIO_RULES_VERSION) {
+    return { published: false, reason: 'RULES_CHANGED' };
+  }
+  const recipe = await readWriterRecipe(tx, row.recipeId);
+  const [{ signature }] = await tx.$queryRaw<{ signature: string | null }[]>`
+    SELECT recipe_content_signature(${row.recipeId}::uuid) AS "signature"`;
+  const report = row.validationReport as { inputHash?: unknown } | null;
+  if (
+    !recipe ||
+    signature !== row.recipeContentHash ||
+    report?.inputHash !== writerInputHash(recipe)
+  ) {
+    await tx.recipeCookScenario.update({
+      where: { id: scenarioId },
+      data: { status: 'STALE' },
+    });
+    return { published: false, reason: 'STALE' };
+  }
+  const result = await publishCookScenario(tx, {
+    recipeId: row.recipeId,
+    content: row.content,
+    rulesVersion: row.rulesVersion,
+    generator: row.generator ?? {},
+    validationReport: {
+      ...(row.validationReport as Record<string, unknown>),
+      publishedFrom: scenarioId,
+    },
+  });
+  return { published: true, ...result };
 }

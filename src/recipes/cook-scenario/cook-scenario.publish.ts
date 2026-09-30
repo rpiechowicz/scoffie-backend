@@ -13,6 +13,11 @@ export interface PublishCookScenarioInput {
   rulesVersion: string;
   /** Skąd treść: `{ source: 'golden' }`, później `{ source: 'model', model, promptVersion }`. */
   generator: Prisma.InputJsonValue;
+  /**
+   * Raport wersji, z której publikujemy (system pisania, E3) — z odciskiem
+   * wejścia modelu, żeby opublikowana wersja też go miała.
+   */
+  validationReport?: Prisma.InputJsonValue;
 }
 
 export interface PublishCookScenarioResult {
@@ -127,6 +132,9 @@ export async function publishCookScenario(
       rulesVersion: input.rulesVersion,
       content: parsed.content as unknown as Prisma.InputJsonValue,
       generator: input.generator,
+      ...(input.validationReport
+        ? { validationReport: input.validationReport }
+        : {}),
       publishedAt: new Date(),
     },
   });
