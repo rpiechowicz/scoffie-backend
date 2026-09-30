@@ -782,8 +782,16 @@ function checkTimers(
   // „Z każdej strony”: dwa odliczania po X ALBO jedno 2X — nie oba naraz.
   const alternative = new Set<number>();
   for (const group of pool.perSide) {
-    const singlesUsed = group.singles.some((i) => owner[i] >= 0);
+    const singlesOwned = group.singles.filter((i) => owner[i] >= 0).length;
+    const singlesUsed = singlesOwned > 0;
     const combinedUsed = owner[group.combined] >= 0;
+    // Wariant „po stronie” = OBA odliczania; jedno to połowa obróbki
+    // (review Codexa — niedopieczone jedzenie).
+    if (singlesOwned === 1 && !combinedUsed) {
+      errors.push(
+        `timer „z każdej strony” ${describeRange(recipeRanges[group.singles[0]])} tylko dla jednej strony — daj dwa odliczania albo jedno łączne`,
+      );
+    }
     if (singlesUsed && combinedUsed) {
       errors.push(
         `timery dublują czas „z każdej strony” ${describeRange(recipeRanges[group.singles[0]])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`,

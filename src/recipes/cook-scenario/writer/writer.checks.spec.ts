@@ -612,6 +612,10 @@ describe('system pisania — walidatory twarde', () => {
     expect(withTimers([300, 300, 600])).toEqual([
       expect.stringContaining('timery dublują czas „z każdej strony”'),
     ]);
+    // Jedno odliczanie „po stronie” = połowa smażenia.
+    expect(withTimers([300])).toEqual([
+      expect.stringContaining('tylko dla jednej strony'),
+    ]);
   });
   it('częściowa ilość składnika z przepisu („100 ml mleka” z 200 ml) nie może stać w tekście; naczynie i woda spoza listy — mogą', () => {
     const withMilk: WriterRecipe = {
