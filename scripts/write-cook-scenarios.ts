@@ -34,9 +34,10 @@
  * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
  *   COOK_REVIEWER_EFFORT.
  */
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { open, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { priceFor } from '../src/config/model-prices';
@@ -76,6 +77,7 @@ import {
   buildWriterSystem,
   buildWriterUser,
   COOK_WRITER_PROMPT_VERSION,
+  REVIEWER_SYSTEM,
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
 import { acquireLock } from '../src/recipes/cook-scenario/writer/writer.lock';
@@ -287,6 +289,8 @@ type JournalFile = BatchJournal & {
   rulesVersion: string;
   options: WriterOptions;
   signatures: Record<string, string>;
+  /** sha256 promptu autora (z wzorcem) i recenzenta z początku serii. */
+  promptHash: string;
 };
 
 async function readJournal(path: string): Promise<JournalFile> {
@@ -305,10 +309,38 @@ async function readJournal(path: string): Promise<JournalFile> {
 }
 
 async function writeJournal(path: string, journal: JournalFile) {
-  // Zapis przez plik tymczasowy — urwany zapis nie zostawia połowy dziennika.
-  await writeFile(`${path}.tmp`, JSON.stringify(journal));
+  // Zapis przez plik tymczasowy — urwany zapis nie zostawia połowy dziennika
+  // — z WYMUSZENIEM na dysk (sync pliku przed zamianą, potem katalogu):
+  // zapowiedź paczki musi przetrwać zanik prądu, zanim paczka pójdzie
+  // (review Codexa).
+  const handle = await open(`${path}.tmp`, 'w');
+  try {
+    await handle.writeFile(JSON.stringify(journal));
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
   await rename(`${path}.tmp`, path);
+  try {
+    const dir = await open(dirname(resolve(path)), 'r');
+    try {
+      await dir.sync();
+    } finally {
+      await dir.close();
+    }
+  } catch {
+    // Windows nie pozwala otworzyć katalogu — tam rename jest już trwały
+    // na poziomie NTFS (dziennik metadanych).
+  }
 }
+
+/** Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi. */
+const promptHash = (example: WriterExample) =>
+  createHash('sha256')
+    .update(buildWriterSystem(example))
+    .update('\u0000')
+    .update(REVIEWER_SYSTEM)
+    .digest('hex');
 
 interface ReportEntry {
   recipeId: string;
@@ -343,6 +375,11 @@ async function main() {
     // Wznowienie pisze tymi samymi modelami co początek serii.
     const options = resumed ? resumed.options : writerOptions();
     const example = await loadExample(prisma);
+    if (resumed && resumed.promptHash !== promptHash(example)) {
+      throw new Error(
+        `${args.resume}: prompt serii różni się od obecnego (zmieniony wzorzec albo zasady) — wznowienie pisałoby inaczej niż początek serii; dokończ na starym kodzie albo zacznij nową serię`,
+      );
+    }
     const ids = resumed
       ? []
       : await selectRecipes(prisma, args, example.recipe.id);
@@ -507,6 +544,7 @@ async function main() {
                 rulesVersion: COOK_SCENARIO_RULES_VERSION,
                 options,
                 signatures,
+                promptHash: promptHash(example),
               }),
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
