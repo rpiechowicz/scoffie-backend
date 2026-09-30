@@ -1,4 +1,6 @@
+import { normalizeText } from '../../../common/normalize-text.util';
 import {
+  ingredientNamed,
   qualityChecks,
   recipeDurations,
   resolveWriterOutput,
@@ -124,6 +126,17 @@ describe('system pisania — walidatory twarde', () => {
         e.includes('startLabel'),
       ),
     ).toEqual([]);
+    // Czas słownie też jest powtórzeniem (review Codexa, runda 2).
+    for (const label of [
+      'Po pięciu minutach',
+      'Za dwie minuty',
+      'Po półtorej',
+    ]) {
+      step.timer!.startLabel = label;
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(`${step.id}.timer.startLabel`),
+      );
+    }
     step.timer!.startLabel = 'Za kwadrans';
     expect(qualityChecks(kotlet, content).errors).toContainEqual(
       expect.stringContaining(`${step.id}.timer.startLabel`),
@@ -185,6 +198,32 @@ describe('system pisania — walidatory twarde', () => {
     expect(qualityChecks(kotlet, content).warnings).toContainEqual(
       expect.stringContaining('s10: składnik „sól”'),
     );
+  });
+
+  describe('składnik w tekście — człony nazwy i oboczności (review Codexa, runda 2)', () => {
+    const words = (text: string) =>
+      normalizeText(text)
+        .split(/[^a-z]+/)
+        .filter(Boolean);
+    it.each([
+      // [nazwa, tekst, wymieniony?]
+      [
+        'przyprawa do kurczaka',
+        'Przygotuj kurczaka i przykryj go folią.',
+        false,
+      ],
+      ['przyprawa do kurczaka', 'Natrzyj mięso przyprawą.', true],
+      ['filet z kurczaka', 'Pokrój kurczaka w paski.', true],
+      ['cukier', 'Dodaj cukru i wymieszaj.', true],
+      ['ocet jabłkowy', 'Skrop buraki octem.', true],
+      ['mąka pszenna', 'Obtocz kotlety w mące.', true],
+      ['mąka pszenna', 'Dopraw do smaku.', false],
+      ['ser feta', 'Serwuj od razu.', false],
+      ['sól', 'Posól wodę.', true],
+      ['koperek', 'Posyp resztą koperku.', true],
+    ])('%s ← „%s” → %s', (name, text, expected) => {
+      expect(ingredientNamed(name, words(text))).toBe(expected);
+    });
   });
 
   it('wzorzec kotleta przechodzi też ostrzeżenia reguł .4/.5 (składniki w tekście, tytuł bez echa)', () => {

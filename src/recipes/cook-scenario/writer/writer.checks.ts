@@ -627,26 +627,78 @@ const VERB_PREFIXES = [
  * dłuższych, 3 dla krótkich — a krótkie mogą urosnąć najwyżej o końcówkę
  * („ser” → „serem”, ale nie „serwuj”).
  */
-function ingredientNamed(name: string, words: string[]): boolean {
-  const parts = normalizeText(name)
-    .split(/[^a-z]+/)
-    .filter((word) => word.length >= 3);
+export function ingredientNamed(name: string, words: string[]): boolean {
+  const parts = significantParts(name);
   if (parts.length === 0) return true;
   return parts.some((part) => {
     const short = part.length < 5;
-    const stem = part.slice(0, short ? 3 : 4);
+    const stems = stemVariants(part);
     return words.some((word) =>
       [
         word,
         ...VERB_PREFIXES.filter((p) => word.startsWith(p)).map((p) =>
           word.slice(p.length),
         ),
-      ].some(
-        (core) =>
-          core.startsWith(stem) && (!short || core.length <= part.length + 2),
+      ].some((core) =>
+        stems.some(
+          (stem) =>
+            core.startsWith(stem) && (!short || core.length <= part.length + 2),
+        ),
       ),
     );
   });
+}
+
+/** Przyimki i spójniki w nazwach („filet z kurczaka”, „sól i pieprz”). */
+const NAME_STOPWORDS = new Set([
+  'do',
+  'dla',
+  'na',
+  'z',
+  'ze',
+  'w',
+  'we',
+  'i',
+  'od',
+  'bez',
+  'po',
+]);
+/** Po nich nazwa mówi, DO CZEGO składnik jest („przyprawa do kurczaka”), nie czym jest. */
+const PURPOSE = new Set(['do', 'dla', 'na']);
+
+/**
+ * Znaczące człony nazwy (review Codexa, runda 2): bez przyimków i bez tego,
+ * co stoi po „do / dla / na” — „kurczaka” nie wymienia „przyprawy do
+ * kurczaka”; po „z” człon się liczy („filet z kurczaka” → „kurczaka”).
+ */
+function significantParts(name: string): string[] {
+  const out: string[] = [];
+  for (const word of normalizeText(name)
+    .split(/[^a-z]+/)
+    .filter(Boolean)) {
+    if (PURPOSE.has(word)) break;
+    if (NAME_STOPWORDS.has(word) || word.length < 3) continue;
+    out.push(word);
+  }
+  return out;
+}
+
+/**
+ * Rdzenie słowa z nazwy: 3 litery dla krótkich, 4 dla średnich, 5 dla
+ * długich („przyp”, nie „przy” — to też przedrostek „przygotuj”), plus
+ * oboczności: e ruchome („cukier” → „cukru”, „ocet” → „octem”) i k → c
+ * („mąka” → „w mące”).
+ */
+function stemVariants(part: string): string[] {
+  const size = part.length < 5 ? 3 : part.length < 7 ? 4 : 5;
+  const variants = new Set([part]);
+  const fleeting = part.replace(/i?e(?=[^aeiouy]$)/, '');
+  if (fleeting !== part) variants.add(fleeting);
+  for (const v of [...variants]) {
+    const k = v.replace(/k(?=[aeiouy]?$)/, 'c');
+    if (k !== v) variants.add(k);
+  }
+  return [...variants].map((v) => v.slice(0, Math.min(size, v.length)));
 }
 
 /**
@@ -656,7 +708,7 @@ function ingredientNamed(name: string, words: string[]): boolean {
  */
 // Wyrażenie czasu, nie każda cyfra (review Codexa): „Śmietana 12%” jest OK.
 const TIME_IN_LABEL = new RegExp(
-  `${DURATION.source}|odlicz|kwadrans|pół godziny|godzin`,
+  `${DURATION.source}|odlicz|kwadrans|sekund|minut|godzin|półtorej`,
   'i',
 );
 
