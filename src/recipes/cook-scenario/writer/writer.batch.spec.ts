@@ -7,6 +7,7 @@ import {
   type BatchCall,
   type BatchCallResult,
   type BatchJournal,
+  type BatchHooks,
   type BatchModel,
   type BatchRunResult,
   type InflightBatch,
@@ -84,7 +85,7 @@ class FakeBatchModel implements BatchModel {
 
   async run(
     calls: BatchCall[],
-    onSubmitted?: (batch: InflightBatch) => Promise<void>,
+    hooks: BatchHooks = {},
   ): Promise<BatchRunResult> {
     if (this.stopAfter <= 0 && this.stopReason === 'budget') {
       return { results: new Map(), interrupted: [], stopReason: 'budget' };
@@ -95,7 +96,7 @@ class FakeBatchModel implements BatchModel {
       ids: calls.map((c) => c.id),
       reservedMicroUsd: 100,
     };
-    await onSubmitted?.(inflight);
+    await hooks.onSubmitted?.(inflight);
     if (this.stopAfter <= 0) {
       return {
         results: new Map(),
@@ -485,9 +486,11 @@ describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
       fakeClient(created, { results: 10 }),
       guard,
       2,
-    ).run([{ id: 'a-r1', call }], (b) => {
-      submitted.push(b);
-      return Promise.resolve();
+    ).run([{ id: 'a-r1', call }], {
+      onSubmitted: (b) => {
+        submitted.push(b);
+        return Promise.resolve();
+      },
     });
     expect(outcome.stopReason).toBe('transport');
     expect(outcome.interrupted).toEqual(submitted);
@@ -508,5 +511,199 @@ describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
     expect(collected.results.get('a-r1')).toMatchObject({ ok: true });
     expect(resumed.spentMicroUsd).toBe(ACTUAL);
     expect(resumed.reservedMicroUsd).toBe(0);
+  });
+});
+
+describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
+  // Klient, który na pozycje autora odpowiada dobrym scenariuszem kotleta,
+  // a na recenzję oceną 5; `failResultsOf` = numery paczek bez odbioru.
+  const writerText = JSON.stringify(good());
+  const reviewText = JSON.stringify(review(5));
+  const smartClient = (
+    created: { ids: string[]; review: boolean[] }[],
+    failResultsOf = new Set<number>(),
+  ) =>
+    ({
+      messages: {
+        batches: {
+          create: (body: {
+            requests: {
+              custom_id: string;
+              params: { system: { text: string }[] };
+            }[];
+          }) => {
+            created.push({
+              ids: body.requests.map((r) => r.custom_id),
+              review: body.requests.map((r) =>
+                r.params.system[0].text.startsWith('Jesteś recenzentem'),
+              ),
+            });
+            return Promise.resolve({ id: `b${created.length}` });
+          },
+          retrieve: () =>
+            Promise.resolve({
+              processing_status: 'ended',
+              request_counts: {
+                succeeded: 0,
+                errored: 0,
+                expired: 0,
+                canceled: 0,
+              },
+            }),
+          results: (batchId: string) => {
+            const n = Number(batchId.slice(1));
+            if (failResultsOf.has(n)) return Promise.reject(new Error('502'));
+            const batch = created[n - 1];
+            return Promise.resolve(
+              (async function* () {
+                for (const [i, id] of batch.ids.entries()) {
+                  await Promise.resolve();
+                  yield {
+                    custom_id: id,
+                    result: {
+                      type: 'succeeded',
+                      message: {
+                        content: [
+                          {
+                            type: 'text',
+                            text: batch.review[i] ? reviewText : writerText,
+                          },
+                        ],
+                        stop_reason: 'end_turn',
+                        usage: {
+                          input_tokens: 1000,
+                          output_tokens: 100,
+                          cache_read_input_tokens: 0,
+                          cache_creation_input_tokens: 0,
+                        },
+                      },
+                    },
+                  };
+                }
+              })(),
+            );
+          },
+        },
+      },
+    }) as unknown as Anthropic;
+  const oneCall = (job: ScenarioJob) => job.nextCall()!;
+  // Sonnet 5.5 za pozycję w paczce: (1000 × 2 + 100 × 10) × 0,5 = 1500 µ$.
+  const ACTUAL = 1500;
+
+  const splitRun = (persist: (j: BatchJournal) => Promise<void>) => {
+    const created: { ids: string[]; review: boolean[] }[] = [];
+    const jobs = newJobs();
+    const worst = worstCaseMicroUsd(oneCall(jobs[0]), 0.5);
+    // Budżet na jedną pozycję naraz → każda runda dzieli się na paczki.
+    const guard = new BudgetGuard(worst + worst / 2);
+    const model = new AnthropicBatchModel(
+      smartClient(created),
+      guard,
+      undefined,
+      {
+        sleep: noSleep,
+      },
+    );
+    const run = runBatchRounds(jobs, model, {
+      onDone: () => Promise.resolve(),
+      persist,
+      spentMicroUsd: () => guard.spentMicroUsd,
+      sleep: noSleep,
+    });
+    return { run, created, jobs, guard };
+  };
+
+  it('dziennik chwilowo pada tuż po przyjęciu paczki: paczka i tak odebrana, przebieg kończy się bez strat', async () => {
+    let failOnce = true;
+    const { run, jobs } = splitRun((j) => {
+      if (j.inflight.length && failOnce) {
+        failOnce = false;
+        return Promise.reject(new Error('chwilowo'));
+      }
+      return Promise.resolve();
+    });
+    await run;
+    expect(jobs.map((j) => j.outcome().status)).toEqual([
+      'VALIDATED',
+      'VALIDATED',
+    ]);
+  });
+
+  it('dziennik pada na stałe po przyjęciu paczki: paczka odebrana, NOWE nie idą, przebieg staje „journal”', async () => {
+    let broken = false;
+    const { run, created, jobs, guard } = splitRun((j) => {
+      if (j.inflight.length) broken = true;
+      return broken
+        ? Promise.reject(new Error('dysk pełny'))
+        : Promise.resolve();
+    });
+    await expect(run).rejects.toMatchObject({ reason: 'journal' });
+    // Wysłana TYLKO pierwsza paczka — i jej wynik trafił do zadania.
+    expect(created).toHaveLength(1);
+    expect(jobs[0].nextCall()?.system).toMatch(/^Jesteś recenzentem/);
+    expect(guard.spentMicroUsd).toBe(ACTUAL);
+  });
+
+  it('restart w trakcie drugiej paczki rundy: pierwsza liczy się dokładnie raz', async () => {
+    const created: { ids: string[]; review: boolean[] }[] = [];
+    const jobs = newJobs();
+    const worst = worstCaseMicroUsd(oneCall(jobs[0]), 0.5);
+    const limit = worst * 10;
+    const guard = new BudgetGuard(worst + worst / 2);
+    const journals: BatchJournal[] = [];
+    const persist = (j: BatchJournal) => {
+      journals.push(clone(j));
+      return Promise.resolve();
+    };
+    // Paczka 1 odebrana, paczka 2 przyjęta, ale nieodebrana → stop.
+    await expect(
+      runBatchRounds(
+        jobs,
+        new AnthropicBatchModel(
+          smartClient(created, new Set([2])),
+          guard,
+          undefined,
+          {
+            sleep: noSleep,
+            retries: 1,
+          },
+        ),
+        {
+          onDone: () => Promise.resolve(),
+          persist,
+          spentMicroUsd: () => guard.spentMicroUsd,
+        },
+      ),
+    ).rejects.toMatchObject({ reason: 'transport' });
+    const last = journals[journals.length - 1];
+    expect(last.spentMicroUsd).toBe(ACTUAL);
+    expect(last.inflight.map((b) => b.batchId)).toEqual(['b2']);
+    // Wynik paczki 1 jest już w stanie zadania (nie trzeba jej odbierać).
+    expect(last.jobs[0].attempts).toHaveLength(1);
+
+    // Nowy proces: budżet od rozliczonego, odbiór b2 dolicza TYLKO b2.
+    const resumed = new BudgetGuard(limit, last.spentMicroUsd);
+    const restored = last.jobs.map((st) => ScenarioJob.restore(st, example));
+    const afterCollect: number[] = [];
+    await runBatchRounds(
+      restored,
+      new AnthropicBatchModel(smartClient(created), resumed, undefined, {
+        sleep: noSleep,
+      }),
+      {
+        onDone: () => Promise.resolve(),
+        persist: (j) => {
+          afterCollect.push(j.spentMicroUsd);
+          return Promise.resolve();
+        },
+        spentMicroUsd: () => resumed.spentMicroUsd,
+        resume: last,
+      },
+    );
+    expect(afterCollect[0]).toBe(2 * ACTUAL);
+    expect(restored.map((j) => j.outcome().status)).toEqual([
+      'VALIDATED',
+      'VALIDATED',
+    ]);
   });
 });

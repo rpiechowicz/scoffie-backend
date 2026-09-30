@@ -51,11 +51,27 @@ export interface BatchRunResult {
   stopReason: 'budget' | 'transport' | null;
 }
 
+/**
+ * Punkty zaczepienia dziennika w trakcie `run` (review Codexa):
+ * - `onSubmitted` — paczka przyjęta; zapis id do dziennika (błąd zapisu
+ *   NIE przerywa odbioru — paczka jest opłacona, odbieramy ją i tak);
+ * - `onCollected` — paczka odebrana i rozliczona; jej wyniki trafiają do
+ *   zadań i znika z „w locie” jednym zapisem dziennika, ZANIM pójdzie
+ *   następna paczka rundy (nic nie liczy się podwójnie po restarcie);
+ * - `canSubmit` — `false` = nie wysyłaj kolejnych paczek (dziennik nie
+ *   działa — nowe paczki byłyby nieśledzone).
+ */
+export interface BatchHooks {
+  onSubmitted?: (batch: InflightBatch) => Promise<void>;
+  onCollected?: (
+    batch: InflightBatch,
+    results: Map<string, BatchCallResult>,
+  ) => Promise<void>;
+  canSubmit?: () => boolean;
+}
+
 export interface BatchModel {
-  run(
-    calls: BatchCall[],
-    onSubmitted?: (batch: InflightBatch) => Promise<void>,
-  ): Promise<BatchRunResult>;
+  run(calls: BatchCall[], hooks?: BatchHooks): Promise<BatchRunResult>;
   /** Odbiór wyników paczki wysłanej wcześniej (wznowienie). */
   collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult>;
 }
@@ -65,10 +81,14 @@ export const batchCallId = (recipeId: string, round: number) =>
   `${recipeId.replace(/-/g, '')}-r${round}`;
 
 export class BatchStoppedError extends Error {
-  constructor(readonly reason: 'budget' | 'transport' | 'save' | 'incomplete') {
+  constructor(
+    readonly reason: 'budget' | 'transport' | 'save' | 'incomplete' | 'journal',
+  ) {
     super(
       {
         budget: 'budżet wyczerpany — doładuj i wznów (--resume)',
+        journal:
+          'dziennik nie daje się zapisać — przebieg stanął po odebraniu wysłanych paczek; napraw dysk i wznów (--resume)',
         save: 'nie wszystkie gotowe wyniki są zapisane w bazie — sprawdź bazę i wznów (--resume)',
         incomplete:
           'część przepisów bez wyniku po ponowieniach (błędy API) — wznów (--resume), dostaną nową serię prób',
@@ -121,15 +141,31 @@ export async function runBatchRounds(
   let inflight: InflightBatch[] = [...(options.resume?.inflight ?? [])];
   let round = options.resume?.round ?? 0;
 
-  const persist = async () => {
-    await options.persist?.({
-      version: 1,
-      round,
-      spentMicroUsd: options.spentMicroUsd?.() ?? 0,
-      handled: [...handled],
-      inflight,
-      jobs: jobs.map((job) => job.snapshot()),
-    });
+  // Dziennik: zapis z ponowieniem; trwały błąd nie przerywa odbioru paczek
+  // już opłaconych, ale wstrzymuje wysyłkę nowych (`canSubmit`).
+  let journalBroken = false;
+  const persist = async (): Promise<boolean> => {
+    if (!options.persist) return true;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await options.persist({
+          version: 1,
+          round,
+          spentMicroUsd: options.spentMicroUsd?.() ?? 0,
+          handled: [...handled],
+          inflight,
+          jobs: jobs.map((job) => job.snapshot()),
+        });
+        journalBroken = false;
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log(`dziennik: zapis nieudany (${attempt}/3): ${message}`);
+        if (attempt < 3) await sleep(1000 * attempt);
+      }
+    }
+    journalBroken = true;
+    return false;
   };
 
   const callsOf = (forRound: number) =>
@@ -140,13 +176,17 @@ export async function runBatchRounds(
         : [];
     });
 
+  // Każda pozycja trafia do zadania najwyżej raz (wyniki przychodzą paczka
+  // po paczce przez `onCollected`).
+  const applied = new Set<string>();
   const apply = (
     pending: { job: ScenarioJob; id: string }[],
     results: Map<string, BatchCallResult>,
   ) => {
     for (const { job, id } of pending) {
       const outcome = results.get(id);
-      if (!outcome) continue; // niewysłane / w locie — zadanie czeka
+      if (!outcome || applied.has(id)) continue; // niewysłane / w locie
+      applied.add(id);
       if (outcome.ok) job.accept(outcome.result);
       else job.transportFailure(outcome.error);
     }
@@ -196,7 +236,12 @@ export async function runBatchRounds(
       );
       const outcome = await model.collect(batch, calls);
       apply(pending, outcome.results);
-      still.push(...outcome.interrupted);
+      if (outcome.interrupted.length) {
+        still.push(...outcome.interrupted);
+      } else {
+        inflight = inflight.filter((b) => b.batchId !== batch.batchId);
+        await persist();
+      }
     }
     inflight = still;
     await saveDone();
@@ -223,15 +268,24 @@ export async function runBatchRounds(
     log(`runda ${round}: ${pending.length} wywołań`);
     const outcome = await model.run(
       pending.map(({ id, call }) => ({ id, call })),
-      async (batch) => {
-        inflight.push(batch);
-        await persist();
+      {
+        onSubmitted: async (batch) => {
+          inflight.push(batch);
+          await persist();
+        },
+        onCollected: async (batch, results) => {
+          apply(pending, results);
+          inflight = inflight.filter((b) => b.batchId !== batch.batchId);
+          await persist();
+        },
+        canSubmit: () => !journalBroken,
       },
     );
     apply(pending, outcome.results);
     inflight = outcome.interrupted;
     await saveDone();
     if (outcome.stopReason) throw new BatchStoppedError(outcome.stopReason);
+    if (journalBroken) throw new BatchStoppedError('journal');
   }
 }
 
@@ -270,11 +324,15 @@ export class AnthropicBatchModel implements BatchModel {
 
   async run(
     calls: BatchCall[],
-    onSubmitted?: (batch: InflightBatch) => Promise<void>,
+    hooks: BatchHooks = {},
   ): Promise<BatchRunResult> {
     const results = new Map<string, BatchCallResult>();
     let queue = [...calls];
     while (queue.length) {
+      if (hooks.canSubmit && !hooks.canSubmit()) {
+        // Dziennik nie działa — nowej paczki nie wysyłamy (byłaby nieśledzona).
+        return { results, interrupted: [], stopReason: null };
+      }
       const chunk: { item: BatchCall; reserved: number }[] = [];
       const rest: BatchCall[] = [];
       for (const item of queue) {
@@ -311,10 +369,24 @@ export class AnthropicBatchModel implements BatchModel {
         reservedMicroUsd: reservedTotal,
       };
       this.log(`paczka ${batchId}: ${chunk.length} pozycji wysłana`);
-      if (onSubmitted) await onSubmitted(inflight);
-      const collected = await this.receive(inflight, chunk, results);
+      // Paczka JUŻ przyjęta i opłacona — błąd dziennika nie może jej porzucić.
+      try {
+        await hooks.onSubmitted?.(inflight);
+      } catch (error) {
+        this.log(
+          `UWAGA: paczka ${batchId} bez wpisu w dzienniku: ${messageOf(error)}`,
+        );
+      }
+      const received = new Map<string, BatchCallResult>();
+      const collected = await this.receive(inflight, chunk, received);
+      for (const [id, value] of received) results.set(id, value);
       if (!collected) {
         return { results, interrupted: [inflight], stopReason: 'transport' };
+      }
+      try {
+        await hooks.onCollected?.(inflight, received);
+      } catch (error) {
+        this.log(`dziennik po odbiorze ${batchId}: ${messageOf(error)}`);
       }
       queue = rest;
     }
