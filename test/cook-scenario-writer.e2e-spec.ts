@@ -8,8 +8,10 @@ import {
 import { parseCookScenarioContent } from '../src/recipes/cook-scenario/cook-scenario.validate';
 import type { WriteOutcome } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
+  hasCurrentWrite,
   loadWriterRecipe,
   saveWrittenScenario,
+  writerInputHash,
 } from '../src/recipes/cook-scenario/writer/writer.store';
 import { ZERO_USAGE } from '../src/recipes/cook-scenario/writer/writer.types';
 
@@ -267,4 +269,55 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       }
     },
   );
+  it('„już napisany” tylko dla obecnej treści: zmiana nazwy albo ilości po zapisie = do ponowienia', async () => {
+    const loaded = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+    const saved = await prisma.$transaction((tx) =>
+      saveWrittenScenario(tx, {
+        recipe: loaded.recipe,
+        signature: loaded.signature,
+        outcome: outcome('VALIDATED', null),
+        generator: { source: 'writer', test: true },
+      }),
+    );
+    const row = await prisma.recipeCookScenario.findUniqueOrThrow({
+      where: {
+        recipeId_version: { recipeId: KOTLET.recipeId, version: saved.version },
+      },
+      select: { id: true, validationReport: true },
+    });
+    created.push(row.id);
+    expect(row.validationReport).toMatchObject({
+      inputHash: writerInputHash(loaded.recipe),
+    });
+    const current = async () =>
+      hasCurrentWrite(
+        prisma,
+        (await loadWriterRecipe(prisma, KOTLET.recipeId))!,
+      );
+    expect(await current()).toBe(true);
+
+    const chicken = await prisma.recipeIngredient.findFirstOrThrow({
+      where: { recipeId: KOTLET.recipeId, name: 'filet z kurczaka' },
+      select: { id: true, name: true, amount: true },
+    });
+    try {
+      // Nazwa jest poza podpisem bazy — łapie ją odcisk wejścia.
+      await prisma.recipeIngredient.update({
+        where: { id: chicken.id },
+        data: { name: 'filet z indyka' },
+      });
+      expect(await current()).toBe(false);
+      await prisma.recipeIngredient.update({
+        where: { id: chicken.id },
+        data: { name: chicken.name, amount: chicken.amount + 20 },
+      });
+      expect(await current()).toBe(false);
+    } finally {
+      await prisma.recipeIngredient.update({
+        where: { id: chicken.id },
+        data: { name: chicken.name, amount: chicken.amount },
+      });
+    }
+    expect(await current()).toBe(true);
+  });
 });

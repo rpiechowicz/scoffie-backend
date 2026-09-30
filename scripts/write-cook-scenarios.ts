@@ -27,10 +27,7 @@ import {
   resolveGoldenContent,
   type GoldenScenarioFile,
 } from '../src/recipes/cook-scenario/cook-scenario.golden';
-import {
-  COOK_SCENARIO_RULES_VERSION,
-  type CookScenarioContent,
-} from '../src/recipes/cook-scenario/cook-scenario.types';
+import type { CookScenarioContent } from '../src/recipes/cook-scenario/cook-scenario.types';
 import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
@@ -55,6 +52,7 @@ import {
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
 import {
+  hasCurrentWrite,
   loadWriterRecipe,
   saveWrittenScenario,
 } from '../src/recipes/cook-scenario/writer/writer.store';
@@ -211,17 +209,16 @@ async function selectRecipes(
   }
   ids = [...new Set(ids)];
   if (args.skipWritten) {
-    const written = await prisma.recipeCookScenario.findMany({
-      where: {
-        recipeId: { in: ids },
-        rulesVersion: COOK_SCENARIO_RULES_VERSION,
-        status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
-      },
-      select: { recipeId: true },
-    });
-    const done = new Set(written.map((row) => row.recipeId));
-    ids = ids.filter((id) => !done.has(id));
+    // Pomijamy tylko przepisy, których wynik pasuje do OBECNEJ treści —
+    // przepis zmieniony po generowaniu idzie jeszcze raz.
+    const pending: string[] = [];
+    for (const id of ids) {
+      const loaded = await loadWriterRecipe(prisma, id);
+      if (!loaded || !(await hasCurrentWrite(prisma, loaded))) pending.push(id);
+    }
+    ids = pending;
   }
+
   return args.limit ? ids.slice(0, args.limit) : ids;
 }
 

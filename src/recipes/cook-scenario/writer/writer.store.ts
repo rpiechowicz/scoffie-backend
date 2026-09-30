@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { HttpStatus } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -152,6 +153,7 @@ export async function saveWrittenScenario(
       generator: input.generator,
       validationReport: {
         outcome: outcome.status,
+        inputHash: writerInputHash(input.recipe),
         recipeChangedDuringWrite: changed,
         review: outcome.review,
         warnings: outcome.warnings,
@@ -161,4 +163,44 @@ export async function saveWrittenScenario(
     },
   });
   return { version, status };
+}
+
+/**
+ * Odcisk CAŁEGO wejścia modelu. Podpis bazy (`recipe_content_signature`)
+ * obejmuje tylko pola, od których zależą ilości i kroki; nazwy składników,
+ * opis czy sprzęt też zmieniają treść i walidatory (np. bezpieczeństwo
+ * drobiu czyta nazwy). Zapisywany przy każdej wersji systemu pisania.
+ */
+export function writerInputHash(recipe: WriterRecipe): string {
+  return `sha256:${createHash('sha256').update(JSON.stringify(recipe)).digest('hex')}`;
+}
+
+/**
+ * Czy przepis ma już wynik systemu pisania DLA SWOJEJ OBECNEJ TREŚCI
+ * (review Codexa, E3a runda 4). Wersje robocze nie dostają STALE od
+ * triggera (ten pilnuje tylko PUBLISHED), więc „jest wiersz” to za mało:
+ * wiersz liczy się tylko przy tych samych zasadach, tym samym podpisie
+ * i — dla wyników systemu pisania — tym samym odcisku wejścia. Wzorzec
+ * pisany ręcznie (PUBLISHED bez odcisku) liczy się po podpisie, który
+ * trigger trzyma w ryzach.
+ */
+export async function hasCurrentWrite(
+  prisma: PrismaClient,
+  loaded: { recipe: WriterRecipe; signature: string },
+): Promise<boolean> {
+  const rows = await prisma.recipeCookScenario.findMany({
+    where: {
+      recipeId: loaded.recipe.id,
+      rulesVersion: COOK_SCENARIO_RULES_VERSION,
+      recipeContentHash: loaded.signature,
+      status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
+    },
+    select: { status: true, validationReport: true },
+  });
+  const hash = writerInputHash(loaded.recipe);
+  return rows.some((row) => {
+    const report = row.validationReport as { inputHash?: unknown } | null;
+    if (typeof report?.inputHash === 'string') return report.inputHash === hash;
+    return row.status === 'PUBLISHED';
+  });
 }
