@@ -9776,7 +9776,7 @@
             "nullable": true
           },
           "during": {
-            "description": "`id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.",
+            "description": "`id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.\n\nKONTRAKT OŚ CZASU (walidator `checkTimerTimeline`, telefon E4): krok\nBEZ `during` po kroku z timerem zaczyna się po końcu tego timera —\n„Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer\nstartowany w kroku z `during` biegnie dalej sam, także po końcu\nnadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).",
             "type": "string",
             "nullable": true
           },
