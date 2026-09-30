@@ -571,4 +571,14 @@ describe('system pisania — walidatory twarde', () => {
       ]);
     });
   });
+  it('pisownia: słowa kuchenne bez polskich znaków = błąd z poprawną formą (D32)', () => {
+    const content = clone(example.content);
+    content.steps[1].body =
+      'Kroj mieso równo i poloz na desce razem z resztą. Cebule po przekrojeniu posiekaj, dodaj ze soli od razu.';
+    expect(qualityChecks(kotlet, content).errors).toEqual([
+      's2.body: pisownia „Kroj” → „krój”',
+      's2.body: pisownia „mieso” → „mięso”',
+      's2.body: pisownia „poloz” → „połóż”',
+    ]);
+  });
 });

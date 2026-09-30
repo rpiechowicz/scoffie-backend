@@ -300,6 +300,107 @@ function checkNumbersInText(
   }
 }
 
+// ── Pisownia (D32) ──────────────────────────────────────────────────────
+
+/**
+ * Słowa kuchenne, które model czasem pisze BEZ polskich znaków (pilot:
+ * „kroj” dwa razy przeszło recenzenta). Tylko formy, które same nie są
+ * poprawnymi słowami — „cebule”, „soli”, „ze” tu nie trafiają. Lista rośnie
+ * z przeglądem; recenzent pilnuje reszty.
+ */
+const MISSING_DIACRITICS: Record<string, string> = {
+  kroj: 'krój',
+  pokroj: 'pokrój',
+  ukroj: 'ukrój',
+  wykroj: 'wykrój',
+  kroic: 'kroić',
+  wloz: 'włóż',
+  poloz: 'połóż',
+  odloz: 'odłóż',
+  przeloz: 'przełóż',
+  doloz: 'dołóż',
+  wyloz: 'wyłóż',
+  zloz: 'złóż',
+  wlacz: 'włącz',
+  wylacz: 'wyłącz',
+  obroc: 'obróć',
+  przewroc: 'przewróć',
+  wez: 'weź',
+  smaz: 'smaż',
+  usmaz: 'usmaż',
+  podsmaz: 'podsmaż',
+  posol: 'posól',
+  osol: 'osól',
+  zeszklij: 'zeszklij',
+  maslo: 'masło',
+  masla: 'masła',
+  maslem: 'masłem',
+  mieso: 'mięso',
+  miesa: 'mięsa',
+  miesem: 'mięsem',
+  make: 'mąkę',
+  maki: 'mąki',
+  maka: 'mąka',
+  zoltko: 'żółtko',
+  zoltka: 'żółtka',
+  zolty: 'żółty',
+  zlote: 'złote',
+  zloty: 'złoty',
+  zlota: 'złota',
+  lyzka: 'łyżka',
+  lyzke: 'łyżkę',
+  lyzki: 'łyżki',
+  lyzeczka: 'łyżeczka',
+  lyzeczke: 'łyżeczkę',
+  szczypte: 'szczyptę',
+  wode: 'wodę',
+  goracy: 'gorący',
+  goraca: 'gorąca',
+  gorace: 'gorące',
+  goracej: 'gorącej',
+  goracym: 'gorącym',
+  miekki: 'miękki',
+  miekka: 'miękka',
+  miekkie: 'miękkie',
+  srodek: 'środek',
+  srodka: 'środka',
+  srodku: 'środku',
+  sredni: 'średni',
+  sredniego: 'średniego',
+  sredniej: 'średniej',
+  ogien: 'ogień',
+  dluzej: 'dłużej',
+  krotko: 'krótko',
+  pozniej: 'później',
+  wczesniej: 'wcześniej',
+  juz: 'już',
+  moze: 'może',
+  az: 'aż',
+  zeby: 'żeby',
+  rowno: 'równo',
+  rowniez: 'również',
+  wiecej: 'więcej',
+  mniej: 'mniej',
+};
+// `zeszklij` i `mniej` są poprawne — zostają w mapie tylko jako strażnicy
+// przed pomyłką przy dopisywaniu; filtr niżej je pomija.
+const TYPO_WORDS = Object.entries(MISSING_DIACRITICS).filter(
+  ([wrong, right]) => wrong !== right,
+);
+const TYPO = new RegExp(
+  `(?<![\\p{L}])(${TYPO_WORDS.map(([wrong]) => wrong).join('|')})(?![\\p{L}])`,
+  'giu',
+);
+
+function checkSpelling(content: CookScenarioContent, errors: string[]) {
+  for (const [path, text] of textFields(content)) {
+    for (const match of text.matchAll(TYPO)) {
+      const right = MISSING_DIACRITICS[match[1].toLowerCase()];
+      errors.push(`${path}: pisownia „${match[1]}” → „${right}”`);
+    }
+  }
+}
+
 // ── Piekarnik ───────────────────────────────────────────────────────────
 
 const OVEN_USE = /(do piekarnika|w piekarniku|z piekarnika)(?!\s*mikrofal)/i;
@@ -692,6 +793,7 @@ export function qualityChecks(
   const recipeRanges = recipeDurations(recipe.instructions);
 
   checkNumbersInText(recipe, content, errors);
+  checkSpelling(content, errors);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
   checkTextClaims(recipe, content, recipeRanges, errors, warnings);
