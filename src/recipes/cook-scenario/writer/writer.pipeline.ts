@@ -307,6 +307,11 @@ export class ScenarioJob {
     return this.result !== null;
   }
 
+  /** Ile zadanie kosztowało dotąd (także w toku) — do bramki kosztu serii. */
+  get spentMicroUsd(): number {
+    return this.usage.costMicroUsd;
+  }
+
   /** Następne potrzebne wywołanie modelu albo `null`, gdy zadanie skończone. */
   nextCall(): WriterModelCall | null {
     if (this.done) return null;

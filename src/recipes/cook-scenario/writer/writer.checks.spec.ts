@@ -1161,6 +1161,26 @@ describe('system pisania — walidatory twarde', () => {
       );
     });
 
+    it('during pod zagnieżdżonym timerem: ziemniaki (spod masła) biegną dalej po krokach głównych — wolno; skończone — błąd', () => {
+      const content = clone(example.content);
+      // Ziemniaki startują „w międzyczasie” masła (0 → 20 min); s6 rusza po
+      // maśle (15 min) — ziemniaki jeszcze się gotują.
+      step(content, 's6').during = 't-potatoes';
+      step(content, 's6').stage = 'W MIĘDZYCZASIE';
+      const during = () =>
+        qualityChecks(kotlet, content).errors.filter((e) =>
+          e.includes('.during'),
+        );
+      expect(during()).toEqual([]);
+      // Ziemniaki gotowe po 10 min — w 15. minucie już nie biegną.
+      const potatoes = step(content, 's3').timer!;
+      potatoes.minSeconds = 600;
+      potatoes.maxSeconds = 600;
+      expect(during()).toEqual([
+        expect.stringContaining('s6.during „t-potatoes”'),
+      ]);
+    });
+
     it('totalMinutes nie krótszy niż odliczania po kolei', () => {
       // Masło 15 min, potem kotlety 10 i piekarnik 5 — ziemniaki w tle.
       expect(timelineFloorSeconds(example.content)).toBe(1800);

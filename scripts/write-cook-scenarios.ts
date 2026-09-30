@@ -351,9 +351,22 @@ async function writeJournal(path: string, journal: JournalFile) {
 /**
  * Bramka jakości serii (review Codexa, noc 30.09): systemowy problem —
  * np. cała kategoria przepisów odrzucana — ma zatrzymać serię, zanim
- * zapłacimy za cały katalog. Liczy tylko zadania z wynikiem, od 30.
+ * zapłacimy za cały katalog. Udział REJECTED — od 30 zadań z wynikiem;
+ * koszt — po wszystkich zadaniach serii.
  */
 function qualityGate(jobs: ScenarioJob[], args: Args): string | null {
+  if (!jobs.length) return null;
+  // Wydatek WSZYSTKICH zadań serii (także w toku) na przepis — dolna granica
+  // końcowej średniej, więc wolno ją sprawdzać od pierwszej rundy. Sama
+  // średnia zakończonych byłaby zaniżona: tanie kończą się pierwsze, drogie
+  // (poprawki) później (review Codexa, noc 30.09).
+  const cost =
+    jobs.reduce((sum, job) => sum + job.spentMicroUsd, 0) /
+    jobs.length /
+    1_000_000;
+  if (cost > args.gateCost) {
+    return `wydatek ${cost.toFixed(3)} $ na przepis serii już teraz (próg ${args.gateCost} $)`;
+  }
   const finished = jobs
     .filter((job) => job.hasResult)
     .map((job) => job.outcome());
@@ -361,13 +374,6 @@ function qualityGate(jobs: ScenarioJob[], args: Args): string | null {
   const rejected = finished.filter((o) => o.status === 'REJECTED').length;
   if (rejected / finished.length > args.gateReject) {
     return `odrzuconych ${rejected} z ${finished.length} (próg ${Math.round(args.gateReject * 100)}%)`;
-  }
-  const cost =
-    finished.reduce((sum, o) => sum + o.usage.costMicroUsd, 0) /
-    finished.length /
-    1_000_000;
-  if (cost > args.gateCost) {
-    return `średni koszt ${cost.toFixed(3)} $ na przepis (próg ${args.gateCost} $)`;
   }
   return null;
 }
