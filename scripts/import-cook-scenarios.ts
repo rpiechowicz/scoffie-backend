@@ -65,7 +65,7 @@ async function main() {
         if (error instanceof DryRunRollback) {
           outcome = error.outcome;
           counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
-          if (!['PUBLISHED', 'UNCHANGED', 'REPLACED'].includes(outcome)) {
+          if (!['PUBLISHED', 'UNCHANGED'].includes(outcome)) {
             notes.push(`${outcome} · ${entry.title} (${entry.recipeId})`);
           }
           continue;
@@ -74,7 +74,7 @@ async function main() {
         notes.push(`ERROR · ${entry.title}: ${describeError(error)}`);
       }
       counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
-      if (!['PUBLISHED', 'UNCHANGED', 'REPLACED', 'ERROR'].includes(outcome)) {
+      if (!['PUBLISHED', 'UNCHANGED', 'ERROR'].includes(outcome)) {
         notes.push(`${outcome} · ${entry.title} (${entry.recipeId})`);
       }
     }

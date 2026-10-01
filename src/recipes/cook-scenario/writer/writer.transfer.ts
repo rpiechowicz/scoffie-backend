@@ -212,7 +212,7 @@ export class DryRunRollback extends Error {
 
 /**
  * Jeden scenariusz z pliku — we WŁASNEJ transakcji wołającego. Pod blokadą
- * przepisu: brak przepisu = NOT_FOUND; przepis spoza katalogu = NOT_CATALOG;
+ * przepisu: brak przepisu = NOT_FOUND; przepis spoza katalogu albo wycofany = NOT_CATALOG;
  * inny przenośny odcisk wejścia = CHANGED (nic nie zapisuje); opublikowany
  * wzorzec pisany ręcznie = GOLDEN (import go nie zastępuje). Inaczej nazwy
  * składników → id TEJ bazy i `publishCookScenario` (walidacja zgodności
@@ -237,10 +237,13 @@ async function importInTx(
   entry: CookScenarioExportEntry,
   exportedAt: string,
 ): Promise<ImportOutcome> {
-  const locked = await tx.$queryRaw<{ id: string; isCatalog: boolean }[]>`
-    SELECT "id", "isCatalog" FROM "Recipe" WHERE "id" = ${entry.recipeId}::uuid FOR UPDATE`;
+  const locked = await tx.$queryRaw<
+    { id: string; isCatalog: boolean; isActive: boolean }[]
+  >`
+    SELECT "id", "isCatalog", "isActive" FROM "Recipe" WHERE "id" = ${entry.recipeId}::uuid FOR UPDATE`;
   if (locked.length === 0) return 'NOT_FOUND';
-  if (!locked[0].isCatalog) return 'NOT_CATALOG';
+  // Jak eksport: tylko aktywne przepisy katalogu.
+  if (!locked[0].isCatalog || !locked[0].isActive) return 'NOT_CATALOG';
   const recipe = await readWriterRecipe(tx, entry.recipeId);
   if (!recipe || portableInputHash(recipe) !== entry.portableHash) {
     return 'CHANGED';
