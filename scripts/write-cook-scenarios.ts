@@ -722,6 +722,17 @@ async function main() {
         report.length,
         ...batchReport(jobs, new Map(rows.map((row) => [row.jobId, row]))),
       );
+      // Poprawka bez wiersza, bo jej punkt startu przestał być aktualny
+      // (CAS w `saveWrittenScenario`), to świadome pominięcie, nie awaria
+      // zapisu — także po wznowieniu (stan z bazy, nie z pamięci procesu).
+      for (const [index, entry] of report.entries()) {
+        const from = revisions[jobs[index].jobId];
+        if (entry.status !== 'UNSAVED' || !from) continue;
+        const candidate = await loadRevisionCandidate(prisma, entry.recipeId);
+        if (candidate?.revisedFrom.scenarioId !== from.scenarioId) {
+          entry.status = 'SUPERSEDED';
+        }
+      }
       for (const entry of report) {
         if (entry.failure) {
           console.log(
@@ -789,7 +800,7 @@ async function main() {
     const count = (status: string) =>
       report.filter((r) => r.status === status).length;
     console.log(
-      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}${count('PENDING') + count('UNSAVED') ? ` · W TOKU ${count('PENDING')} · NIEZAPISANE ${count('UNSAVED')}` : ''}`,
+      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')}${count('SUPERSEDED') ? ` · POMINIĘTE (nowszy wynik) ${count('SUPERSEDED')}` : ''} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}${count('PENDING') + count('UNSAVED') ? ` · W TOKU ${count('PENDING')} · NIEZAPISANE ${count('UNSAVED')}` : ''}`,
     );
     console.log(`koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $`);
     if (upToDate) {
@@ -797,7 +808,7 @@ async function main() {
     }
     if (count('BUDGET')) {
       console.log(
-        `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza — reszta po doładowaniu (--skip-written dokończy)`,
+        `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza — reszta po doładowaniu (${args.revise ? '--revise' : '--skip-written'} dokończy; seria paczek: --resume)`,
       );
     }
     if (stoppedBatch) {

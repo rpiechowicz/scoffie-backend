@@ -94,8 +94,13 @@ export interface RevisionSeed {
   content: CookScenarioContent | null;
   /** Ostatnia recenzja odrzuconej wersji (BLOCKER/MAJOR albo za niska ocena). */
   review: Review | null;
-  /** Błędy walidatorów ostatniej próby — powód, gdy recenzji nie było. */
+  /**
+   * Błędy walidatorów ostatniej próby — powód, gdy recenzji nie było; przy
+   * recenzji to błędy późniejszej, nieudanej poprawki (też idą do autora).
+   */
   errors: string[];
+  /** Któraś próba ucięta (max_tokens) — poprawka od razu z wyższym limitem. */
+  writerTruncated?: boolean;
 }
 
 /** Najwięcej punktów z raportu wracających do autora — reszta to szum. */
@@ -300,8 +305,9 @@ export class ScenarioJob {
           )
       : [];
     const feedback = seed.review
-      ? reviewFeedback(seed.review, withMinor)
+      ? [...reviewFeedback(seed.review, withMinor), ...seed.errors]
       : seed.errors;
+    this.writerTruncated = seed.writerTruncated ?? false;
     this.feedback = feedback.slice(0, FEEDBACK_LIMIT);
     this.lastContent = seed.content;
     this.lastReview = seed.review;

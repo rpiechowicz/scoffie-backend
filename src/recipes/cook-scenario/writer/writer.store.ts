@@ -94,6 +94,11 @@ export async function loadRevisionCandidate(
           content: (row.content ?? null) as RevisionSeed['content'],
           review: report.review ?? null,
           errors: lastAttempt?.errors ?? [],
+          writerTruncated: (report.attempts ?? []).some((attempt) =>
+            attempt.errors.some((error) =>
+              error.startsWith('odpowiedź ucięta'),
+            ),
+          ),
         },
       };
     },

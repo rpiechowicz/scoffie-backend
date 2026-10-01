@@ -421,6 +421,18 @@ describe('system pisania — poprawka odrzuconej wersji (--revise)', () => {
     expect(outcome.review).toEqual(seed.review);
   });
 
+  it('błędy późniejszej nieudanej poprawki idą do autora razem z recenzją; ucięta próba = wyższy limit od razu', async () => {
+    const model = new StubModel([good(), review(4)]);
+    await run(model, {
+      ...rejected(),
+      errors: ['s1.title: 33 znaki, limit 30'],
+      writerTruncated: true,
+    });
+    expect(model.calls[0].user).toContain('[s6] MAJOR: ryż skończy się');
+    expect(model.calls[0].user).toContain('s1.title: 33 znaki, limit 30');
+    expect(model.calls[0].maxTokens).toBeGreaterThan(opus.maxTokens);
+  });
+
   it('treść niepasująca do składników przepisu = wyjątek przy tworzeniu zadania', () => {
     const seed = rejected();
     seed.content!.steps[0].ingredients[0].ingredientId = 'nie-ma-takiego';
