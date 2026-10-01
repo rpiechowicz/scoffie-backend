@@ -553,7 +553,10 @@ function mentionsIngredient(
   // Słowo tuż przed liczbą (albo przed nawiasem z liczbą) — tylko z tej
   // samej pozycji wyliczenia: po „, ” albo „i” zaczyna się nowa pozycja
   // („z mlekiem kokosowym, 150 ml wody”, „bulion warzywny i 300 ml wody”).
-  const before = text.slice(0, numberStart);
+  // Bez określników tuż przed liczbą („olej (ok. 30 ml)”, review Codexa).
+  const before = text
+    .slice(0, numberStart)
+    .replace(/(^|[^\p{L}])(ok|około|ca|po)\.?\s*$/iu, '$1');
   // „olej (30 ml)” — w nawiasie liczba dopowiada rzecz tuż przed nim.
   const bracketed = /\(\s*$/u.test(before);
   const prefix = before

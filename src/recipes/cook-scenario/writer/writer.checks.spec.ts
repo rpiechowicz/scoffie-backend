@@ -1502,6 +1502,20 @@ describe('system pisania — walidatory twarde', () => {
         expect(numberErrors(salty, 'Dodaj 50 ml soli.')).toHaveLength(1);
         expect(numberErrors(salty, 'Dodaj 50 g soli.')).toHaveLength(1);
         expect(numberErrors(salty, 'Dolej 50 ml wody.')).toEqual([]);
+        // Nawias z określnikiem — dalej ilość rzeczy przed nawiasem.
+        const oily = withRecipe(
+          [
+            {
+              ingredientId: 'ole3',
+              name: 'olej rzepakowy',
+              amount: 30,
+              unit: 'ml',
+            },
+          ],
+          'Wlej olej (ok. 30 ml) na patelnię.',
+        );
+        expect(numberErrors(oily, 'Wlej olej (ok. 30 ml).')).toHaveLength(1);
+        expect(numberErrors(oily, 'Wlej olej (około 30 ml).')).toHaveLength(1);
         // Okolicznik po jednostce to nie odmierzana rzecz (review Codexa #265).
         expect(
           numberErrors(
