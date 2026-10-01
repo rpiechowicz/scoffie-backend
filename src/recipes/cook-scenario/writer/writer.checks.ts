@@ -568,8 +568,14 @@ function quantityTail(rest: string): string {
     /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:z|ze)\s/u,
   )[0];
   for (const match of clause.matchAll(/,\s*(\p{L}+)/gu)) {
-    if (IMPERATIVES.has(normalizeText(match[1]))) {
-      clause = clause.slice(0, match.index);
+    const head = clause.slice(0, match.index);
+    // Tylko gdy ilość ma już swoją rzecz przed przecinkiem — „Odmierz 50 ml,
+    // wlej olej” to ilość oleju (review Codexa, #265).
+    if (
+      IMPERATIVES.has(normalizeText(match[1])) &&
+      normalizedWords(head).some((word) => word.length >= 3)
+    ) {
+      clause = head;
       break;
     }
   }

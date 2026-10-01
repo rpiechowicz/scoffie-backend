@@ -1469,6 +1469,26 @@ describe('system pisania — walidatory twarde', () => {
         },
       );
 
+      it('„Odmierz 50 ml, wlej olej” — bez rzeczy przed przecinkiem to ilość oleju (review Codexa, #265)', () => {
+        const recipe = withRecipe(
+          [
+            {
+              ingredientId: 'ole2',
+              name: 'olej słonecznikowy',
+              amount: 50,
+              unit: 'ml',
+            },
+          ],
+          'Do miarki odmierz 50 ml, wlej olej na patelnię.',
+        );
+        expect(
+          numberErrors(
+            recipe,
+            'Do miarki odmierz 50 ml, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
+      });
+
       it('tury: „wsyp pierogi partiami” to tury, „podawaj porcjami” i „wlewaj po chochli” — nie; „w dwóch turach” = dwa timery', () => {
         const turns = (line: string) =>
           [...recipeDurationPool([line]).extraTurns].length;
