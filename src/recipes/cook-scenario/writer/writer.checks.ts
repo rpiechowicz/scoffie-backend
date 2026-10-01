@@ -503,8 +503,12 @@ const normalizedWords = (fragment: string): string[] =>
 
 /** Końcówki dopełniacza — po „i” ta sama ilość dotyczy też tej rzeczy. */
 const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
-/** Końcówki przymiotnika (bez polskich znaków) — rzecz stoi dalej. */
-const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej)$/u;
+/**
+ * Końcówki przymiotnika (bez polskich znaków) albo przysłówka przed nim
+ * („drobno mielonej soli”) — rzecz stoi dalej. Szerzej = surowiej: więcej
+ * słów porównujemy z każdym składnikiem.
+ */
+const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej|o)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
 const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
 
