@@ -107,7 +107,7 @@ export async function loadRevisionCandidate(
 }
 
 /** Wszystko, co widzą autor i recenzent — w transakcji wołającego. */
-async function readWriterRecipe(
+export async function readWriterRecipe(
   tx: Prisma.TransactionClient,
   recipeId: string,
 ): Promise<WriterRecipe | null> {
