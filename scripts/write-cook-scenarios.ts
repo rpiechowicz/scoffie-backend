@@ -365,23 +365,23 @@ async function writeJournal(path: string, journal: JournalFile) {
  * REJECTED — więc sam raport serii nie mówi, ile naprawdę zostało.
  */
 async function catalogSummary(prisma: PrismaClient): Promise<string> {
-  const rows = await prisma.$queryRaw<{ status: string; n: number }[]>`
-    SELECT s."status", count(*)::int AS "n" FROM (
-      SELECT DISTINCT ON (c."recipeId") c."status"::text AS "status"
-        FROM "RecipeCookScenario" c
-        JOIN "Recipe" r ON r."id" = c."recipeId"
-       WHERE r."isCatalog" AND r."isActive"
-         AND c."rulesVersion" = ${COOK_SCENARIO_RULES_VERSION}
-         -- tylko wynik dla OBECNEJ treści przepisu (przegląd nocny)
-         AND c."recipeContentHash" = recipe_content_signature(c."recipeId")
-       ORDER BY c."recipeId", c."version" DESC) s
-     GROUP BY 1 ORDER BY 1`;
-  const [{ total }] = await prisma.$queryRaw<{ total: number }[]>`
-    SELECT count(*)::int AS "total" FROM "Recipe" r
+  // Ta sama aktualność co `--skip-written` (review Codexa, noc 1.10): zasady,
+  // status wyniku, podpis bazy ORAZ odcisk całego wejścia modelu — inaczej
+  // zmiana nazwy składnika (poza podpisem) zawyżałaby pokrycie katalogu.
+  const ids = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT r."id" FROM "Recipe" r
      WHERE r."isCatalog" AND r."isActive"
        AND EXISTS (SELECT 1 FROM "RecipeIngredient" ri WHERE ri."recipeId" = r."id")`;
-  const written = rows.reduce((sum, row) => sum + row.n, 0);
-  return `katalog przy zasadach ${COOK_SCENARIO_RULES_VERSION}: ${rows.map((row) => `${row.status} ${row.n}`).join(' · ') || 'nic'} · bez wyniku ${total - written} (z ${total}, łącznie ze wzorcem)`;
+  const counts = new Map<string, number>();
+  for (const { id } of ids) {
+    const loaded = await loadWriterRecipe(prisma, id);
+    const status = loaded?.currentStatus ?? 'bez wyniku';
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  return `katalog przy zasadach ${COOK_SCENARIO_RULES_VERSION}: ${[...counts]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([status, n]) => `${status} ${n}`)
+    .join(' · ')} (z ${ids.length}, łącznie ze wzorcem)`;
 }
 
 /** Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi. */

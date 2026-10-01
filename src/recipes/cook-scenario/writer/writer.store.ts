@@ -14,6 +14,8 @@ export interface LoadedWriterRecipe {
   signature: string;
   /** Jest już wynik systemu pisania dla TEJ treści (`hasCurrentWrite`). */
   current: boolean;
+  /** Status tego wyniku (najnowszej takiej wersji) albo `null`. */
+  currentStatus: string | null;
 }
 
 /**
@@ -34,8 +36,13 @@ export async function loadWriterRecipe(
       if (!recipe) return null;
       const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
         SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
-      const current = await hasCurrentWrite(tx, recipe, signature);
-      return { recipe, signature, current };
+      const currentStatus = await currentWriteStatus(tx, recipe, signature);
+      return {
+        recipe,
+        signature,
+        current: currentStatus !== null,
+        currentStatus,
+      };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
@@ -212,11 +219,11 @@ export function writerInputHash(recipe: WriterRecipe): string {
  * ręcznie (bez odcisku) nie jest wynikiem systemu pisania; publikacja
  * z panelu (E3c) musi przenosić `inputHash` wersji, którą publikuje.
  */
-async function hasCurrentWrite(
+async function currentWriteStatus(
   tx: Prisma.TransactionClient,
   recipe: WriterRecipe,
   signature: string,
-): Promise<boolean> {
+): Promise<string | null> {
   const rows = await tx.recipeCookScenario.findMany({
     where: {
       recipeId: recipe.id,
@@ -224,13 +231,17 @@ async function hasCurrentWrite(
       recipeContentHash: signature,
       status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
     },
-    select: { validationReport: true },
+    select: { validationReport: true, status: true },
+    orderBy: { version: 'desc' },
   });
   const hash = writerInputHash(recipe);
-  return rows.some((row) => {
-    const report = row.validationReport as { inputHash?: unknown } | null;
+  const row = rows.find((candidate) => {
+    const report = candidate.validationReport as {
+      inputHash?: unknown;
+    } | null;
     return report?.inputHash === hash;
   });
+  return row ? row.status : null;
 }
 
 export type PublishWrittenResult =
