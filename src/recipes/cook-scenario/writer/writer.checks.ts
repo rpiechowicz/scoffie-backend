@@ -529,7 +529,10 @@ function quantityTail(rest: string): string {
     /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:z|ze)\s/u,
   )[0];
   for (const match of clause.matchAll(/\s(?:i|oraz)\s+(\p{L}+)/gu)) {
-    if (!GENITIVE_END.test(match[1].toLowerCase())) {
+    // Po „i” określenie tej samej rzeczy („zimnej i drobno mielonej soli”)
+    // frazy nie kończy (review Codexa #265).
+    const next = match[1].toLowerCase();
+    if (!GENITIVE_END.test(next) && !ADJECTIVE_END.test(normalizeText(next))) {
       return clause.slice(0, match.index);
     }
   }
@@ -582,7 +585,12 @@ function mentionsIngredient(
   // kolejne — aż do rzeczownika („50 ml bardzo drobno mielonej soli”); nie
   // dalej, bo tam zaczyna się następna czynność („1,5 l wysmaruj masłem”).
   let reach = 1;
-  while (reach < tailWords.length && ADJECTIVE_END.test(tailWords[reach - 1])) {
+  while (
+    reach < tailWords.length &&
+    (ADJECTIVE_END.test(tailWords[reach - 1]) ||
+      // „zimnej i drobno mielonej soli” — spójnik między określeniami
+      ['i', 'oraz'].includes(tailWords[reach - 1]))
+  ) {
     reach += 1;
   }
   // Słowo przed liczbą to zwykle dopełnienie czasownika („Zalej żelatynę
