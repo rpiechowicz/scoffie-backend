@@ -22,6 +22,11 @@
  *   pnpm cook-scenarios:write --batch --all --skip-written --budget-usd 40
  *   pnpm cook-scenarios:write --recipe <id> [--recipe <id>…]
  *   pnpm cook-scenarios:write --resume cook-scenarios-journal.json --budget-usd 60
+ *   COOK_WRITER_MODEL=claude-opus-5-5 pnpm cook-scenarios:write --batch --revise
+ * Poprawka (`--revise`, tylko z `--batch`): przepisy, których aktualny wynik
+ *   to REJECTED — autor dostaje odrzuconą wersję i powód odrzucenia (uwagi
+ *   recenzenta albo błędy walidatorów) i ją POPRAWIA; nowa wersja ma
+ *   w `generator.revisedFrom` wersję, z której wyszła.
  * Paczki: dziennik `--journal plik` (domyślnie cook-scenarios-journal.json)
  *   z id paczek w locie i stanem zadań; przerwa (sieć, budżet, proces) →
  *   `--resume` odbiera opłacone paczki i jedzie dalej; `--budget-usd` przy
@@ -93,6 +98,7 @@ import {
   type ReportEntry,
 } from '../src/recipes/cook-scenario/writer/writer.report';
 import {
+  loadRevisionCandidate,
   loadWriterRecipe,
   saveWrittenScenario,
   type LoadedWriterRecipe,
@@ -116,6 +122,7 @@ interface Args {
   journal: string | null;
   resume: string | null;
   breakLock: boolean;
+  revise: boolean;
   /** Pola bramki podane jawnie flagami — nadpisują dziennik pole po polu. */
   gate: Partial<GateConfig>;
 }
@@ -136,6 +143,7 @@ function parseArgs(argv: string[]): Args {
     journal: null,
     resume: null,
     breakLock: false,
+    revise: false,
     gate: {},
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -166,6 +174,7 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
+    else if (flag === '--revise') args.revise = true;
     else if (flag === '--gate-reject') args.gate.reject = Number(next());
     else if (flag === '--gate-cost') args.gate.cost = positive(next());
     else if (flag === '--no-gate') args.gate.enabled = false;
@@ -176,10 +185,19 @@ function parseArgs(argv: string[]): Args {
     !args.recipes.length &&
     !args.pilot &&
     !args.sample &&
-    !args.all
+    !args.all &&
+    !args.revise
   ) {
     throw new Error(
-      'podaj --recipe <id>, --pilot <N>, --sample <N>, --all albo --resume <dziennik>',
+      'podaj --recipe <id>, --pilot <N>, --sample <N>, --all, --revise albo --resume <dziennik>',
+    );
+  }
+  if (args.revise && !args.batch) {
+    throw new Error('--revise tylko z --batch — poprawki idą przez Batch API');
+  }
+  if (args.revise && args.skipWritten) {
+    throw new Error(
+      '--revise bierze tylko przepisy z aktualnym REJECTED — --skip-written nic tu nie znaczy',
     );
   }
   // Katalog TYLKO przez Batch API (decyzja Rafała 30.09): bez `--batch`
@@ -287,7 +305,7 @@ async function selectRecipes(
        ORDER BY coalesce(r."dishType", ''), r."id"`;
     ids.push(...rows.slice(0, args.pilot).map((row) => row.id));
   }
-  if (args.sample || args.all) {
+  if (args.sample || args.all || args.revise) {
     // Próba: kolejność „losowa”, ale zawsze ta sama (skrót id) — próba
     // kontrolna i jej powtórka biorą te same przepisy.
     const rows = await prisma.$queryRaw<{ id: string }[]>`
@@ -295,7 +313,8 @@ async function selectRecipes(
        WHERE r."isCatalog" AND r."isActive" AND r."id" <> ${exampleId}::uuid
          AND EXISTS (SELECT 1 FROM "RecipeIngredient" ri WHERE ri."recipeId" = r."id")
        ORDER BY md5(r."id"::text || 'gotuj'), r."id"`;
-    const picked = args.all ? rows : rows.slice(0, args.sample ?? 0);
+    const picked =
+      args.all || args.revise ? rows : rows.slice(0, args.sample ?? 0);
     ids.push(...picked.map((row) => row.id));
   }
   return [...new Set(ids)];
@@ -316,7 +335,11 @@ type JournalFile = BatchJournal & {
   promptHash: string;
   /** Bramka jakości serii — część trwałego stanu (review Codexa, noc 1.10). */
   gate?: GateConfig;
+  /** Poprawki (`--revise`): zadanie → odrzucona wersja, od której wyszło. */
+  revisions?: Record<string, RevisedFrom>;
 };
+
+type RevisedFrom = { scenarioId: string; version: number };
 
 async function readJournal(path: string): Promise<JournalFile> {
   const journal = JSON.parse(await readFile(path, 'utf8')) as JournalFile;
@@ -482,6 +505,7 @@ async function main() {
     const generator = (
       outcome: WriteOutcome,
       transport: string,
+      revisedFrom?: RevisedFrom,
     ): Prisma.InputJsonValue => ({
       source: 'writer',
       transport,
@@ -491,19 +515,21 @@ async function main() {
       reviewerModel: options.reviewerModel,
       reviewerEffort: options.reviewerEffort,
       attempts: outcome.attempts.length,
+      ...(revisedFrom ? { revisedFrom } : {}),
     });
     const save = async (
       loaded: Pick<LoadedWriterRecipe, 'recipe' | 'signature'>,
       outcome: WriteOutcome,
       transport: string,
       jobId?: string,
+      revisedFrom?: RevisedFrom,
     ) => {
       const saved = await prisma.$transaction((tx) =>
         saveWrittenScenario(tx, {
           recipe: loaded.recipe,
           signature: loaded.signature,
           outcome,
-          generator: generator(outcome, transport),
+          generator: generator(outcome, transport, revisedFrom),
           jobId,
         }),
       );
@@ -547,11 +573,13 @@ async function main() {
     if (args.batch || resumed) {
       let jobs: ScenarioJob[];
       const signatures: Record<string, string> = {};
+      const revisions: Record<string, RevisedFrom> = {};
       if (resumed) {
         jobs = resumed.jobs.map((state) =>
           ScenarioJob.restore(state, example, options),
         );
         Object.assign(signatures, resumed.signatures);
+        Object.assign(revisions, resumed.revisions ?? {});
       } else {
         if (existsSync(journalPath)) {
           throw new Error(
@@ -563,6 +591,29 @@ async function main() {
         jobs = [];
         for (const id of ids) {
           if (args.limit && jobs.length >= args.limit) break;
+          if (args.revise) {
+            const candidate = await loadRevisionCandidate(prisma, id);
+            if (!candidate) continue;
+            let job: ScenarioJob;
+            try {
+              job = new ScenarioJob(
+                candidate.recipe,
+                example,
+                options,
+                undefined,
+                candidate.seed,
+              );
+            } catch (error) {
+              console.log(
+                `POMINIĘTY · ${candidate.recipe.title}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+              continue;
+            }
+            signatures[job.jobId] = candidate.signature;
+            revisions[job.jobId] = candidate.revisedFrom;
+            jobs.push(job);
+            continue;
+          }
           const loaded = await loadWriterRecipe(prisma, id);
           if (!loaded) continue;
           if (args.skipWritten && loaded.current) {
@@ -575,7 +626,7 @@ async function main() {
         }
       }
       console.log(
-        `w paczkach: ${jobs.length} przepisów · dziennik ${journalPath}`,
+        `w paczkach: ${jobs.length} przepisów${args.revise || Object.keys(revisions).length ? ' (poprawki odrzuconych)' : ''} · dziennik ${journalPath}`,
       );
       const createdAt = resumed?.createdAt ?? new Date().toISOString();
       // Znacznik serii w id pozycji paczek (wyszukiwanie paczki o nieznanym
@@ -593,6 +644,7 @@ async function main() {
                 job.outcome(),
                 'batch',
                 job.jobId,
+                revisions[job.jobId],
               ),
             log: (line) => console.log(line),
             persist: (journal) =>
@@ -605,6 +657,7 @@ async function main() {
                 signatures,
                 promptHash: promptHash(example),
                 gate: gateConfig,
+                ...(Object.keys(revisions).length ? { revisions } : {}),
               }),
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,

@@ -5,6 +5,7 @@ import {
   buildReviewerUser,
   buildWriterSystem,
   buildWriterUser,
+  exampleOutput,
   REVIEWER_SYSTEM,
   type WriterExample,
 } from './writer.prompt';
@@ -80,6 +81,21 @@ export interface WriteOutcome {
    * progu — publikacja wymaga świadomej zgody (`publishWrittenScenario`).
    */
   belowThreshold?: boolean;
+}
+
+/**
+ * Punkt startu POPRAWKI odrzuconej wersji (`--revise`, Rafał 1.10: „poprawiamy”
+ * po pełnym przebiegu katalogu). Autor (zwykle mocniejszy model) dostaje
+ * odrzuconą treść i powód odrzucenia — jak przy kolejnej próbie w tym samym
+ * zadaniu — zamiast pisać od zera.
+ */
+export interface RevisionSeed {
+  /** Odrzucona treść po walidatorach; `null`, gdy padła już na walidatorach. */
+  content: CookScenarioContent | null;
+  /** Ostatnia recenzja odrzuconej wersji (BLOCKER/MAJOR albo za niska ocena). */
+  review: Review | null;
+  /** Błędy walidatorów ostatniej próby — powód, gdy recenzji nie było. */
+  errors: string[];
 }
 
 /** Najwięcej punktów z raportu wracających do autora — reszta to szum. */
@@ -251,9 +267,39 @@ export class ScenarioJob {
     example: WriterExample,
     private readonly options: WriterOptions = DEFAULT_WRITER_OPTIONS,
     jobId: string = randomUUID(),
+    seed: RevisionSeed | null = null,
   ) {
     this.system = buildWriterSystem(example);
     this.jobId = jobId;
+    if (seed) this.seedRevision(seed);
+  }
+
+  /**
+   * Zadanie zaczyna od poprawki: pierwsze wywołanie autora ma odrzuconą
+   * wersję i uwagi, recenzent — swoje uwagi do niej (nie wycofa się z nich).
+   * Odrzucona treść zostaje wynikiem, gdy żadna poprawka nie przejdzie
+   * walidatorów — REJECTED nie traci treści, którą panel mógłby poprawić.
+   * Próby liczą się od nowa: `maxAttempts` to liczba POPRAWEK.
+   */
+  private seedRevision(seed: RevisionSeed): void {
+    // Rzuca, gdy treść nie pasuje do składników przepisu — wołający pomija
+    // wtedy przepis (seed musi pochodzić z wersji dla TEJ treści).
+    this.previous = seed.content
+      ? exampleOutput(this.recipe, seed.content)
+      : null;
+    const issues = seed.review
+      ? seed.review.issues.map(
+          (issue) =>
+            `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
+        )
+      : [];
+    this.previousIssues = issues;
+    const feedback = seed.review
+      ? reviewFeedback(seed.review, !isBlocking(seed.review))
+      : seed.errors;
+    this.feedback = feedback.slice(0, FEEDBACK_LIMIT);
+    this.lastContent = seed.content;
+    this.lastReview = seed.review;
   }
 
   /** Stan do dziennika (kopia przez JSON — bez wspólnych referencji). */

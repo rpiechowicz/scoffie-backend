@@ -1,5 +1,10 @@
 import { clone, kotletExample } from './writer.fixtures.spec-helper';
-import { DEFAULT_WRITER_OPTIONS, writeCookScenario } from './writer.pipeline';
+import {
+  DEFAULT_WRITER_OPTIONS,
+  ScenarioJob,
+  writeCookScenario,
+  type RevisionSeed,
+} from './writer.pipeline';
 import { exampleOutput, REVIEWER_SYSTEM } from './writer.prompt';
 import type {
   WriterModel,
@@ -350,5 +355,85 @@ describe('system pisania — przebieg', () => {
     expect(outcome.attempts[0].errors[0]).toContain('odpowiedź ucięta');
     // Druga próba autora z wyższym limitem (długie przepisy, próba w7).
     expect(model.calls[1].maxTokens).toBeGreaterThan(model.calls[0].maxTokens);
+  });
+});
+
+describe('system pisania — poprawka odrzuconej wersji (--revise)', () => {
+  const opus = { ...DEFAULT_WRITER_OPTIONS, writerModel: 'claude-opus-5-5' };
+  const run = async (model: StubModel, seed: RevisionSeed) => {
+    const job = new ScenarioJob(kotlet, example, opus, undefined, seed);
+    for (let call = job.nextCall(); call; call = job.nextCall()) {
+      job.accept(await model.complete(call));
+    }
+    return job.outcome();
+  };
+  const rejected = (): RevisionSeed => ({
+    content: clone(example.content),
+    review: review(3, [
+      { stepId: 's6', severity: 'MAJOR', text: 'ryż skończy się przed mięsem' },
+      { stepId: null, severity: 'MINOR', text: 'przecinek' },
+    ]),
+    errors: [],
+  });
+
+  it('pierwsze wywołanie to POPRAWKA: autor dostaje odrzuconą wersję i uwagi recenzenta', async () => {
+    const model = new StubModel([good(), review(4)]);
+    const outcome = await run(model, rejected());
+    expect(outcome.status).toBe('VALIDATED');
+    expect(model.calls[0].model).toBe('claude-opus-5-5');
+    expect(model.calls[0].user).toContain('TWOJA POPRZEDNIA WERSJA');
+    expect(model.calls[0].user).toContain('[s6] MAJOR: ryż skończy się');
+    // MAJOR jest — MINOR to szum, jak przy zwykłej poprawce.
+    expect(model.calls[0].user).not.toContain('przecinek');
+    // Recenzent widzi swoje uwagi do odrzuconej wersji i ich nie wycofa.
+    expect(model.calls[1].user).toContain('TWOJE UWAGI DO POPRZEDNIEJ WERSJI');
+    // Próby liczą się od nowa: jedna poprawka = jedna próba.
+    expect(outcome.attempts).toHaveLength(1);
+  });
+
+  it('odrzucenie przez walidatory: autor pisze od nowa z listą błędów', async () => {
+    const model = new StubModel([good(), review(5)]);
+    const outcome = await run(model, {
+      content: null,
+      review: null,
+      errors: [
+        's3.title „Dosmaż łososia z drugiej strony”: 31 znaków, limit 30',
+      ],
+    });
+    expect(outcome.status).toBe('VALIDATED');
+    expect(model.calls[0].user).toContain(
+      'POPRZEDNIA WERSJA NIE PRZESZŁA KONTROLI',
+    );
+    expect(model.calls[0].user).not.toContain('TWOJA POPRZEDNIA WERSJA');
+    expect(model.calls[0].user).toContain('31 znaków, limit 30');
+  });
+
+  it('żadna poprawka nie przeszła walidatorów = REJECTED z odrzuconą treścią i jej recenzją', async () => {
+    const model = new StubModel([badKey(), badKey(), badKey()]);
+    const seed = rejected();
+    const outcome = await run(model, seed);
+    expect(outcome.status).toBe('REJECTED');
+    expect(outcome.attempts).toHaveLength(3);
+    expect(outcome.content).toEqual(seed.content);
+    expect(outcome.review).toEqual(seed.review);
+  });
+
+  it('treść niepasująca do składników przepisu = wyjątek przy tworzeniu zadania', () => {
+    const seed = rejected();
+    seed.content!.steps[0].ingredients[0].ingredientId = 'nie-ma-takiego';
+    expect(
+      () => new ScenarioJob(kotlet, example, opus, undefined, seed),
+    ).toThrow(/nie ma w przepisie/);
+  });
+
+  it('zadanie poprawki przeżywa dziennik (snapshot → restore) w połowie', async () => {
+    const model = new StubModel([good(), review(4)]);
+    const job = new ScenarioJob(kotlet, example, opus, undefined, rejected());
+    job.accept(await model.complete(job.nextCall()!));
+    const restored = ScenarioJob.restore(job.snapshot(), example, opus);
+    const call = restored.nextCall()!;
+    expect(call.user).toContain('TWOJE UWAGI DO POPRZEDNIEJ WERSJI');
+    restored.accept(await model.complete(call));
+    expect(restored.outcome().status).toBe('VALIDATED');
   });
 });

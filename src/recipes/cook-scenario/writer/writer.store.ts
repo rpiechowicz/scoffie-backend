@@ -5,7 +5,12 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { AppException } from '../../../common/app-exception';
 import { publishCookScenario } from '../cook-scenario.publish';
 import { COOK_SCENARIO_RULES_VERSION } from '../cook-scenario.types';
-import type { WriteOutcome } from './writer.pipeline';
+import type {
+  AttemptReport,
+  Review,
+  RevisionSeed,
+  WriteOutcome,
+} from './writer.pipeline';
 import type { WriterRecipe } from './writer.types';
 
 /** Przepis gotowy do pisania: wejście modelu, podpis i stan wyników. */
@@ -42,6 +47,54 @@ export async function loadWriterRecipe(
         signature,
         current: currentStatus !== null,
         currentStatus,
+      };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
+}
+
+/** Przepis do poprawki: aktualny wynik dla jego treści to REJECTED. */
+export interface RevisionCandidate extends LoadedWriterRecipe {
+  /** Odrzucona wersja, od której zaczyna poprawka. */
+  revisedFrom: { scenarioId: string; version: number };
+  seed: RevisionSeed;
+}
+
+/**
+ * Jak `loadWriterRecipe`, ale tylko dla przepisu, którego AKTUALNY wynik
+ * (te same zasady, podpis i odcisk wejścia) to REJECTED — i z tej samej
+ * migawki punkt startu poprawki. Inaczej `null`: przepis bez wyniku,
+ * z wynikiem VALIDATED/SKIPPED albo z odrzuceniem dla starszej treści nie
+ * jest do poprawki (stara treść nie pasowałaby do obecnych składników).
+ */
+export async function loadRevisionCandidate(
+  prisma: PrismaClient,
+  recipeId: string,
+): Promise<RevisionCandidate | null> {
+  return prisma.$transaction(
+    async (tx) => {
+      const recipe = await readWriterRecipe(tx, recipeId);
+      if (!recipe) return null;
+      const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
+        SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
+      const row = await currentWrite(tx, recipe, signature);
+      if (!row || row.status !== 'REJECTED') return null;
+      const report = (row.validationReport ?? {}) as {
+        review?: Review | null;
+        attempts?: AttemptReport[];
+      };
+      const lastAttempt = report.attempts?.at(-1);
+      return {
+        recipe,
+        signature,
+        current: true,
+        currentStatus: row.status,
+        revisedFrom: { scenarioId: row.id, version: row.version },
+        seed: {
+          content: (row.content ?? null) as RevisionSeed['content'],
+          review: report.review ?? null,
+          errors: lastAttempt?.errors ?? [],
+        },
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
@@ -224,6 +277,15 @@ async function currentWriteStatus(
   recipe: WriterRecipe,
   signature: string,
 ): Promise<string | null> {
+  return (await currentWrite(tx, recipe, signature))?.status ?? null;
+}
+
+/** Wiersz aktualnego wyniku (patrz `currentWriteStatus`) albo `null`. */
+async function currentWrite(
+  tx: Prisma.TransactionClient,
+  recipe: WriterRecipe,
+  signature: string,
+) {
   const rows = await tx.recipeCookScenario.findMany({
     where: {
       recipeId: recipe.id,
@@ -231,17 +293,24 @@ async function currentWriteStatus(
       recipeContentHash: signature,
       status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
     },
-    select: { validationReport: true, status: true },
+    select: {
+      id: true,
+      version: true,
+      status: true,
+      content: true,
+      validationReport: true,
+    },
     orderBy: { version: 'desc' },
   });
   const hash = writerInputHash(recipe);
-  const row = rows.find((candidate) => {
-    const report = candidate.validationReport as {
-      inputHash?: unknown;
-    } | null;
-    return report?.inputHash === hash;
-  });
-  return row ? row.status : null;
+  return (
+    rows.find((candidate) => {
+      const report = candidate.validationReport as {
+        inputHash?: unknown;
+      } | null;
+      return report?.inputHash === hash;
+    }) ?? null
+  );
 }
 
 export type PublishWrittenResult =
