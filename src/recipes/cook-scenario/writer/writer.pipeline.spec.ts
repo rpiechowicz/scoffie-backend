@@ -372,7 +372,7 @@ describe('system pisania — poprawka odrzuconej wersji (--revise)', () => {
     review: review(3, [
       { stepId: 's6', severity: 'MAJOR', text: 'ryż skończy się przed mięsem' },
       { stepId: null, severity: 'MINOR', text: 'przecinek' },
-    ]),
+    ]) as RevisionSeed['review'],
     errors: [],
   });
 
