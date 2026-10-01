@@ -26,25 +26,23 @@ export const GATE_MIN_FINISHED = 30;
  * Bramka serii jest częścią jej TRWAŁEGO stanu (review Codexa, noc 1.10):
  * wznowienie bierze ją z dziennika, inaczej retry po awarii wróciłby do
  * domyślnych progów i po cichu złagodził (albo włączył) zabezpieczenia.
- * Zmiana przy wznowieniu tylko jawnymi flagami — i jest ogłaszana.
+ * Flagi nadpisują POLE PO POLU — samo `--gate-cost` nie rusza zapisanego
+ * progu odrzuceń (runda 4). Zmiana przy wznowieniu jest ogłaszana.
  */
 export function resolveGateConfig(
-  fromArgs: GateConfig,
-  explicit: boolean,
+  overrides: Partial<GateConfig>,
   fromJournal: GateConfig | undefined,
 ): { config: GateConfig; changed: string | null } {
-  if (!fromJournal) return { config: fromArgs, changed: null };
-  if (!explicit) return { config: fromJournal, changed: null };
-  const same =
-    fromJournal.enabled === fromArgs.enabled &&
-    fromJournal.reject === fromArgs.reject &&
-    fromJournal.cost === fromArgs.cost;
-  return {
-    config: fromArgs,
-    changed: same
-      ? null
-      : `bramka zmieniona przy wznowieniu: ${describeGate(fromJournal)} → ${describeGate(fromArgs)}`,
-  };
+  const base = fromJournal ?? DEFAULT_GATE;
+  const config: GateConfig = { ...base, ...overrides };
+  const changed =
+    fromJournal &&
+    (config.enabled !== base.enabled ||
+      config.reject !== base.reject ||
+      config.cost !== base.cost)
+      ? `bramka zmieniona przy wznowieniu: ${describeGate(base)} → ${describeGate(config)}`
+      : null;
+  return { config, changed };
 }
 
 export const describeGate = (gate: GateConfig): string =>

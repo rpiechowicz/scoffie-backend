@@ -13,27 +13,36 @@ const job = (status: WriteOutcome['status'] | null, spentUsd: number) => ({
 });
 
 describe('bramka jakości serii', () => {
+  const strict: GateConfig = { enabled: true, reject: 0.1, cost: 0.06 };
+
   it('wznowienie bierze bramkę z dziennika — bez flag nie wraca do domyślnej (review Codexa, noc 1.10)', () => {
-    const strict: GateConfig = { enabled: true, reject: 0.1, cost: 0.06 };
-    expect(resolveGateConfig(DEFAULT_GATE, false, strict)).toEqual({
+    expect(resolveGateConfig({}, strict)).toEqual({
       config: strict,
       changed: null,
     });
     const off: GateConfig = { ...DEFAULT_GATE, enabled: false };
-    expect(resolveGateConfig(DEFAULT_GATE, false, off).config).toEqual(off);
+    expect(resolveGateConfig({}, off).config).toEqual(off);
   });
 
-  it('jawna zmiana przy wznowieniu działa i jest ogłaszana', () => {
-    const strict: GateConfig = { enabled: true, reject: 0.1, cost: 0.06 };
-    const result = resolveGateConfig(DEFAULT_GATE, true, strict);
-    expect(result.config).toEqual(DEFAULT_GATE);
-    expect(result.changed).toContain('bramka zmieniona przy wznowieniu');
+  it('flagi nadpisują pole po polu — samo --gate-cost nie rusza progu odrzuceń (runda 4)', () => {
+    expect(resolveGateConfig({ cost: 0.08 }, strict).config).toEqual({
+      ...strict,
+      cost: 0.08,
+    });
+    expect(resolveGateConfig({ reject: 0.15 }, strict).config).toEqual({
+      ...strict,
+      reject: 0.15,
+    });
+    const off = resolveGateConfig({ enabled: false }, strict);
+    expect(off.config).toEqual({ ...strict, enabled: false });
+    expect(off.changed).toContain('bramka zmieniona przy wznowieniu');
   });
 
-  it('nowa seria (bez dziennika) — z flag', () => {
-    expect(resolveGateConfig(DEFAULT_GATE, false, undefined).config).toEqual(
-      DEFAULT_GATE,
-    );
+  it('nowa seria (bez dziennika) — domyślna z flagami, bez ogłoszenia zmiany', () => {
+    expect(resolveGateConfig({ cost: 0.08 }, undefined)).toEqual({
+      config: { ...DEFAULT_GATE, cost: 0.08 },
+      changed: null,
+    });
   });
 
   it('koszt: po wydatku wszystkich zadań, także w toku; po ostatniej rundzie nie', () => {

@@ -82,7 +82,6 @@ import {
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
 import {
-  DEFAULT_GATE,
   describeGate,
   qualityGate,
   resolveGateConfig,
@@ -117,11 +116,8 @@ interface Args {
   journal: string | null;
   resume: string | null;
   breakLock: boolean;
-  gateReject: number;
-  gateCost: number;
-  noGate: boolean;
-  /** Któraś z flag bramki podana jawnie (zmiana przy wznowieniu). */
-  gateExplicit: boolean;
+  /** Pola bramki podane jawnie flagami — nadpisują dziennik pole po polu. */
+  gate: Partial<GateConfig>;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -140,10 +136,7 @@ function parseArgs(argv: string[]): Args {
     journal: null,
     resume: null,
     breakLock: false,
-    gateReject: DEFAULT_GATE.reject,
-    gateCost: DEFAULT_GATE.cost,
-    noGate: false,
-    gateExplicit: false,
+    gate: {},
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -173,16 +166,10 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
-    else if (flag === '--gate-reject') {
-      args.gateReject = positive(next());
-      args.gateExplicit = true;
-    } else if (flag === '--gate-cost') {
-      args.gateCost = positive(next());
-      args.gateExplicit = true;
-    } else if (flag === '--no-gate') {
-      args.noGate = true;
-      args.gateExplicit = true;
-    } else throw new Error(`nieznana opcja ${flag}`);
+    else if (flag === '--gate-reject') args.gate.reject = positive(next());
+    else if (flag === '--gate-cost') args.gate.cost = positive(next());
+    else if (flag === '--no-gate') args.gate.enabled = false;
+    else throw new Error(`nieznana opcja ${flag}`);
   }
   if (
     !args.resume &&
@@ -443,11 +430,7 @@ async function main() {
     const resumed = args.resume ? await readJournal(args.resume) : null;
     // Wznowienie pisze tymi samymi modelami co początek serii.
     const options = resumed ? resumed.options : writerOptions();
-    const gateResolved = resolveGateConfig(
-      { enabled: !args.noGate, reject: args.gateReject, cost: args.gateCost },
-      args.gateExplicit,
-      resumed?.gate,
-    );
+    const gateResolved = resolveGateConfig(args.gate, resumed?.gate);
     const gateConfig = gateResolved.config;
     if (gateResolved.changed) console.log(gateResolved.changed);
     const example = await loadExample(prisma);
