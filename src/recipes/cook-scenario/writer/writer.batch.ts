@@ -33,8 +33,7 @@ export interface BatchCall {
 }
 
 export type BatchCallResult =
-  | { ok: true; result: WriterModelResult }
-  | { ok: false; error: string };
+  { ok: true; result: WriterModelResult } | { ok: false; error: string };
 
 /** Paczka przyjęta przez API, której wyników jeszcze nie odebrano. */
 export interface InflightBatch {
