@@ -1434,6 +1434,41 @@ describe('system pisania — walidatory twarde', () => {
         expect(numberErrors(withRecipe([], line), body)).toEqual([]);
       });
 
+      it.each([
+        // Fala 1 — prawdziwe przepisy (sól w szczyptach, polecenie po przecinku).
+        [
+          'Wlej bulion warzywny i 350 ml wody, dopraw solą i pieprzem, przykryj garnek.',
+          'Wlej bulion i 350 ml wody, dopraw połową soli i pieprzu.',
+        ],
+        [
+          'Zmiksuj mąkę, mleko, jajka, 5 ml oleju, sól i 50 ml wody na gładkie ciasto.',
+          'Do kielicha blendera wlej mleko i 50 ml wody, wbij jajka, dodaj mąkę, sól i część oleju.',
+        ],
+      ])(
+        'fala 1: „%s” → „%s” — woda, nie sól (szczypta) ani mleko',
+        (line, body) => {
+          const recipe = withRecipe(
+            [
+              {
+                ingredientId: 'sol-s',
+                name: 'sól morska',
+                amount: 1,
+                unit: 'szczypta',
+              },
+              {
+                ingredientId: 'bul',
+                name: 'bulion warzywny',
+                amount: 350,
+                unit: 'ml',
+              },
+              { ingredientId: 'mle', name: 'mleko', amount: 250, unit: 'ml' },
+            ],
+            line,
+          );
+          expect(numberErrors(recipe, body)).toEqual([]);
+        },
+      );
+
       it('tury: „wsyp pierogi partiami” to tury, „podawaj porcjami” i „wlewaj po chochli” — nie; „w dwóch turach” = dwa timery', () => {
         const turns = (line: string) =>
           [...recipeDurationPool([line]).extraTurns].length;

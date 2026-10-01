@@ -458,7 +458,7 @@ const QUANTITY_IN_RECIPE = new RegExp(
 const UNIT_AFTER = new RegExp(`^\\s*([${PL}]+)`, 'iu');
 const toAmount = (raw: string) => Number(raw.replace(',', '.'));
 
-type Dimension = 'mass' | 'volume' | 'count';
+type Dimension = 'mass' | 'volume' | 'count' | 'pinch';
 /**
  * Jednostka w formie kanonicznej i jej wymiar (przegląd nocny: porównanie
  * prefiksem robiło z „g” składnika „1 godzinę” z przepisu, a samo porównanie
@@ -472,7 +472,9 @@ const UNIT_FORMS: [RegExp, string, Dimension][] = [
   [/^(łyżeczk\p{L}*|łyżeczek)$/u, 'łyżeczka', 'volume'],
   [/^(łyżk\p{L}*|łyżek)$/u, 'łyżka', 'volume'],
   [/^(szklank\p{L}*|szklanek)$/u, 'szklanka', 'volume'],
-  [/^(szczypt\p{L}*)$/u, 'szczypta', 'volume'],
+  // Szczypta to osobna miara, nie objętość — sól „1 szczypta” nie może
+  // „pasować” do ilości w ml (fala 1: krem z dyni, naleśniki).
+  [/^(szczypt\p{L}*)$/u, 'szczypta', 'pinch'],
   [/^(szt|sztuk\p{L}*)$/u, 'szt', 'count'],
 ];
 /** Miary kuchenne — mogą dotyczyć składnika w DOWOLNEJ jednostce listy. */
@@ -499,6 +501,51 @@ const normalizedWords = (fragment: string): string[] =>
     .split(/[^a-z]+/)
     .filter(Boolean);
 
+/** Polecenia, od których po przecinku zaczyna się nowa czynność. */
+const IMPERATIVES = new Set([
+  'dodaj',
+  'dopraw',
+  'posol',
+  'popieprz',
+  'posyp',
+  'wsyp',
+  'wlej',
+  'dolej',
+  'wbij',
+  'wymieszaj',
+  'mieszaj',
+  'zamieszaj',
+  'przykryj',
+  'gotuj',
+  'zagotuj',
+  'dus',
+  'smaz',
+  'piecz',
+  'odstaw',
+  'zostaw',
+  'zdejmij',
+  'zmniejsz',
+  'zwieksz',
+  'przeloz',
+  'odcedz',
+  'zmiksuj',
+  'miksuj',
+  'ubij',
+  'rozgrzej',
+  'podgrzej',
+  'wstaw',
+  'wyjmij',
+  'pokroj',
+  'posiekaj',
+  'obierz',
+  'odlej',
+  'przelej',
+  'polej',
+  'skrop',
+  'podawaj',
+  'podaj',
+]);
+
 /** Końcówki dopełniacza — po „i” ta sama ilość dotyczy też tej rzeczy. */
 const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
@@ -513,10 +560,19 @@ const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
  */
 function quantityTail(rest: string): string {
   // Po „z / ze” stoi źródło, nie odmierzana rzecz: „2–3 łyżki wody
-  // z makaronu” to ilość wody (przegląd nocny).
-  const clause = rest.split(
+  // z makaronu” to ilość wody (przegląd nocny). Przecinek i polecenie
+  // zaczynają NOWĄ czynność: „350 ml wody, dopraw solą” — ilość wody, nie
+  // soli (fala 1); przecinek przed przymiotnikiem („przegotowanego,
+  // zimnego mleka”) frazy nie kończy.
+  let clause = rest.split(
     /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:z|ze)\s/u,
   )[0];
+  for (const match of clause.matchAll(/,\s*(\p{L}+)/gu)) {
+    if (IMPERATIVES.has(normalizeText(match[1]))) {
+      clause = clause.slice(0, match.index);
+      break;
+    }
+  }
   for (const match of clause.matchAll(/\s(?:i|oraz)\s+(\p{L}+)/gu)) {
     if (!GENITIVE_END.test(match[1].toLowerCase())) {
       return clause.slice(0, match.index);
