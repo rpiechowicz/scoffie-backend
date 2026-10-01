@@ -166,7 +166,7 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
-    else if (flag === '--gate-reject') args.gate.reject = positive(next());
+    else if (flag === '--gate-reject') args.gate.reject = Number(next());
     else if (flag === '--gate-cost') args.gate.cost = positive(next());
     else if (flag === '--no-gate') args.gate.enabled = false;
     else throw new Error(`nieznana opcja ${flag}`);

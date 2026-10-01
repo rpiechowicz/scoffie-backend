@@ -38,6 +38,26 @@ describe('bramka jakości serii', () => {
     expect(off.changed).toContain('bramka zmieniona przy wznowieniu');
   });
 
+  it.each([
+    [{ reject: 20 }, 'udział 0–1'],
+    [{ reject: -0.1 }, 'udział 0–1'],
+    [{ reject: Number.NaN }, 'udział 0–1'],
+    [{ cost: 0 }, 'liczba dodatnia'],
+  ])(
+    'błędny próg %j = błąd, nie cicho wyłączona bramka (runda 5)',
+    (overrides, message) => {
+      expect(() => resolveGateConfig(overrides, undefined)).toThrow(message);
+    },
+  );
+
+  it('próg odrzuceń 0 i 1 to poprawne skrajności; zepsuty dziennik = błąd', () => {
+    expect(resolveGateConfig({ reject: 0 }, undefined).config.reject).toBe(0);
+    expect(resolveGateConfig({ reject: 1 }, undefined).config.reject).toBe(1);
+    expect(() =>
+      resolveGateConfig({}, { enabled: true, reject: 20, cost: 0.1 }),
+    ).toThrow('bramka (dziennik)');
+  });
+
   it('nowa seria (bez dziennika) — domyślna z flagami, bez ogłoszenia zmiany', () => {
     expect(resolveGateConfig({ cost: 0.08 }, undefined)).toEqual({
       config: { ...DEFAULT_GATE, cost: 0.08 },

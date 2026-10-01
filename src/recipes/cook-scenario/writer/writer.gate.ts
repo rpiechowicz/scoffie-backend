@@ -33,8 +33,10 @@ export function resolveGateConfig(
   overrides: Partial<GateConfig>,
   fromJournal: GateConfig | undefined,
 ): { config: GateConfig; changed: string | null } {
+  if (fromJournal) assertGateConfig(fromJournal, 'dziennik');
   const base = fromJournal ?? DEFAULT_GATE;
   const config: GateConfig = { ...base, ...overrides };
+  assertGateConfig(config, 'flagi');
   const changed =
     fromJournal &&
     (config.enabled !== base.enabled ||
@@ -43,6 +45,26 @@ export function resolveGateConfig(
       ? `bramka zmieniona przy wznowieniu: ${describeGate(base)} → ${describeGate(config)}`
       : null;
   return { config, changed };
+}
+
+/**
+ * Progi w sensownym zakresie (review Codexa, noc 1.10): `--gate-reject 20`
+ * zamiast `0.2` po cichu wyłączyłoby bramkę odrzuceń na całą serię.
+ */
+export function assertGateConfig(gate: GateConfig, source: string): void {
+  if (typeof gate.enabled !== 'boolean') {
+    throw new Error(`bramka (${source}): enabled musi być true/false`);
+  }
+  if (!Number.isFinite(gate.reject) || gate.reject < 0 || gate.reject > 1) {
+    throw new Error(
+      `bramka (${source}): próg odrzuceń ${gate.reject} — udział 0–1 (np. 0.2 = 20%)`,
+    );
+  }
+  if (!Number.isFinite(gate.cost) || gate.cost <= 0) {
+    throw new Error(
+      `bramka (${source}): próg kosztu ${gate.cost} $ — liczba dodatnia`,
+    );
+  }
 }
 
 export const describeGate = (gate: GateConfig): string =>
