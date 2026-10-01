@@ -1487,7 +1487,13 @@ describe('system pisania — walidatory twarde', () => {
             'Do miarki odmierz 50 ml, wlej olej na patelnię.',
           ),
         ).toHaveLength(1);
-        // Przyimek po jednostce to okolicznik, nie odmierzana rzecz.
+        // Okolicznik po jednostce to nie odmierzana rzecz (review Codexa #265).
+        expect(
+          numberErrors(
+            recipe,
+            'Odmierz 50 ml czystą miarką, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
         expect(
           numberErrors(
             recipe,

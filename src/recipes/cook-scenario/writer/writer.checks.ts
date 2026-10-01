@@ -501,71 +501,6 @@ const normalizedWords = (fragment: string): string[] =>
     .split(/[^a-z]+/)
     .filter(Boolean);
 
-/** Przyimki — po jednostce zaczynają okolicznik („do miarki”), nie rzecz. */
-const PREPOSITIONS = new Set([
-  'do',
-  'na',
-  'w',
-  'we',
-  'z',
-  'ze',
-  'po',
-  'od',
-  'przy',
-  'pod',
-  'nad',
-  'za',
-  'dla',
-  'bez',
-  'przez',
-  'okolo',
-]);
-
-/** Polecenia, od których po przecinku zaczyna się nowa czynność. */
-const IMPERATIVES = new Set([
-  'dodaj',
-  'dopraw',
-  'posol',
-  'popieprz',
-  'posyp',
-  'wsyp',
-  'wlej',
-  'dolej',
-  'wbij',
-  'wymieszaj',
-  'mieszaj',
-  'zamieszaj',
-  'przykryj',
-  'gotuj',
-  'zagotuj',
-  'dus',
-  'smaz',
-  'piecz',
-  'odstaw',
-  'zostaw',
-  'zdejmij',
-  'zmniejsz',
-  'zwieksz',
-  'przeloz',
-  'odcedz',
-  'zmiksuj',
-  'miksuj',
-  'ubij',
-  'rozgrzej',
-  'podgrzej',
-  'wstaw',
-  'wyjmij',
-  'pokroj',
-  'posiekaj',
-  'obierz',
-  'odlej',
-  'przelej',
-  'polej',
-  'skrop',
-  'podawaj',
-  'podaj',
-]);
-
 /** Końcówki dopełniacza — po „i” ta sama ilość dotyczy też tej rzeczy. */
 const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
@@ -580,30 +515,13 @@ const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
  */
 function quantityTail(rest: string): string {
   // Po „z / ze” stoi źródło, nie odmierzana rzecz: „2–3 łyżki wody
-  // z makaronu” to ilość wody (przegląd nocny). Przecinek i polecenie
-  // zaczynają NOWĄ czynność: „350 ml wody, dopraw solą” — ilość wody, nie
-  // soli (fala 1); przecinek przed przymiotnikiem („przegotowanego,
-  // zimnego mleka”) frazy nie kończy.
-  let clause = rest.split(
+  // z makaronu” to ilość wody (przegląd nocny). Przecinek frazy nie kończy
+  // („przegotowanego, zimnego mleka”) — cięcie na „, polecenie” otwierało
+  // obejścia („Odmierz 50 ml czystą miarką, wlej olej”; review Codexa
+  // #265), a fałszywe alarmy fali 1 usuwa już osobny wymiar szczypty.
+  const clause = rest.split(
     /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:z|ze)\s/u,
   )[0];
-  for (const match of clause.matchAll(/,\s*(\p{L}+)/gu)) {
-    const head = clause.slice(0, match.index);
-    // Tylko gdy ilość ma już swoją rzecz: odmierzana rzecz stoi TUŻ po
-    // jednostce, w dopełniaczu („350 ml wody, dopraw…”). „Odmierz 50 ml,
-    // wlej olej” i „50 ml do miarki, wlej olej” to ilość oleju (review
-    // Codexa, #265) — pierwsze słowo po jednostce nie może być przyimkiem.
-    const first = normalizedWords(head)[0];
-    if (
-      IMPERATIVES.has(normalizeText(match[1])) &&
-      first !== undefined &&
-      first.length >= 3 &&
-      !PREPOSITIONS.has(first)
-    ) {
-      clause = head;
-      break;
-    }
-  }
   for (const match of clause.matchAll(/\s(?:i|oraz)\s+(\p{L}+)/gu)) {
     if (!GENITIVE_END.test(match[1].toLowerCase())) {
       return clause.slice(0, match.index);
