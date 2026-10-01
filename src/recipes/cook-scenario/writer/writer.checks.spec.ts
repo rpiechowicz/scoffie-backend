@@ -1342,6 +1342,119 @@ describe('system pisania — walidatory twarde', () => {
       expect([...pool.extraTurns]).toEqual([]);
     });
 
+    describe('ilości w tekście — trzeci przegląd nocny (przepisy z katalogu)', () => {
+      const withRecipe = (
+        ingredients: WriterRecipe['ingredients'],
+        line: string,
+      ): WriterRecipe => ({
+        ...kotlet,
+        ingredients: [...kotlet.ingredients, ...ingredients],
+        instructions: [...kotlet.instructions, line],
+      });
+      const numberErrors = (recipe: WriterRecipe, body: string) => {
+        const content = clone(example.content);
+        step(content, 's12').body = body;
+        return qualityChecks(recipe, content).errors.filter((e) =>
+          e.includes('liczba'),
+        );
+      };
+
+      it.each([
+        // [składnik, krok przepisu, tekst scenariusza]
+        [
+          { ingredientId: 'jaj', name: 'jajko', amount: 2, unit: 'szt' },
+          'Na patelni usmaż 2 jajka sadzone.',
+          'Usmaż 2 jajka sadzone.',
+        ],
+        [
+          { ingredientId: 'bia', name: 'białko jaja', amount: 3, unit: 'szt' },
+          'Oddziel 3 białka od żółtek.',
+          'Oddziel 3 białka.',
+        ],
+        [
+          {
+            ingredientId: 'oli',
+            name: 'oliwa z oliwek',
+            amount: 40,
+            unit: 'ml',
+          },
+          'Skrop 2 łyżkami oliwy.',
+          'Skrop 2 łyżkami oliwy.',
+        ],
+        [
+          {
+            ingredientId: 'mlk',
+            name: 'mleko kokosowe z puszki',
+            amount: 150,
+            unit: 'ml',
+          },
+          'Wymieszaj z mlekiem kokosowym, 150 ml wody i cynamonem.',
+          'Wymieszaj ze 150 ml wody i mleka kokosowego.',
+        ],
+        [
+          {
+            ingredientId: 'mlk',
+            name: 'mleko kokosowe z puszki',
+            amount: 150,
+            unit: 'ml',
+          },
+          'Wymieszaj z mlekiem kokosowym, 150 ml wody i cynamonem.',
+          'Wlej 150 ml wody lub mleka kokosowego.',
+        ],
+        [
+          {
+            ingredientId: 'ole',
+            name: 'olej rzepakowy',
+            amount: 60,
+            unit: 'ml',
+          },
+          'Polej 2 łyżkami oleju (30 ml).',
+          'Dodaj olej (30 ml).',
+        ],
+      ])('ilość składnika %#: „%s” — błąd', (ingredient, line, body) => {
+        expect(numberErrors(withRecipe([ingredient], line), body)).toHaveLength(
+          1,
+        );
+      });
+
+      it.each([
+        // [krok przepisu, tekst scenariusza]
+        ['Dolej 150 ml wody i wymieszaj.', 'Dolej wody – ok. 150 ml.'],
+        ['Zalej kaszę 200 ml wrzątku.', 'Zalej kaszę 200 ml gorącej wody.'],
+        [
+          'Naczynie o pojemności ok. 1,5 l wysmaruj masłem.',
+          'Przygotuj naczynie żaroodporne ok. 1,5 l.',
+        ],
+        [
+          'Naczynie o pojemności ok. 1,5 l wysmaruj masłem.',
+          'Naczynie (ok. 1,5 l) wysmaruj masłem.',
+        ],
+        [
+          'Masę rozlej do 8 foremek na lody (po około 100 ml).',
+          'Masę rozlej do foremek na lody (po około 100 ml).',
+        ],
+        [
+          'Dodaj 2–3 łyżki wody z makaronu.',
+          'Dodaj 2–3 łyżki wody z makaronu.',
+        ],
+      ])('dosłowna ilość spoza listy: „%s” → „%s” — wolno', (line, body) => {
+        expect(numberErrors(withRecipe([], line), body)).toEqual([]);
+      });
+
+      it('tury: „wsyp pierogi partiami” to tury, „podawaj porcjami” i „wlewaj po chochli” — nie; „w dwóch turach” = dwa timery', () => {
+        const turns = (line: string) =>
+          [...recipeDurationPool([line]).extraTurns].length;
+        expect(
+          turns('Wsyp pierogi partiami do wrzątku i gotuj 4 minuty.'),
+        ).toBe(2);
+        expect(turns('Podawaj porcjami, odstaw na 10 minut.')).toBe(0);
+        expect(
+          turns('Bulion wlewaj po chochli, mieszając, przez 20 minut.'),
+        ).toBe(0);
+        expect(turns('Piecz w dwóch turach po 12 minut.')).toBe(1);
+      });
+    });
+
     it('totalMinutes nie krótszy niż odliczania po kolei', () => {
       // Masło 15 min, potem kotlety 10 i piekarnik 5 — ziemniaki w tle.
       expect(timelineFloorSeconds(example.content)).toBe(1800);
