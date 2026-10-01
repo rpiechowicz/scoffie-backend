@@ -56,6 +56,7 @@ describe('bramka jakości serii', () => {
     expect(() =>
       resolveGateConfig({}, { enabled: true, reject: 20, cost: 0.1 }),
     ).toThrow('bramka (dziennik)');
+    expect(() => resolveGateConfig({}, null)).toThrow('uszkodzona');
   });
 
   it('nowa seria (bez dziennika) — domyślna z flagami, bez ogłoszenia zmiany', () => {

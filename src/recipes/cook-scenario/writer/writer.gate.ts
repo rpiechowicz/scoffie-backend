@@ -31,9 +31,16 @@ export const GATE_MIN_FINISHED = 30;
  */
 export function resolveGateConfig(
   overrides: Partial<GateConfig>,
-  fromJournal: GateConfig | undefined,
+  fromJournal: GateConfig | null | undefined,
 ): { config: GateConfig; changed: string | null } {
-  if (fromJournal) assertGateConfig(fromJournal, 'dziennik');
+  // Brak pola = dziennik sprzed bramki (domyślna). KAŻDA podana wartość —
+  // także `null` z uszkodzonego JSON-a — musi być poprawną bramką (runda 6).
+  if (fromJournal !== undefined) {
+    if (typeof fromJournal !== 'object' || fromJournal === null) {
+      throw new Error('bramka (dziennik): uszkodzona — oczekiwano obiektu');
+    }
+    assertGateConfig(fromJournal, 'dziennik');
+  }
   const base = fromJournal ?? DEFAULT_GATE;
   const config: GateConfig = { ...base, ...overrides };
   assertGateConfig(config, 'flagi');
