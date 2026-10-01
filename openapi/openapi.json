@@ -9755,7 +9755,7 @@
             "type": "string"
           },
           "body": {
-            "description": "Jak — prostym językem; liczby porcjowe tylko przez tokeny `{count:…}`.",
+            "description": "Jak — prostym językem; liczby porcjowe tylko przez tokeny `{count:…}`\ni TYLKO tutaj — telefon podstawia liczbę wyłącznie w `body`.",
             "type": "string"
           },
           "ingredients": {
@@ -9776,7 +9776,7 @@
             "nullable": true
           },
           "during": {
-            "description": "`id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.\n\nKONTRAKT OŚ CZASU (walidator `checkTimerTimeline`, telefon E4): krok\nBEZ `during` po kroku z timerem zaczyna się po końcu tego timera —\n„Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer\nstartowany w kroku z `during` biegnie dalej sam, także po końcu\nnadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).",
+            "description": "`id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.\n\nKONTRAKT OŚ CZASU (walidator `checkTimerTimeline`, telefon E4): krok\nBEZ `during` po kroku z timerem zaczyna się po końcu tego timera —\n„Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer\nstartowany w kroku z `during` biegnie dalej sam, także po końcu\nnadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).\n„+2 min” przy alarmie PRZEDŁUŻA ten sam krok — kolejny krok główny\ndalej czeka na koniec (inaczej przy zakresie „10–20 min” mogłyby biec\ntrzy odliczania naraz; review Codexa, noc 30.09).",
             "type": "string",
             "nullable": true
           },
@@ -9854,7 +9854,7 @@
           },
           "trigger": { "$ref": "#/components/schemas/CookTimerTrigger" },
           "startLabel": {
-            "description": "Etykieta startu, mówi KIEDY stuknąć („Woda wrze — odliczaj 20 min”).",
+            "description": "SAM warunek startu na kapsule „do włączenia” w doku („Gdy woda\nzawrze”, „Kotlety na patelni”) — bez czasu, który stoi obok.",
             "type": "string"
           },
           "alert": {

@@ -357,14 +357,14 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
   });
 
   describe('publikacja wersji VALIDATED (dla panelu, E3c)', () => {
-    const saveValidated = async () => {
+    const saveValidated = async (extra: Partial<WriteOutcome> = {}) => {
       const loaded = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
       const content = await kotletContent();
       const saved = await prisma.$transaction((tx) =>
         saveWrittenScenario(tx, {
           recipe: loaded.recipe,
           signature: loaded.signature,
-          outcome: outcome('VALIDATED', content),
+          outcome: { ...outcome('VALIDATED', content), ...extra },
           generator: { source: 'writer', test: true },
         }),
       );
@@ -422,6 +422,19 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       await expect(
         prisma.$transaction((tx) => publishWrittenScenario(tx, id)),
       ).resolves.toEqual({ published: false, reason: 'NOT_VALIDATED' });
+    });
+
+    it('wersja z odwodu (ocena poniżej progu) nie publikuje się bez świadomej zgody', async () => {
+      const id = await saveValidated({
+        review: { score: 3, issues: [], summary: 'drobiazgi' },
+        belowThreshold: true,
+      });
+      const before = await recipeVersion();
+      await expect(
+        prisma.$transaction((tx) => publishWrittenScenario(tx, id)),
+      ).resolves.toEqual({ published: false, reason: 'BELOW_THRESHOLD' });
+      expect(await statusOf(id)).toBe('VALIDATED');
+      expect(await recipeVersion()).toBe(before);
     });
 
     it('zmienione kroki przepisu = STALE', async () => {

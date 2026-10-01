@@ -31,6 +31,9 @@
  * Opcje: --limit N (najwyżej N przepisów faktycznie pisanych),
  *   --skip-written (pomija przepisy z aktualnym wynikiem dla obecnej treści),
  *   --concurrency 3 (tryb na żywo), --out raport.json.
+ * Bramka jakości (paczki, po każdej rundzie, od 30 wyników): --gate-reject
+ *   0.2 (udział REJECTED), --gate-cost 0.1 (średni $ na przepis),
+ *   --no-gate. Na końcu: stan CAŁEGO katalogu przy obecnych zasadach.
  * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
  *   COOK_REVIEWER_EFFORT.
  */
@@ -78,6 +81,12 @@ import {
   REVIEWER_SYSTEM,
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
+import {
+  describeGate,
+  qualityGate,
+  resolveGateConfig,
+  type GateConfig,
+} from '../src/recipes/cook-scenario/writer/writer.gate';
 import { acquireLock } from '../src/recipes/cook-scenario/writer/writer.lock';
 import {
   batchReport,
@@ -107,6 +116,8 @@ interface Args {
   journal: string | null;
   resume: string | null;
   breakLock: boolean;
+  /** Pola bramki podane jawnie flagami — nadpisują dziennik pole po polu. */
+  gate: Partial<GateConfig>;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -125,6 +136,7 @@ function parseArgs(argv: string[]): Args {
     journal: null,
     resume: null,
     breakLock: false,
+    gate: {},
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -154,6 +166,9 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
+    else if (flag === '--gate-reject') args.gate.reject = Number(next());
+    else if (flag === '--gate-cost') args.gate.cost = positive(next());
+    else if (flag === '--no-gate') args.gate.enabled = false;
     else throw new Error(`nieznana opcja ${flag}`);
   }
   if (
@@ -166,6 +181,12 @@ function parseArgs(argv: string[]): Args {
     throw new Error(
       'podaj --recipe <id>, --pilot <N>, --sample <N>, --all albo --resume <dziennik>',
     );
+  }
+  // Katalog TYLKO przez Batch API (decyzja Rafała 30.09): bez `--batch`
+  // fala poszłaby na żywo — bez rabatu i bez bramki jakości (review
+  // Codexa, noc 1.10).
+  if (args.all && !args.batch) {
+    throw new Error('--all tylko z --batch — katalog idzie przez Batch API');
   }
   return args;
 }
@@ -293,6 +314,8 @@ type JournalFile = BatchJournal & {
   signatures: Record<string, string>;
   /** sha256 promptu autora (z wzorcem) i recenzenta z początku serii. */
   promptHash: string;
+  /** Bramka jakości serii — część trwałego stanu (review Codexa, noc 1.10). */
+  gate?: GateConfig;
 };
 
 async function readJournal(path: string): Promise<JournalFile> {
@@ -336,6 +359,31 @@ async function writeJournal(path: string, journal: JournalFile) {
   }
 }
 
+/**
+ * Stan CAŁEGO katalogu przy obecnych zasadach (review Codexa, noc 30.09):
+ * `--skip-written` pomija przepisy z wcześniejszych serii — także ich
+ * REJECTED — więc sam raport serii nie mówi, ile naprawdę zostało.
+ */
+async function catalogSummary(prisma: PrismaClient): Promise<string> {
+  // Ta sama aktualność co `--skip-written` (review Codexa, noc 1.10): zasady,
+  // status wyniku, podpis bazy ORAZ odcisk całego wejścia modelu — inaczej
+  // zmiana nazwy składnika (poza podpisem) zawyżałaby pokrycie katalogu.
+  const ids = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT r."id" FROM "Recipe" r
+     WHERE r."isCatalog" AND r."isActive"
+       AND EXISTS (SELECT 1 FROM "RecipeIngredient" ri WHERE ri."recipeId" = r."id")`;
+  const counts = new Map<string, number>();
+  for (const { id } of ids) {
+    const loaded = await loadWriterRecipe(prisma, id);
+    const status = loaded?.currentStatus ?? 'bez wyniku';
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  return `katalog przy zasadach ${COOK_SCENARIO_RULES_VERSION}: ${[...counts]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([status, n]) => `${status} ${n}`)
+    .join(' · ')} (z ${ids.length}, łącznie ze wzorcem)`;
+}
+
 /** Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi. */
 const promptHash = (example: WriterExample) =>
   createHash('sha256')
@@ -349,8 +397,12 @@ async function main() {
   assertLocalDatabase();
   // Wyłączna blokada dziennika PRZED jego odczytem czy utworzeniem — dwa
   // procesy na jednym dzienniku zapłaciłyby podwójnie (writer.lock.ts).
+  // Domyślna nazwa z datą (review Codexa, noc 30.09): „.done” pilota nie
+  // koliduje z kolejną serią.
   const journalPath =
-    args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
+    args.resume ??
+    args.journal ??
+    `cook-scenarios-journal-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
   // Blokada GLOBALNA (na komputer) przed blokadą dziennika: paczki z konta
   // wysyła naraz jeden przebieg, więc przy wyszukiwaniu paczki o nieznanym
   // wyniku pasująca paczka w toku jest nasza, a nie z innej serii (review
@@ -378,6 +430,9 @@ async function main() {
     const resumed = args.resume ? await readJournal(args.resume) : null;
     // Wznowienie pisze tymi samymi modelami co początek serii.
     const options = resumed ? resumed.options : writerOptions();
+    const gateResolved = resolveGateConfig(args.gate, resumed?.gate);
+    const gateConfig = gateResolved.config;
+    if (gateResolved.changed) console.log(gateResolved.changed);
     const example = await loadExample(prisma);
     if (resumed && resumed.promptHash !== promptHash(example)) {
       throw new Error(
@@ -388,7 +443,7 @@ async function main() {
       ? []
       : await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $${args.batch || resumed ? ` · bramka: ${describeGate(gateConfig)}` : ''}`,
     );
 
     if (args.dryRun) {
@@ -549,10 +604,12 @@ async function main() {
                 options,
                 signatures,
                 promptHash: promptHash(example),
+                gate: gateConfig,
               }),
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
             runId,
+            gate: (final) => qualityGate(jobs, gateConfig, final),
           },
         );
         // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.
@@ -654,7 +711,7 @@ async function main() {
     }
     if (stoppedBatch) {
       console.log(
-        `\nZATRZYMANO: ${stoppedBatch.message}. Stan jest w dzienniku — dokończ: pnpm cook-scenarios:write --resume ${args.resume ?? args.journal ?? 'cook-scenarios-journal.json'} --budget-usd <łączny limit serii>`,
+        `\nZATRZYMANO: ${stoppedBatch.message}. Stan jest w dzienniku — dokończ: pnpm cook-scenarios:write --resume ${journalPath} --budget-usd <łączny limit serii>`,
       );
       process.exitCode = 2;
     }
@@ -662,6 +719,7 @@ async function main() {
       await writeFile(args.out, JSON.stringify(report, null, 2));
       console.log(`raport: ${args.out}`);
     }
+    console.log(await catalogSummary(prisma));
   } finally {
     await prisma.$disconnect();
     await releaseLock?.();

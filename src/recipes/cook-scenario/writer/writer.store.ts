@@ -14,6 +14,8 @@ export interface LoadedWriterRecipe {
   signature: string;
   /** Jest już wynik systemu pisania dla TEJ treści (`hasCurrentWrite`). */
   current: boolean;
+  /** Status tego wyniku (najnowszej takiej wersji) albo `null`. */
+  currentStatus: string | null;
 }
 
 /**
@@ -34,8 +36,13 @@ export async function loadWriterRecipe(
       if (!recipe) return null;
       const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
         SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
-      const current = await hasCurrentWrite(tx, recipe, signature);
-      return { recipe, signature, current };
+      const currentStatus = await currentWriteStatus(tx, recipe, signature);
+      return {
+        recipe,
+        signature,
+        current: currentStatus !== null,
+        currentStatus,
+      };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
@@ -182,6 +189,7 @@ export async function saveWrittenScenario(
         ...(input.jobId ? { jobId: input.jobId } : {}),
         inputHash: writerInputHash(input.recipe),
         recipeChangedDuringWrite: changed,
+        belowThreshold: outcome.belowThreshold ?? false,
         review: outcome.review,
         warnings: outcome.warnings,
         attempts: outcome.attempts,
@@ -211,11 +219,11 @@ export function writerInputHash(recipe: WriterRecipe): string {
  * ręcznie (bez odcisku) nie jest wynikiem systemu pisania; publikacja
  * z panelu (E3c) musi przenosić `inputHash` wersji, którą publikuje.
  */
-async function hasCurrentWrite(
+async function currentWriteStatus(
   tx: Prisma.TransactionClient,
   recipe: WriterRecipe,
   signature: string,
-): Promise<boolean> {
+): Promise<string | null> {
   const rows = await tx.recipeCookScenario.findMany({
     where: {
       recipeId: recipe.id,
@@ -223,20 +231,29 @@ async function hasCurrentWrite(
       recipeContentHash: signature,
       status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
     },
-    select: { validationReport: true },
+    select: { validationReport: true, status: true },
+    orderBy: { version: 'desc' },
   });
   const hash = writerInputHash(recipe);
-  return rows.some((row) => {
-    const report = row.validationReport as { inputHash?: unknown } | null;
+  const row = rows.find((candidate) => {
+    const report = candidate.validationReport as {
+      inputHash?: unknown;
+    } | null;
     return report?.inputHash === hash;
   });
+  return row ? row.status : null;
 }
 
 export type PublishWrittenResult =
   | { published: true; recipeId: string; version: number; changed: boolean }
   | {
       published: false;
-      reason: 'NOT_FOUND' | 'NOT_VALIDATED' | 'RULES_CHANGED' | 'STALE';
+      reason:
+        | 'NOT_FOUND'
+        | 'NOT_VALIDATED'
+        | 'RULES_CHANGED'
+        | 'STALE'
+        | 'BELOW_THRESHOLD';
     };
 
 /**
@@ -246,11 +263,14 @@ export type PublishWrittenResult =
  * przepisu czytamy wejście modelu jeszcze raz: inny podpis albo odcisk =
  * wersja dostaje STALE i NIE jest publikowana (wynik zamiast wyjątku —
  * wyjątek wycofałby oznaczenie STALE razem z transakcją wołającego).
- * Wersja pisana według starszych zasad też nie przechodzi.
+ * Wersja pisana według starszych zasad też nie przechodzi. Wersja
+ * z odwodu (ocena poniżej progu, bez BLOCKER/MAJOR — `belowThreshold`)
+ * tylko ze świadomą zgodą (`allowBelowThreshold`, panel po przeczytaniu).
  */
 export async function publishWrittenScenario(
   tx: Prisma.TransactionClient,
   scenarioId: string,
+  options: { allowBelowThreshold?: boolean } = {},
 ): Promise<PublishWrittenResult> {
   const head = await tx.recipeCookScenario.findUnique({
     where: { id: scenarioId },
@@ -279,6 +299,10 @@ export async function publishWrittenScenario(
   }
   if (row.rulesVersion !== COOK_SCENARIO_RULES_VERSION) {
     return { published: false, reason: 'RULES_CHANGED' };
+  }
+  const flags = row.validationReport as { belowThreshold?: unknown } | null;
+  if (flags?.belowThreshold === true && !options.allowBelowThreshold) {
+    return { published: false, reason: 'BELOW_THRESHOLD' };
   }
   const recipe = await readWriterRecipe(tx, row.recipeId);
   const [{ signature }] = await tx.$queryRaw<{ signature: string | null }[]>`

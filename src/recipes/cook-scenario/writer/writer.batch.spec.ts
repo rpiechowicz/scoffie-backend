@@ -172,6 +172,58 @@ describe('system pisania — rundy paczek', () => {
     );
   });
 
+  it('bramka jakości zatrzymuje serię PRZED kolejną rundą — z pełnym dziennikiem', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    const journals: BatchJournal[] = [];
+    let rounds = 0;
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        persist: (journal) => {
+          journals.push(journal);
+          return Promise.resolve();
+        },
+        gate: () => (++rounds === 2 ? 'odrzuceń za dużo' : null),
+      }),
+    ).rejects.toMatchObject({ reason: 'gate' });
+    // Pytana przed każdą rundą: przed drugą powiedziała „stop” — druga
+    // paczka nie poszła.
+    expect(model.batches).toHaveLength(1);
+    expect(journals.at(-1)?.round).toBe(1);
+  });
+
+  it('wznowienie z bramką, która dalej mówi „stop”, nie płaci ani jednej rundy', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        resume: { round: 1, handled: [], inflight: [] },
+        gate: () => 'wydatek za duży',
+      }),
+    ).rejects.toMatchObject({ reason: 'gate' });
+    expect(model.batches).toHaveLength(0);
+  });
+
+  it('po ostatniej rundzie bramka dostaje final=true — próg odrzuceń przekroczony dopiero wynikami ostatniej rundy zatrzymuje serię', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    const finals: boolean[] = [];
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        gate: (final) => {
+          finals.push(final);
+          return final ? 'odrzuconych za dużo' : null;
+        },
+      }),
+    ).rejects.toMatchObject({ reason: 'gate' });
+    expect(jobs.every((job) => job.hasResult)).toBe(true);
+    expect(finals.at(-1)).toBe(true);
+    expect(finals.slice(0, -1).every((f) => !f)).toBe(true);
+  });
+
   it('błąd pozycji API jest ponawiany w kolejnych rundach; po 3 pod rząd przebieg jest NIEKOMPLETNY, a wznowienie daje nową serię prób', async () => {
     let failuresLeftForA = 5;
     const model: BatchModel = {
@@ -480,6 +532,32 @@ describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
     expect(guard.spentMicroUsd).toBe(0);
     expect(guard.reservedMicroUsd).toBe(0);
   });
+
+  it.each([
+    [402, 'payment required'],
+    [429, 'rate_limit_error'],
+    [400, 'Your credit balance is too low to access the Anthropic API'],
+  ])(
+    'odmowa KONTA (%s): cała seria staje „account”, pozycje bez błędów, zero kosztu (review Codexa, noc 30.09)',
+    async (status, text) => {
+      const guard = new BudgetGuard(worst * 3);
+      const client = fakeClient([]);
+      (
+        client.messages.batches as unknown as { create: () => Promise<never> }
+      ).create = () =>
+        Promise.reject(
+          Object.assign(new Error(`${status} ${text}`), { status }),
+        );
+      const outcome = await model(client, guard).run([
+        { id: 'a-r1', call },
+        { id: 'b-r1', call },
+      ]);
+      expect(outcome.stopReason).toBe('account');
+      expect(outcome.results.size).toBe(0);
+      expect(guard.spentMicroUsd).toBe(0);
+      expect(guard.reservedMicroUsd).toBe(0);
+    },
+  );
 
   it('paczka nieprzyjęta: stop „transport”, zero kosztu, zadania nietknięte', async () => {
     const guard = new BudgetGuard(worst * 3);

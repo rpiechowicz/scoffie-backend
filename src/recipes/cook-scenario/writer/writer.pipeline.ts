@@ -75,6 +75,11 @@ export interface WriteOutcome {
   warnings: string[];
   attempts: AttemptReport[];
   usage: WriterUsage;
+  /**
+   * VALIDATED z wersji w odwodzie: bez BLOCKER/MAJOR, ale ocena poniżej
+   * progu — publikacja wymaga świadomej zgody (`publishWrittenScenario`).
+   */
+  belowThreshold?: boolean;
 }
 
 /** Najwięcej punktów z raportu wracających do autora — reszta to szum. */
@@ -124,10 +129,22 @@ const reviewPasses = (review: Review, minScore: number) =>
     (issue) => issue.severity === 'BLOCKER' || issue.severity === 'MAJOR',
   );
 
-const reviewFeedback = (review: Review) => [
+/** Czy recenzja ma coś, co blokuje publikację (BLOCKER albo MAJOR). */
+const isBlocking = (review: Review) =>
+  review.issues.some(
+    (issue) => issue.severity === 'BLOCKER' || issue.severity === 'MAJOR',
+  );
+
+/**
+ * Uwagi do poprawki. Zwykle tylko BLOCKER/MAJOR — MINOR to szum. Gdy
+ * recenzent dał ocenę poniżej progu bez żadnej poważnej uwagi (próba .5,
+ * pizza: 3/5 i same MINOR), autor dostaje MINOR — inaczej nie miałby czego
+ * poprawić i kręciłby się w kółko.
+ */
+const reviewFeedback = (review: Review, withMinor = false) => [
   `Recenzent ocenił na ${review.score}/5: ${review.summary}`,
   ...review.issues
-    .filter((issue) => issue.severity !== 'MINOR')
+    .filter((issue) => withMinor || issue.severity !== 'MINOR')
     .map(
       (issue) =>
         `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
@@ -168,10 +185,37 @@ export interface JobState {
   failure: string | null;
   /** Ile razy z rzędu pozycja paczki tego zadania padła po stronie API. */
   transportErrors?: number;
+  /** Ile razy z rzędu recenzja tej treści wróciła ucięta albo zepsuta. */
+  reviewFailures?: number;
+  /** Ostatnia recenzja ucięta (max_tokens) — ponowienie z wyższym limitem. */
+  reviewTruncated?: boolean;
+  /** Ostatnia odpowiedź autora ucięta — kolejna próba z wyższym limitem. */
+  writerTruncated?: boolean;
+  /** Ostatnia wersja bez BLOCKER/MAJOR — wynik, gdy dalsze poprawki padną. */
+  acceptable?: {
+    content: CookScenarioContent;
+    review: Review;
+    warnings: string[];
+  } | null;
 }
 
 /** Tyle błędów API pod rząd na zadanie, zanim uznamy je za nieudane. */
 export const MAX_TRANSPORT_ERRORS = 3;
+
+/**
+ * Tyle razy ponawiamy SAMĄ recenzję, gdy wróci ucięta (max_tokens),
+ * niezgodna ze schematem albo niespójna — to nie wina autora, nie zużywa
+ * jego prób (review Codexa, noc 30.09). Raz: przy systematycznym ucinaniu
+ * więcej ponowień tylko mnoży koszt (przegląd nocny).
+ */
+export const MAX_REVIEW_FAILURES = 1;
+
+/**
+ * Ponowienie po uciętej odpowiedzi (recenzji albo autora) dostaje tyle razy
+ * wyższy limit tokenów — długie przepisy (barszcz z uszkami, kulebiak)
+ * nie mieszczą myślenia i scenariusza w 12 tys. (próba w7).
+ */
+const TRUNCATED_REVIEW_BOOST = 1.5;
 
 export class ScenarioJob {
   /** Klucz zadania — zapis tego samego zadania drugi raz nic nie dopisuje. */
@@ -197,6 +241,10 @@ export class ScenarioJob {
   /** Błąd API (sieć, limit, paczka) — zadanie przerwane bez wyniku. */
   failure: string | null = null;
   private transportErrors = 0;
+  private reviewFailures = 0;
+  private reviewTruncated = false;
+  private writerTruncated = false;
+  private acceptable: JobState['acceptable'] = null;
 
   constructor(
     readonly recipe: WriterRecipe,
@@ -233,6 +281,10 @@ export class ScenarioJob {
         result: this.result,
         failure: this.failure,
         transportErrors: this.transportErrors,
+        reviewFailures: this.reviewFailures,
+        reviewTruncated: this.reviewTruncated,
+        writerTruncated: this.writerTruncated,
+        acceptable: this.acceptable,
       } satisfies JobState),
     ) as JobState;
   }
@@ -262,6 +314,10 @@ export class ScenarioJob {
     job.result = state.result;
     job.failure = state.failure;
     job.transportErrors = state.transportErrors ?? 0;
+    job.reviewFailures = state.reviewFailures ?? 0;
+    job.reviewTruncated = state.reviewTruncated ?? false;
+    job.writerTruncated = state.writerTruncated ?? false;
+    job.acceptable = state.acceptable ?? null;
     return job;
   }
 
@@ -272,6 +328,11 @@ export class ScenarioJob {
   /** Zadanie ma wynik (VALIDATED/REJECTED/SKIPPED) — do zapisu w bazie. */
   get hasResult(): boolean {
     return this.result !== null;
+  }
+
+  /** Ile zadanie kosztowało dotąd (także w toku) — do bramki kosztu serii. */
+  get spentMicroUsd(): number {
+    return this.usage.costMicroUsd;
   }
 
   /** Następne potrzebne wywołanie modelu albo `null`, gdy zadanie skończone. */
@@ -289,7 +350,9 @@ export class ScenarioJob {
           this.previousIssues,
         ),
         schema: REVIEWER_OUTPUT_SCHEMA,
-        maxTokens: this.options.maxTokens,
+        maxTokens: this.reviewTruncated
+          ? Math.round(this.options.maxTokens * TRUNCATED_REVIEW_BOOST)
+          : this.options.maxTokens,
       };
     }
     return {
@@ -298,7 +361,9 @@ export class ScenarioJob {
       system: this.system,
       user: buildWriterUser(this.recipe, this.feedback, this.previous),
       schema: WRITER_OUTPUT_SCHEMA,
-      maxTokens: this.options.maxTokens,
+      maxTokens: this.writerTruncated
+        ? Math.round(this.options.maxTokens * TRUNCATED_REVIEW_BOOST)
+        : this.options.maxTokens,
     };
   }
 
@@ -351,6 +416,9 @@ export class ScenarioJob {
     };
     this.attempts.push(report);
 
+    // Raz ucięty = długi przepis: wyższy limit do końca zadania (przegląd
+    // nocny — inaczej trzecia próba wracała do 12 tys. i znów się ucinała).
+    this.writerTruncated ||= written.stopReason === 'max_tokens';
     if (written.stopReason === 'max_tokens') {
       report.errors.push(
         'odpowiedź ucięta (max_tokens) — pisz zwięźlej, najwyżej 30 kroków',
@@ -404,17 +472,40 @@ export class ScenarioJob {
 
   private acceptReview(reviewed: WriterModelResult): void {
     const { content, warnings, report } = this.pendingReview!;
-    this.pendingReview = null;
     this.usage = addUsage(this.usage, reviewed.usage);
     report.usage = addUsage(report.usage, reviewed.usage);
-    const review = parseReview(reviewed.json);
-    if (!review) {
-      // Zepsuta odpowiedź recenzenta nie jest winą autora — bez oceny nie
-      // przepuszczamy, ale też nie przepisujemy treści w kółko.
-      report.errors.push('recenzent: odpowiedź niezgodna ze schematem');
+    const truncated = reviewed.stopReason === 'max_tokens';
+    const review = truncated ? null : parseReview(reviewed.json);
+    // Ocena musi zgadzać się z wagami (prompt): poniżej progu bez BLOCKER/
+    // MAJOR wolno tylko o jeden punkt i tylko z uwagami do poprawy — „1/5
+    // bez uwag” to recenzja zepsuta, nie wynik (przegląd nocny).
+    const inconsistent =
+      review !== null &&
+      !reviewPasses(review, this.options.minScore) &&
+      !isBlocking(review) &&
+      (review.score < this.options.minScore - 1 || !review.issues.length);
+    if (!review || inconsistent) {
+      // Ucięta, zepsuta albo niespójna recenzja nie jest winą autora:
+      // ponawiamy SAMĄ recenzję tej samej treści (review Codexa, noc 30.09).
+      const why = truncated
+        ? 'recenzent: odpowiedź ucięta (max_tokens)'
+        : inconsistent
+          ? `recenzent: ocena ${review.score}/5 bez BLOCKER/MAJOR${review.issues.length ? '' : ' i bez uwag'} — niespójna z zasadami oceny`
+          : 'recenzent: odpowiedź niezgodna ze schematem';
+      this.reviewFailures += 1;
+      this.reviewTruncated = truncated;
+      if (this.reviewFailures <= MAX_REVIEW_FAILURES) {
+        report.warnings = [...report.warnings, `${why} — ponawiam recenzję`];
+        return;
+      }
+      this.pendingReview = null;
+      report.errors.push(why);
       this.reject();
       return;
     }
+    this.pendingReview = null;
+    this.reviewFailures = 0;
+    this.reviewTruncated = false;
     report.review = review;
     this.lastReview = review;
     if (reviewPasses(review, this.options.minScore)) {
@@ -431,6 +522,17 @@ export class ScenarioJob {
       (issue) =>
         `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
     );
+    if (!isBlocking(review)) {
+      // Ocena o punkt poniżej progu, same MINOR: nic nie blokuje publikacji.
+      // Autor próbuje je poprawić, a NAJLEPSZA taka wersja zostaje
+      // w odwodzie — gdyby dalsze poprawki padły, wynikiem jest ona
+      // (oznaczona `belowThreshold`), nie REJECTED.
+      if (!this.acceptable || review.score >= this.acceptable.review.score) {
+        this.acceptable = { content, review, warnings };
+      }
+      this.retryOrReject(reviewFeedback(review, true));
+      return;
+    }
     this.retryOrReject(reviewFeedback(review));
   }
 
@@ -440,6 +542,19 @@ export class ScenarioJob {
   }
 
   private reject(): void {
+    if (this.acceptable) {
+      // Wersja bez BLOCKER/MAJOR z wcześniejszej próby — publikowalna
+      // według zasad recenzji; ocena zostaje w raporcie dla panelu.
+      this.finish({
+        status: 'VALIDATED',
+        content: this.acceptable.content,
+        skipReason: null,
+        review: this.acceptable.review,
+        warnings: this.acceptable.warnings,
+        belowThreshold: this.acceptable.review.score < this.options.minScore,
+      });
+      return;
+    }
     this.finish({
       status: 'REJECTED',
       content: this.lastContent,
