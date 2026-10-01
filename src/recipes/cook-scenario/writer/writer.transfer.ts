@@ -99,7 +99,10 @@ export async function exportValidatedScenarios(
         typeof report.review?.score === 'number'
           ? {
               score: report.review.score,
-              summary: String(report.review.summary ?? ''),
+              summary:
+                typeof report.review.summary === 'string'
+                  ? report.review.summary
+                  : '',
             }
           : null,
       source: { scenarioId: row.id, version: row.version },
