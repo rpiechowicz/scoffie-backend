@@ -3,9 +3,10 @@
  * (prod: przez `railway ssh`).
  *
  * Każdy przepis we WŁASNEJ transakcji, pod blokadą przepisu: publikuje tylko,
- * gdy przepis jest tu dokładnie tym samym wejściem modelu, do którego
- * napisano scenariusz (podpis bazy + odcisk wejścia) — inaczej CHANGED i nic
- * nie zapisuje. Opublikowanego wzorca pisanego ręcznie nie zastępuje.
+ * gdy przepis jest tu tym samym wejściem modelu, do którego napisano
+ * scenariusz (przenośny odcisk — bez id składników, które różnią się między
+ * bazami) — inaczej CHANGED i nic nie zapisuje. Składniki z pliku (po nazwie)
+ * dostają id tej bazy. `--dry-run` robi wszystko i wycofuje transakcję. Opublikowanego wzorca pisanego ręcznie nie zastępuje.
  * Idempotentny: ta sama treść = UNCHANGED (log katalogu stoi).
  *
  * Bezpiecznik: bez `--dry-run` wymaga COOK_IMPORT_CONFIRM=<dzisiejsza data
@@ -18,10 +19,21 @@
 import { readFile } from 'node:fs/promises';
 import { PrismaClient } from '@prisma/client';
 import {
+  DryRunRollback,
   importScenario,
   parseExportFile,
   type ImportOutcome,
 } from '../src/recipes/cook-scenario/writer/writer.transfer';
+
+/** Błąd Prismy bywa z pustym `message` — wtedy kod i nazwa klasy. */
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const code = (error as { code?: unknown }).code;
+  const text = error.message.trim().split('\n').at(-1) ?? '';
+  return [error.name, typeof code === 'string' ? code : null, text]
+    .filter(Boolean)
+    .join(' · ');
+}
 
 async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--');
@@ -50,15 +62,19 @@ async function main() {
           importScenario(tx, entry, { exportedAt: file.exportedAt, dryRun }),
         );
       } catch (error) {
+        if (error instanceof DryRunRollback) {
+          outcome = error.outcome;
+          counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
+          if (!['PUBLISHED', 'UNCHANGED', 'REPLACED'].includes(outcome)) {
+            notes.push(`${outcome} · ${entry.title} (${entry.recipeId})`);
+          }
+          continue;
+        }
         outcome = 'ERROR';
-        notes.push(
-          `ERROR · ${entry.title}: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        notes.push(`ERROR · ${entry.title}: ${describeError(error)}`);
       }
       counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
-      if (
-        !['PUBLISHED', 'UNCHANGED', 'WOULD_PUBLISH', 'ERROR'].includes(outcome)
-      ) {
+      if (!['PUBLISHED', 'UNCHANGED', 'REPLACED', 'ERROR'].includes(outcome)) {
         notes.push(`${outcome} · ${entry.title} (${entry.recipeId})`);
       }
     }

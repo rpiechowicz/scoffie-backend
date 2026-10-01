@@ -13,8 +13,10 @@ import {
   writerInputHash,
 } from '../src/recipes/cook-scenario/writer/writer.store';
 import {
+  DryRunRollback,
   exportValidatedScenarios,
   importScenario,
+  portableInputHash,
   parseExportFile,
   type CookScenarioExportEntry,
 } from '../src/recipes/cook-scenario/writer/writer.transfer';
@@ -118,22 +120,28 @@ describe('Scenariusze Gotuj — eksport i import (E2E)', () => {
       (row) => row.recipeId === KOTLET.recipeId,
     )!;
     expect(entry).toMatchObject({
-      recipeContentHash: loaded.signature,
-      inputHash: writerInputHash(loaded.recipe),
+      portableHash: portableInputHash(loaded.recipe),
       review: { score: 4, summary: 'ok' },
     });
-    expect(entry.content).toEqual(content);
+    // Plik jest przenośny: składniki po nazwie, bez id tej bazy.
+    const raw = JSON.stringify(entry.content);
+    expect(raw).not.toContain('ingredientId');
+    for (const row of loaded.recipe.ingredients) {
+      expect(raw).not.toContain(row.ingredientId);
+    }
 
     // Wzorzec pisany ręcznie jest opublikowany — import go nie zastępuje.
     if (publishedBefore.length) expect(await run(entry)).toBe('GOLDEN');
 
     // Inny przepis na docelowej bazie (inny odcisk) = nic nie zapisuje.
-    expect(await run({ ...entry, inputHash: 'sha256:inny' })).toBe('CHANGED');
+    expect(await run({ ...entry, portableHash: 'sha256:inny' })).toBe(
+      'CHANGED',
+    );
     expect(
       await run({ ...entry, recipeId: '00000000-0000-4000-8000-000000000000' }),
     ).toBe('NOT_FOUND');
 
-    // Bez opublikowanego wzorca: próba nic nie zapisuje, import publikuje.
+    // Bez opublikowanego wzorca: próba liczy jak import i wszystko wycofuje.
     await prisma.recipeCookScenario.updateMany({
       where: { id: { in: publishedBefore } },
       data: { status: 'RETIRED' },
@@ -141,17 +149,22 @@ describe('Scenariusze Gotuj — eksport i import (E2E)', () => {
     const count = () =>
       prisma.recipeCookScenario.count({ where: { recipeId: KOTLET.recipeId } });
     const before = await count();
-    expect(await run(entry, true)).toBe('WOULD_PUBLISH');
+    await expect(run(entry, true)).rejects.toMatchObject({
+      outcome: 'PUBLISHED',
+    });
+    await expect(run(entry, true)).rejects.toBeInstanceOf(DryRunRollback);
     expect(await count()).toBe(before);
     expect(await run(entry)).toBe('PUBLISHED');
     const published = await prisma.recipeCookScenario.findFirstOrThrow({
       where: { recipeId: KOTLET.recipeId, status: 'PUBLISHED' },
       select: { content: true, validationReport: true },
     });
+    // Nazwy wróciły do id tej bazy — ta sama treść, co napisana.
     expect(published.content).toEqual(content);
-    // Opublikowana wersja niesie odcisk — system pisania uzna ją za aktualną.
+    // Opublikowana wersja niesie odcisk TEJ bazy — system pisania uzna ją
+    // za aktualny wynik.
     expect(published.validationReport).toMatchObject({
-      inputHash: entry.inputHash,
+      inputHash: writerInputHash(loaded.recipe),
     });
     expect((await loadWriterRecipe(prisma, KOTLET.recipeId))!.current).toBe(
       true,
@@ -159,10 +172,30 @@ describe('Scenariusze Gotuj — eksport i import (E2E)', () => {
     expect(await run(entry)).toBe('UNCHANGED');
   });
 
+  it('przenośny odcisk nie zależy od id składników ani kolejności wierszy', async () => {
+    const { recipe } = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+    const elsewhere = {
+      ...recipe,
+      ingredients: [...recipe.ingredients].reverse().map((row, index) => ({
+        ...row,
+        ingredientId: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      })),
+    };
+    expect(portableInputHash(elsewhere)).toBe(portableInputHash(recipe));
+    expect(writerInputHash(elsewhere)).not.toBe(writerInputHash(recipe));
+    const changed = {
+      ...recipe,
+      ingredients: recipe.ingredients.map((row, index) =>
+        index === 0 ? { ...row, amount: row.amount + 1 } : row,
+      ),
+    };
+    expect(portableInputHash(changed)).not.toBe(portableInputHash(recipe));
+  });
+
   it('plik z innych zasad albo niekompletny = odmowa przed czymkolwiek', () => {
     const base = {
       format: 'scoffie-cook-scenarios',
-      version: 1,
+      version: 2,
       rulesVersion: COOK_SCENARIO_RULES_VERSION,
       exportedAt: '2026-10-02T00:00:00Z',
       count: 0,

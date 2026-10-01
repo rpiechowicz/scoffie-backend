@@ -1,32 +1,39 @@
+import { createHash } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { resolveGoldenContent } from '../cook-scenario.golden';
 import { publishCookScenario } from '../cook-scenario.publish';
-import { COOK_SCENARIO_RULES_VERSION } from '../cook-scenario.types';
+import {
+  COOK_SCENARIO_RULES_VERSION,
+  type CookScenarioContent,
+} from '../cook-scenario.types';
 import {
   loadWriterRecipe,
   readWriterRecipe,
   writerInputHash,
 } from './writer.store';
+import type { WriterRecipe } from './writer.types';
 
 /**
  * Przeniesienie scenariuszy napisanych lokalnie na inną bazę (prod).
  *
- * System pisania działa tylko na bazie lokalnej (kopia katalogu z prod), więc
- * scenariusze trafiają na prod plikiem: eksport bierze z bazy lokalnej
- * AKTUALNE wersje VALIDATED (te same zasady, podpis i odcisk wejścia — jak
- * `--skip-written`), a import na docelowej bazie publikuje każdą TYLKO wtedy,
- * gdy przepis jest tam dokładnie tym samym wejściem modelu (podpis bazy +
- * odcisk całego wejścia, pod blokadą przepisu). Przepis zmieniony na prod po
- * zrobieniu kopii = pominięty, nie publikowany ze starą treścią.
+ * System pisania działa tylko na bazie lokalnej, a ta jest zbudowana z PLIKU
+ * katalogu: `Recipe.id` są wspólne, ale `Ingredient.id` losowe — inne niż na
+ * prod (przegląd #269). Dlatego plik jest przenośny jak wzorce
+ * (`cook-scenarios-pl-v1.json`): składniki w treści po NAZWIE z przepisu,
+ * a „ten sam przepis” rozstrzyga przenośny odcisk wejścia modelu — wszystko,
+ * co widział model, bez id składników, ze składnikami w stałej kolejności.
+ * Import pod blokadą przepisu liczy ten odcisk na docelowej bazie, zamienia
+ * nazwy na tamtejsze id i publikuje; przepis zmieniony po zrobieniu kopii =
+ * pominięty, nie publikowany ze starą treścią.
  */
 export const COOK_EXPORT_FORMAT = 'scoffie-cook-scenarios';
 
 export interface CookScenarioExportEntry {
   recipeId: string;
   title: string;
-  /** `recipe_content_signature` przepisu, do którego napisano scenariusz. */
-  recipeContentHash: string;
-  /** `writerInputHash` — odcisk CAŁEGO wejścia modelu. */
-  inputHash: string;
+  /** `portableInputHash` przepisu, do którego napisano scenariusz. */
+  portableHash: string;
+  /** Treść ze składnikami po NAZWIE (`ingredient`, `mentions`). */
   content: unknown;
   generator: Prisma.JsonValue;
   review: { score: number; summary: string } | null;
@@ -36,11 +43,61 @@ export interface CookScenarioExportEntry {
 
 export interface CookScenarioExportFile {
   format: typeof COOK_EXPORT_FORMAT;
-  version: 1;
+  version: 2;
   rulesVersion: string;
   exportedAt: string;
   count: number;
   scenarios: CookScenarioExportEntry[];
+}
+
+/**
+ * Odcisk wejścia modelu niezależny od bazy: bez `ingredientId`, składniki
+ * posortowane po nazwie (kolejność wierszy zależy od historii importów).
+ */
+export function portableInputHash(recipe: WriterRecipe): string {
+  const portable = {
+    ...recipe,
+    ingredients: recipe.ingredients
+      .map((row) => ({
+        name: row.name,
+        amount: row.amount,
+        unit: row.unit,
+        department: row.department,
+      }))
+      .sort((a, b) =>
+        a.name < b.name ? -1 : a.name > b.name ? 1 : a.amount - b.amount,
+      ),
+  };
+  return `sha256:${createHash('sha256').update(JSON.stringify(portable)).digest('hex')}`;
+}
+
+/** Treść z id składników → treść z nazwami (format wzorców). */
+export function contentWithNames(
+  recipe: WriterRecipe,
+  content: CookScenarioContent,
+): unknown {
+  const names = new Map(
+    recipe.ingredients.map((row) => [row.ingredientId, row.name]),
+  );
+  if (names.size !== new Set(recipe.ingredients.map((r) => r.name)).size) {
+    throw new Error('nazwy składników przepisu nie są jednoznaczne');
+  }
+  const name = (id: string) => {
+    const found = names.get(id);
+    if (!found) throw new Error(`składnika ${id} nie ma w przepisie`);
+    return found;
+  };
+  return {
+    ...content,
+    steps: content.steps.map((step) => ({
+      ...step,
+      ingredients: step.ingredients.map(({ ingredientId, ...rest }) => ({
+        ingredient: name(ingredientId),
+        ...rest,
+      })),
+      mentions: step.mentions.map(name),
+    })),
+  };
 }
 
 /**
@@ -91,9 +148,11 @@ export async function exportValidatedScenarios(
     scenarios.push({
       recipeId: id,
       title: loaded.recipe.title,
-      recipeContentHash: loaded.signature,
-      inputHash,
-      content: row.content,
+      portableHash: portableInputHash(loaded.recipe),
+      content: contentWithNames(
+        loaded.recipe,
+        row.content as unknown as CookScenarioContent,
+      ),
       generator: row.generator,
       review:
         typeof report.review?.score === 'number'
@@ -110,7 +169,7 @@ export async function exportValidatedScenarios(
   }
   return {
     format: COOK_EXPORT_FORMAT,
-    version: 1,
+    version: 2,
     rulesVersion: COOK_SCENARIO_RULES_VERSION,
     exportedAt: (options.exportedAt ?? new Date()).toISOString(),
     count: scenarios.length,
@@ -121,8 +180,8 @@ export async function exportValidatedScenarios(
 /** Plik z eksportu, sprawdzony przed importem. */
 export function parseExportFile(raw: unknown): CookScenarioExportFile {
   const file = raw as Partial<CookScenarioExportFile> | null;
-  if (file?.format !== COOK_EXPORT_FORMAT || file.version !== 1) {
-    throw new Error('to nie jest plik eksportu scenariuszy Gotuj (wersja 1)');
+  if (file?.format !== COOK_EXPORT_FORMAT || file.version !== 2) {
+    throw new Error('to nie jest plik eksportu scenariuszy Gotuj (wersja 2)');
   }
   if (file.rulesVersion !== COOK_SCENARIO_RULES_VERSION) {
     throw new Error(
@@ -137,36 +196,53 @@ export function parseExportFile(raw: unknown): CookScenarioExportFile {
 
 export type ImportOutcome =
   | 'PUBLISHED'
+  | 'REPLACED'
   | 'UNCHANGED'
-  | 'WOULD_PUBLISH'
   | 'NOT_FOUND'
+  | 'NOT_CATALOG'
   | 'CHANGED'
   | 'GOLDEN';
 
+/** Wycofuje transakcję próby (`dryRun`) z wynikiem, który by zapadł. */
+export class DryRunRollback extends Error {
+  constructor(readonly outcome: ImportOutcome) {
+    super(`próba: ${outcome}`);
+  }
+}
+
 /**
  * Jeden scenariusz z pliku — we WŁASNEJ transakcji wołającego. Pod blokadą
- * przepisu: brak przepisu = NOT_FOUND; inny podpis albo odcisk wejścia =
- * CHANGED (nic nie zapisuje); opublikowany wzorzec pisany ręcznie = GOLDEN
- * (import go nie zastępuje); `dryRun` = WOULD_PUBLISH bez zapisu. Inaczej
- * publikacja przez `publishCookScenario` (walidacja zgodności z przepisem,
- * nowa wersja, `Recipe.cookScenarioVersion`); ta sama treść = UNCHANGED.
+ * przepisu: brak przepisu = NOT_FOUND; przepis spoza katalogu = NOT_CATALOG;
+ * inny przenośny odcisk wejścia = CHANGED (nic nie zapisuje); opublikowany
+ * wzorzec pisany ręcznie = GOLDEN (import go nie zastępuje). Inaczej nazwy
+ * składników → id TEJ bazy i `publishCookScenario` (walidacja zgodności
+ * z przepisem, nowa wersja, `Recipe.cookScenarioVersion`); ta sama treść =
+ * UNCHANGED, podmiana innej opublikowanej wersji = REPLACED. Wersja niesie
+ * `inputHash` TEJ bazy — system pisania uzna ją za aktualny wynik.
+ * `dryRun`: wszystko to samo, a na końcu wyjątek `DryRunRollback` wycofuje
+ * transakcję — liczby próby są te same, co prawdziwego importu.
  */
 export async function importScenario(
   tx: Prisma.TransactionClient,
   entry: CookScenarioExportEntry,
   context: { exportedAt: string; dryRun: boolean },
 ): Promise<ImportOutcome> {
-  const locked = await tx.$queryRaw<{ id: string }[]>`
-    SELECT "id" FROM "Recipe" WHERE "id" = ${entry.recipeId}::uuid FOR UPDATE`;
+  const outcome = await importInTx(tx, entry, context.exportedAt);
+  if (context.dryRun) throw new DryRunRollback(outcome);
+  return outcome;
+}
+
+async function importInTx(
+  tx: Prisma.TransactionClient,
+  entry: CookScenarioExportEntry,
+  exportedAt: string,
+): Promise<ImportOutcome> {
+  const locked = await tx.$queryRaw<{ id: string; isCatalog: boolean }[]>`
+    SELECT "id", "isCatalog" FROM "Recipe" WHERE "id" = ${entry.recipeId}::uuid FOR UPDATE`;
   if (locked.length === 0) return 'NOT_FOUND';
-  const [{ signature }] = await tx.$queryRaw<{ signature: string | null }[]>`
-    SELECT recipe_content_signature(${entry.recipeId}::uuid) AS "signature"`;
+  if (!locked[0].isCatalog) return 'NOT_CATALOG';
   const recipe = await readWriterRecipe(tx, entry.recipeId);
-  if (
-    !recipe ||
-    signature !== entry.recipeContentHash ||
-    writerInputHash(recipe) !== entry.inputHash
-  ) {
+  if (!recipe || portableInputHash(recipe) !== entry.portableHash) {
     return 'CHANGED';
   }
   const published = await tx.recipeCookScenario.findFirst({
@@ -175,21 +251,31 @@ export async function importScenario(
   });
   const source = (published?.generator as { source?: unknown } | null)?.source;
   if (source === 'golden') return 'GOLDEN';
-  if (context.dryRun) return 'WOULD_PUBLISH';
+  const byName = new Map(
+    recipe.ingredients.map((row) => [row.name, row.ingredientId]),
+  );
+  const resolved = resolveGoldenContent(entry.content, (name) =>
+    byName.get(name),
+  );
+  if (resolved.errors.length) {
+    // Przy zgodnym odcisku nazwy muszą się rozwiązać — inaczej plik zepsuty.
+    throw new Error(`nazwy składników: ${resolved.errors.join('; ')}`);
+  }
   const result = await publishCookScenario(tx, {
     recipeId: entry.recipeId,
-    content: entry.content,
+    content: resolved.content,
     rulesVersion: COOK_SCENARIO_RULES_VERSION,
     generator: {
       ...(entry.generator as Prisma.JsonObject),
-      importedAt: context.exportedAt,
+      exportedAt,
     },
     validationReport: {
       outcome: 'VALIDATED',
-      inputHash: entry.inputHash,
+      inputHash: writerInputHash(recipe),
       review: entry.review,
-      importedFrom: { ...entry.source, exportedAt: context.exportedAt },
+      importedFrom: { ...entry.source, exportedAt },
     },
   });
-  return result.changed ? 'PUBLISHED' : 'UNCHANGED';
+  if (!result.changed) return 'UNCHANGED';
+  return published ? 'REPLACED' : 'PUBLISHED';
 }
