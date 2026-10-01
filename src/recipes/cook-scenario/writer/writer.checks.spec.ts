@@ -807,35 +807,28 @@ describe('system pisania — walidatory twarde', () => {
       );
     });
 
-    it('odliczania po kolei pod jednym timerem: zapas 2 min przechodzi, więcej nie', () => {
+    it('dwa odliczania pod jednym timerem — jedna semantyka: pełny zestaw błędów (review Codexa, noc 1.10)', () => {
       const content = clone(example.content);
-      // Pod masłem (15 min): 14 min, potem ziemniaki (ostatnie, mogą biec dalej).
+      // Pod masłem (15 min): krótkie odliczanie s2 i ziemniaki s3.
       const s2 = content.steps.find((s) => s.id === 's2')!;
       s2.timer = {
         ...content.steps[0].timer!,
         id: 't-a',
-        minSeconds: 840,
-        maxSeconds: 840,
+        label: 'Bułka',
+        minSeconds: 300,
+        maxSeconds: 300,
       };
       const withRecipe = {
         ...kotlet,
-        instructions: [
-          ...kotlet.instructions,
-          'Odstaw na 14 minut.',
-          'Odstaw na 19 minut.',
-        ],
+        instructions: [...kotlet.instructions, 'Odstaw na 5 minut.'],
       };
-      expect(
-        qualityChecks(withRecipe, content).errors.filter((e) =>
-          e.includes('nie zmieszczą'),
-        ),
-      ).toEqual([]);
-      s2.timer = { ...s2.timer, minSeconds: 1140, maxSeconds: 1140 };
-      expect(
-        qualityChecks(withRecipe, content).errors.filter((e) =>
-          e.includes('nie zmieszczą'),
-        ),
-      ).toHaveLength(1);
+      const timeline = qualityChecks(withRecipe, content).errors.filter((e) =>
+        /odliczani|naraz/.test(e),
+      );
+      expect(timeline).toEqual([
+        expect.stringContaining('w tej chwili biegną już 2 odliczania'),
+        expect.stringContaining('pod nim 2 kroki z własnym odliczaniem'),
+      ]);
     });
 
     it('krok nagrzewania bez trybu piekarnika = błąd', () => {

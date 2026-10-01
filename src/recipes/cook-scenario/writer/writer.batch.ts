@@ -182,7 +182,7 @@ export interface BatchRunOptions {
    * zatrzymania albo `null`. Seria staje z pełnym dziennikiem, zanim
    * systemowy problem zdąży kosztować cały katalog.
    */
-  gate?: () => string | null;
+  gate?: (final: boolean) => string | null;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -344,9 +344,10 @@ export async function runBatchRounds(
     const pending = callsOf(round + 1);
     // Bramka PRZED wydaniem pieniędzy na rundę — także pierwszą po
     // wznowieniu, inaczej `--resume` z tą samą bramką płaci jeszcze jedną
-    // pełną rundę (przegląd nocny). Po ostatniej rundzie nie ma czego
-    // bronić, więc bez zadań w toku jej nie pytamy.
-    const gate = pending.length ? (options.gate?.() ?? null) : null;
+    // pełną rundę (przegląd nocny) — i PO ostatniej: zła fala nie może
+    // skończyć się sukcesem, który puści następną (review Codexa, noc 1.10).
+    // `final` = nic już nie zostało do wydania (koszt nie ma czego bronić).
+    const gate = options.gate?.(pending.length === 0) ?? null;
     if (gate) {
       log(`bramka jakości: ${gate}`);
       await persist();

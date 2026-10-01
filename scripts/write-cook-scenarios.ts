@@ -179,6 +179,12 @@ function parseArgs(argv: string[]): Args {
       'podaj --recipe <id>, --pilot <N>, --sample <N>, --all albo --resume <dziennik>',
     );
   }
+  // Katalog TYLKO przez Batch API (decyzja Rafała 30.09): bez `--batch`
+  // fala poszłaby na żywo — bez rabatu i bez bramki jakości (review
+  // Codexa, noc 1.10).
+  if (args.all && !args.batch) {
+    throw new Error('--all tylko z --batch — katalog idzie przez Batch API');
+  }
   return args;
 }
 
@@ -354,7 +360,11 @@ async function writeJournal(path: string, journal: JournalFile) {
  * zapłacimy za cały katalog. Udział REJECTED — od 30 zadań z wynikiem;
  * koszt — po wszystkich zadaniach serii.
  */
-function qualityGate(jobs: ScenarioJob[], args: Args): string | null {
+function qualityGate(
+  jobs: ScenarioJob[],
+  args: Args,
+  final = false,
+): string | null {
   if (!jobs.length) return null;
   // Wydatek WSZYSTKICH zadań serii (także w toku) na przepis — dolna granica
   // końcowej średniej, więc wolno ją sprawdzać od pierwszej rundy. Sama
@@ -364,7 +374,8 @@ function qualityGate(jobs: ScenarioJob[], args: Args): string | null {
     jobs.reduce((sum, job) => sum + job.spentMicroUsd, 0) /
     jobs.length /
     1_000_000;
-  if (cost > args.gateCost) {
+  // Po ostatniej rundzie koszt nie ma już czego bronić — tylko odrzucenia.
+  if (!final && cost > args.gateCost) {
     return `wydatek ${cost.toFixed(3)} $ na przepis serii już teraz (próg ${args.gateCost} $)`;
   }
   const finished = jobs
@@ -459,7 +470,7 @@ async function main() {
       ? []
       : await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $${args.batch || resumed ? (args.noGate ? ' · bramka WYŁĄCZONA' : ` · bramka: odrzucone > ${Math.round(args.gateReject * 100)}%, koszt > ${args.gateCost} $`) : ''}`,
     );
 
     if (args.dryRun) {
@@ -624,7 +635,9 @@ async function main() {
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
             runId,
-            gate: args.noGate ? undefined : () => qualityGate(jobs, args),
+            gate: args.noGate
+              ? undefined
+              : (final) => qualityGate(jobs, args, final),
           },
         );
         // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.

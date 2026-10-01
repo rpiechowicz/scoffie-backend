@@ -1758,11 +1758,6 @@ function checkTimers(
 export const MIN_TIMER_SECONDS = 240;
 /** Najwyżej tyle odliczań naraz — design Dynamic Island ma stany 0/1/2. */
 export const MAX_PARALLEL_TIMERS = 2;
-/**
- * Kroki „w międzyczasie” mają się zmieścić w swoim timerze PO LUDZKU
- * (Rafał 30.09): minuta czy dwie w tę albo w tamtą niczego nie psuje.
- */
-const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
 
 /**
  * Oś czasu scenariusza w NAJGORSZYM wariancie (review Codexa): czynności
@@ -1932,29 +1927,10 @@ function checkTimerLayout(content: CookScenarioContent, errors: string[]) {
       );
     }
   }
-
-  // Odliczania startowane po kolei pod jednym timerem: wszystkie POZA
-  // OSTATNIM muszą się w nim zmieścić (ostatnie może biec dalej samo, jak
-  // ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
-  for (const { step, timer } of timers.values()) {
-    const children = content.steps.filter(
-      (other) => other.during === timer.id && other.timer,
-    );
-    const before = children.slice(0, -1);
-    const needed = before.reduce(
-      (sum, other) => sum + (other.timer?.minSeconds ?? 0),
-      0,
-    );
-    if (needed > timer.maxSeconds + parallelSlack(timer.maxSeconds)) {
-      errors.push(
-        `${step.id}.timer „${timer.label}” ${timer.maxSeconds} s: odliczania „w międzyczasie” (${before
-          .map((other) => other.id)
-          .join(
-            ', ',
-          )}) trwają po kolei co najmniej ${needed} s — nie zmieszczą się; przesuń je albo zacznij wcześniej`,
-      );
-    }
-  }
+  // Jedna semantyka rodzeństwa (review Codexa, noc 1.10): pod timerem
+  // najwyżej JEDNO odliczanie „w międzyczasie” (wyżej) — oś czasu liczy
+  // rodzeństwo jako równoległe, bo model danych nie mówi, że drugie rusza
+  // po końcu pierwszego. Dawna suma „po kolei” była martwym kodem.
 }
 
 // ── Całość ──────────────────────────────────────────────────────────────

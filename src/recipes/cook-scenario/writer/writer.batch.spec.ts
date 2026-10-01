@@ -206,14 +206,22 @@ describe('system pisania — rundy paczek', () => {
     expect(model.batches).toHaveLength(0);
   });
 
-  it('bramka nie zatrzymuje serii, która już się skończyła', async () => {
+  it('po ostatniej rundzie bramka dostaje final=true — próg odrzuceń przekroczony dopiero wynikami ostatniej rundy zatrzymuje serię', async () => {
     const model = new FakeBatchModel(replies());
     const jobs = newJobs();
-    await runBatchRounds(jobs, model, {
-      onDone: () => Promise.resolve(),
-      gate: () => (jobs.every((job) => job.done) ? 'za późno' : null),
-    });
+    const finals: boolean[] = [];
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        gate: (final) => {
+          finals.push(final);
+          return final ? 'odrzuconych za dużo' : null;
+        },
+      }),
+    ).rejects.toMatchObject({ reason: 'gate' });
     expect(jobs.every((job) => job.hasResult)).toBe(true);
+    expect(finals.at(-1)).toBe(true);
+    expect(finals.slice(0, -1).every((f) => !f)).toBe(true);
   });
 
   it('błąd pozycji API jest ponawiany w kolejnych rundach; po 3 pod rząd przebieg jest NIEKOMPLETNY, a wznowienie daje nową serię prób', async () => {
