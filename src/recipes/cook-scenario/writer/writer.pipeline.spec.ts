@@ -387,6 +387,9 @@ describe('system pisania — poprawka odrzuconej wersji (--revise)', () => {
     expect(model.calls[0].user).not.toContain('przecinek');
     // Recenzent widzi swoje uwagi do odrzuconej wersji i ich nie wycofa.
     expect(model.calls[1].user).toContain('TWOJE UWAGI DO POPRZEDNIEJ WERSJI');
+    // Ten sam zakres uwag co u autora — recenzent nie wymaga pominiętych MINOR.
+    expect(model.calls[1].user).toContain('[s6] MAJOR: ryż skończy się');
+    expect(model.calls[1].user).not.toContain('przecinek');
     // Próby liczą się od nowa: jedna poprawka = jedna próba.
     expect(outcome.attempts).toHaveLength(1);
   });

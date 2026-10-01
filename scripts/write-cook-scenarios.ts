@@ -80,9 +80,15 @@ import {
   type WriterOptions,
 } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
+  REVIEWER_OUTPUT_SCHEMA,
+  WRITER_OUTPUT_SCHEMA,
+} from '../src/recipes/cook-scenario/writer/writer.schema';
+import {
+  buildReviewerUser,
   buildWriterSystem,
   buildWriterUser,
   COOK_WRITER_PROMPT_VERSION,
+  exampleOutput,
   REVIEWER_SYSTEM,
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
@@ -407,12 +413,35 @@ async function catalogSummary(prisma: PrismaClient): Promise<string> {
     .join(' · ')} (z ${ids.length}, łącznie ze wzorcem)`;
 }
 
-/** Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi. */
+/**
+ * Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi.
+ * Obejmuje stałe części ORAZ kształt promptów użytkownika i schematy
+ * odpowiedzi, renderowane na wzorcu z próbnymi uwagami (review Codexa #268:
+ * zmiana `buildWriterUser`/`buildReviewerUser` czy schematu przechodziła).
+ */
 const promptHash = (example: WriterExample) =>
   createHash('sha256')
     .update(buildWriterSystem(example))
     .update('\u0000')
     .update(REVIEWER_SYSTEM)
+    .update('\u0000')
+    .update(buildWriterUser(example.recipe))
+    .update('\u0000')
+    .update(
+      buildWriterUser(
+        example.recipe,
+        ['uwaga'],
+        exampleOutput(example.recipe, example.content),
+      ),
+    )
+    .update('\u0000')
+    .update(buildWriterUser(example.recipe, ['uwaga'], null))
+    .update('\u0000')
+    .update(
+      buildReviewerUser(example.recipe, example.content, ['ostrz'], ['uwaga']),
+    )
+    .update('\u0000')
+    .update(JSON.stringify([WRITER_OUTPUT_SCHEMA, REVIEWER_OUTPUT_SCHEMA]))
     .digest('hex');
 
 async function main() {
@@ -531,9 +560,18 @@ async function main() {
           outcome,
           generator: generator(outcome, transport, revisedFrom),
           jobId,
+          revisedFrom: revisedFrom?.scenarioId,
         }),
       );
       if (saved.duplicate) return;
+      if (saved.superseded) {
+        // Odrzucona wersja przestała być aktualnym wynikiem w trakcie serii
+        // — poprawka nie przykrywa nowszego wyniku (w raporcie: UNSAVED).
+        console.log(
+          `POMINIĘTY · v${revisedFrom?.version} już nieaktualna (teraz ${saved.status} v${saved.version}) · ${loaded.recipe.title}`,
+        );
+        return;
+      }
       const costUsd = outcome.usage.costMicroUsd / 1_000_000;
       report.push({
         recipeId: loaded.recipe.id,

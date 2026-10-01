@@ -287,15 +287,20 @@ export class ScenarioJob {
     this.previous = seed.content
       ? exampleOutput(this.recipe, seed.content)
       : null;
-    const issues = seed.review
-      ? seed.review.issues.map(
-          (issue) =>
-            `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
-        )
+    // Autor i recenzent dostają TEN SAM zakres uwag (review Codexa #268):
+    // przy MAJOR bez MINOR — inaczej recenzent wymagałby poprawek, których
+    // autor nie widział, i odrzucał za darmo poprawioną wersję.
+    const withMinor = seed.review ? !isBlocking(seed.review) : false;
+    this.previousIssues = seed.review
+      ? seed.review.issues
+          .filter((issue) => withMinor || issue.severity !== 'MINOR')
+          .map(
+            (issue) =>
+              `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
+          )
       : [];
-    this.previousIssues = issues;
     const feedback = seed.review
-      ? reviewFeedback(seed.review, !isBlocking(seed.review))
+      ? reviewFeedback(seed.review, withMinor)
       : seed.errors;
     this.feedback = feedback.slice(0, FEEDBACK_LIMIT);
     this.lastContent = seed.content;

@@ -176,6 +176,13 @@ export interface SaveWrittenInput {
    * przeszła, potwierdzenie zginęło) nie tworzy duplikatu.
    */
   jobId?: string;
+  /**
+   * Poprawka (`--revise`): id wersji REJECTED, od której wyszło zadanie. Pod
+   * blokadą przepisu musi DALEJ być aktualnym wynikiem dla tej treści —
+   * inaczej (w trakcie paczki doszła nowsza wersja) nic się nie dopisuje
+   * (review Codexa #268: stara poprawka nie przykryje nowszego wyniku).
+   */
+  revisedFrom?: string;
 }
 
 /**
@@ -195,7 +202,12 @@ export interface SaveWrittenInput {
 export async function saveWrittenScenario(
   tx: Prisma.TransactionClient,
   input: SaveWrittenInput,
-): Promise<{ version: number; status: string; duplicate?: boolean }> {
+): Promise<{
+  version: number;
+  status: string;
+  duplicate?: boolean;
+  superseded?: boolean;
+}> {
   const locked = await tx.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "Recipe" WHERE "id" = ${input.recipe.id}::uuid FOR UPDATE`;
   if (locked.length === 0) {
@@ -218,6 +230,16 @@ export async function saveWrittenScenario(
   const changed =
     signature !== input.signature || !isDeepStrictEqual(current, input.recipe);
   const status = changed ? 'STALE' : input.outcome.status;
+  if (!changed && input.revisedFrom) {
+    const head = await currentWrite(tx, input.recipe, signature);
+    if (head?.id !== input.revisedFrom || head.status !== 'REJECTED') {
+      return {
+        version: head?.version ?? 0,
+        status: head?.status ?? 'NONE',
+        superseded: true,
+      };
+    }
+  }
 
   const last = await tx.recipeCookScenario.aggregate({
     where: { recipeId: input.recipe.id },
