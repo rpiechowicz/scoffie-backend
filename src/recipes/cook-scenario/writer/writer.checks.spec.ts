@@ -1516,6 +1516,20 @@ describe('system pisania — walidatory twarde', () => {
         );
         expect(numberErrors(oily, 'Wlej olej (ok. 30 ml).')).toHaveLength(1);
         expect(numberErrors(oily, 'Wlej olej (około 30 ml).')).toHaveLength(1);
+        const oily2 = withRecipe(
+          [
+            {
+              ingredientId: 'ole4',
+              name: 'olej rzepakowy',
+              amount: 30,
+              unit: 'ml',
+            },
+          ],
+          'Wlej olej (po około 30 ml) do każdej foremki.',
+        );
+        expect(
+          numberErrors(oily2, 'Wlej olej (po około 30 ml) do każdej foremki.'),
+        ).toHaveLength(1);
         // Okolicznik po jednostce to nie odmierzana rzecz (review Codexa #265).
         expect(
           numberErrors(
