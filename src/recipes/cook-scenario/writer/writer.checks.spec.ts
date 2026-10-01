@@ -1487,6 +1487,21 @@ describe('system pisania — walidatory twarde', () => {
             'Do miarki odmierz 50 ml, wlej olej na patelnię.',
           ),
         ).toHaveLength(1);
+        // Rzecz tuż przy liczbie — bez względu na wymiar (sól w szczyptach).
+        const salty = withRecipe(
+          [
+            {
+              ingredientId: 'sol-m',
+              name: 'sól morska',
+              amount: 1,
+              unit: 'szczypta',
+            },
+          ],
+          'Dolej 50 ml wody i 50 g mąki ziemniaczanej rozrobionej w wodzie.',
+        );
+        expect(numberErrors(salty, 'Dodaj 50 ml soli.')).toHaveLength(1);
+        expect(numberErrors(salty, 'Dodaj 50 g soli.')).toHaveLength(1);
+        expect(numberErrors(salty, 'Dolej 50 ml wody.')).toEqual([]);
         // Okolicznik po jednostce to nie odmierzana rzecz (review Codexa #265).
         expect(
           numberErrors(

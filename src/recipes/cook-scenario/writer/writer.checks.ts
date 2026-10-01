@@ -503,6 +503,8 @@ const normalizedWords = (fragment: string): string[] =>
 
 /** Końcówki dopełniacza — po „i” ta sama ilość dotyczy też tej rzeczy. */
 const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
+/** Końcówki przymiotnika (bez polskich znaków) — rzecz stoi dalej. */
+const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
 const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
 
@@ -551,28 +553,62 @@ function mentionsIngredient(
   // Słowo tuż przed liczbą (albo przed nawiasem z liczbą) — tylko z tej
   // samej pozycji wyliczenia: po „, ” albo „i” zaczyna się nowa pozycja
   // („z mlekiem kokosowym, 150 ml wody”, „bulion warzywny i 300 ml wody”).
-  const prefix = text
-    .slice(0, numberStart)
+  const before = text.slice(0, numberStart);
+  // „olej (30 ml)” — w nawiasie liczba dopowiada rzecz tuż przed nim.
+  const bracketed = /\(\s*$/u.test(before);
+  const prefix = before
     .replace(/\(\s*$/u, '')
     .split(/[,;:.()—–]/)
     .pop();
   const last = normalizedWords(prefix ?? '').pop();
-  const around = [
-    ...(last && !LIST_JOINERS.has(last) ? [last] : []),
-    ...normalizedWords(tail),
+  const tailWords = normalizedWords(tail);
+  // Rzecz TUŻ przy liczbie (słowo przed nią, dwa po jednostce, słowo
+  // zamiast jednostki) — porównanie z KAŻDYM składnikiem, bez względu na
+  // wymiar: „50 ml soli” to ilość soli, choć sól jest w szczyptach (review
+  // Codexa, #265). Dalsza część zdania — tylko składniki w tym wymiarze.
+  // Po jednostce: pierwsze słowo, a za przymiotnikiem jeszcze kolejne
+  // („50 g drobnej soli”) — nie dalej, bo tam zaczyna się następna
+  // czynność („1,5 l wysmaruj masłem”).
+  let reach = 1;
+  while (
+    reach < Math.min(3, tailWords.length) &&
+    ADJECTIVE_END.test(tailWords[reach - 1])
+  ) {
+    reach += 1;
+  }
+  // Słowo przed liczbą to zwykle dopełnienie czasownika („Zalej żelatynę
+  // 100 ml wody” — ilość wody), więc idzie z filtrem wymiaru; tylko przed
+  // nawiasem to sama rzecz.
+  const lastWord = last && !LIST_JOINERS.has(last) ? [last] : [];
+  const near = [
+    ...(bracketed ? lastWord : []),
+    ...tailWords.slice(0, reach),
     ...(info.noun ? normalizedWords(info.noun) : []),
   ];
-  const stems = recipe.ingredients
-    .filter((row) => {
-      if (info.noun || KITCHEN_MEASURES.has(info.canon)) return true;
-      return unitInfo(row.unit).dim === info.dim;
-    })
-    .flatMap((row) =>
+  const stemsOf = (rows: WriterRecipe['ingredients']) =>
+    rows.flatMap((row) =>
       normalizedWords(row.name)
         .filter((word) => word.length >= 3)
         .map((word) => word.slice(0, 3)),
     );
-  return around.some((word) => stems.some((stem) => word.startsWith(stem)));
+  const all = stemsOf(recipe.ingredients);
+  const sameDimension = stemsOf(
+    recipe.ingredients.filter(
+      (row) =>
+        Boolean(info.noun) ||
+        KITCHEN_MEASURES.has(info.canon) ||
+        unitInfo(row.unit).dim === info.dim,
+    ),
+  );
+  const hits = (words: string[], stems: string[]) =>
+    words.some((word) => stems.some((stem) => word.startsWith(stem)));
+  return (
+    hits(near, all) ||
+    hits(
+      [...(bracketed ? [] : lastWord), ...tailWords.slice(reach)],
+      sameDimension,
+    )
+  );
 }
 
 /** Słowa bez znaczenia dla „czego dotyczy ilość”: czasowniki i określniki. */
