@@ -8,6 +8,10 @@
  */
 export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
   {
+    // Opus 5.5: jak w cenniku panelu (admin/anthropic/anthropic-billing.ts,
+    // zgodnym z rachunkiem). Odczyt z cache ma tam 0,05× — liczymy 0,1×, czyli
+    // z górą.
+    'claude-opus-5-5': { input: 4, output: 20 },
     'claude-opus-5': { input: 5, output: 25 },
     // Sonnet 5.5 (29.09.2026): ten sam cennik co Sonnet 5, odczyt z cache 0,20 $
     // = 0,1× wejścia, więc mnożniki niżej pasują bez zmian.

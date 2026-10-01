@@ -4,6 +4,7 @@ import type {
   ShoppingListArchiveSnapshot,
 } from '../types/shopping-types';
 import { DEPARTMENT_ORDER } from '../types/shopping-department.enum';
+import { kitchenMeasure } from '../../recipes/ingredient-amount.util';
 import { normalizeText } from './text-normalization.util';
 import { formatWeekStart } from './week-formatting.util';
 
@@ -45,6 +46,22 @@ export function roundShoppingAmount(amount: number, unit: string): number {
     return Math.ceil(amount * 2 - 0.000_001) / 2;
   }
   return Number(amount.toFixed(2));
+}
+
+/**
+ * Pozycja listy dla telefonu z miarą kuchenną przypraw („Sól — 1 łyżeczka”
+ * zamiast „6 g”). Nazwa bywa z dopiskiem jednostki („Sól (g)”, gdy ten sam
+ * produkt stoi w dwóch jednostkach) — miarę szukamy po nazwie bez niego.
+ */
+export function withShoppingKitchenMeasure<T extends ShoppingListItem>(
+  item: T,
+): T {
+  const suffix = ` (${item.unit})`;
+  const name = item.name.endsWith(suffix)
+    ? item.name.slice(0, -suffix.length)
+    : item.name;
+  const measure = kitchenMeasure(name, item.department, item.unit);
+  return measure ? { ...item, kitchenMeasure: measure } : item;
 }
 
 /// Stable, content-addressable signature for a list of items. Used to detect
@@ -175,14 +192,16 @@ export function toArchiveSnapshot(
     archivedAt: archive.archivedAt.getTime(),
     isCurrentClosed: currentArchiveIds.has(archive.id),
     items: sortShoppingItems(
-      archive.items.map((item) => ({
-        productKey: item.productKey,
-        name: item.name,
-        unit: item.unit,
-        department: item.department,
-        totalAmount: Number(item.totalAmount.toFixed(2)),
-        isChecked: item.isChecked,
-      })),
+      archive.items.map((item) =>
+        withShoppingKitchenMeasure({
+          productKey: item.productKey,
+          name: item.name,
+          unit: item.unit,
+          department: item.department,
+          totalAmount: Number(item.totalAmount.toFixed(2)),
+          isChecked: item.isChecked,
+        }),
+      ),
     ),
   };
 }

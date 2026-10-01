@@ -1,6 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
+/**
+ * Miara kuchenna przypraw (`kitchenMeasure` w `ingredient-amount.util`):
+ * gramatura po przeskalowaniu porcji ÷ `per` = łyżeczki albo sztuki.
+ */
+export class KitchenMeasureDto {
+  @ApiProperty({ enum: ['spoon', 'piece'] })
+  kind: 'spoon' | 'piece';
+
+  @ApiProperty({
+    description:
+      'Gramy (ml przy jednostce ml) na łyżeczkę płaską (`spoon`) albo na sztukę (`piece`).',
+  })
+  per: number;
+
+  @ApiProperty({ required: false, description: 'Forma dla 1 (`piece`).' })
+  one?: string;
+
+  @ApiProperty({ required: false, description: 'Forma dla 2–4 (`piece`).' })
+  few?: string;
+
+  @ApiProperty({ required: false, description: 'Forma dla 5+ (`piece`).' })
+  many?: string;
+}
+
 export class RecipeIngredientDto {
   @ApiProperty()
   id: string;
@@ -28,6 +52,14 @@ export class RecipeIngredientDto {
 
   @ApiProperty()
   department: string;
+
+  @ApiProperty({
+    required: false,
+    type: KitchenMeasureDto,
+    description:
+      'Tylko przyprawy w g/ml: jak pokazać ilość w kuchni. Brak = jak dotąd.',
+  })
+  kitchenMeasure?: KitchenMeasureDto;
 
   @ApiProperty()
   createdAt: Date;

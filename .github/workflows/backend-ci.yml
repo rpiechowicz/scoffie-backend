@@ -121,6 +121,11 @@ jobs:
       # Spec-i nie wchodzą do `pnpm build` (tsconfig.build.json je wyklucza),
       # a ts-jest z `isolatedModules` nie sprawdza typów — bez tego kroku spec
       # z sygnaturą sprzed refaktoru dalej świeci na zielono.
+      # Codex czyta `AGENTS.md`, Claude Code — `CLAUDE.md`. Ta sama treść,
+      # bo inaczej jeden z nich pracuje według starych zasad (1.10.2026).
+      - name: Instrukcje agentów zgodne (CLAUDE.md = AGENTS.md)
+        run: cmp -s CLAUDE.md AGENTS.md || { echo "AGENTS.md różni się od CLAUDE.md — zrób cp CLAUDE.md AGENTS.md"; exit 1; }
+
       - name: Typecheck (src + test + scripts, incl. specs)
         run: pnpm typecheck
 

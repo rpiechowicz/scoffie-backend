@@ -20,6 +20,8 @@ import { deriveRecipeTags } from '../common/diet-tags';
 import {
   ALLOWED_UNITS,
   normalizeIngredientAmount,
+  withKitchenMeasure,
+  type KitchenMeasure,
 } from './ingredient-amount.util';
 import {
   nutritionColumnsFromIngredients,
@@ -62,6 +64,10 @@ export const recipeListSelect = {
   // klient buduje z niego link „Udostępnij” bez pytania serwera. `null` dla
   // przepisów gospodarstw (te udostępnia się tokenem, `recipes:shareLink`).
   slug: true,
+  // Tryb Gotuj: wersja opublikowanego scenariusza, `null` = bez przycisku
+  // Gotuj. Zmiana przesuwa log katalogu, więc telefon wie, kiedy dociągnąć
+  // scenariusz (`recipes:cookScenario`). Stary build pole pomija.
+  cookScenarioVersion: true,
   // Tagi liczone na serwerze (unia tagów składników): klient filtruje po
   // nich dietę i alergeny zamiast zgadywać z nazw. Składniki nadal jadą z
   // listą — stary build iOS bez tych pól dalej klasyfikuje po nazwach.
@@ -104,8 +110,15 @@ export type RecipeDetailRow = Prisma.RecipeGetPayload<{
 }>;
 
 /** Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych. */
-export type RecipeListItem = Omit<RecipeListRow, 'sourceMeta'> & {
+export type RecipeListItem = Omit<
+  RecipeListRow,
+  'sourceMeta' | 'ingredients'
+> & {
   imageUrl: string;
+  /** Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`). */
+  ingredients: Array<
+    RecipeListRow['ingredients'][number] & { kitchenMeasure?: KitchenMeasure }
+  >;
 };
 
 /**
@@ -459,6 +472,7 @@ export class RecipesService {
     isActive: true,
     isCatalog: true,
     slug: true,
+    cookScenarioVersion: true,
     allergens: true,
     dietTags: true,
     cuisine: true,
@@ -688,6 +702,7 @@ export class RecipesService {
     const { sourceMeta: _sourceMeta, ...base } = recipe;
     return {
       ...base,
+      ingredients: base.ingredients.map(withKitchenMeasure),
       // Nigdy nie wypuszczamy pustej listy slotów — klient nie musi znać
       // reguły „puste znaczy tyle, co slot bazowy". Normalizacja jest tu,
       // a nie w zapytaniu, bo dotyczy też wierszy z cache'u.
@@ -859,6 +874,7 @@ export class RecipesService {
     const { sourceMeta: _sourceMeta, ...base } = recipe;
     return {
       ...base,
+      ingredients: base.ingredients.map(withKitchenMeasure),
       suitableMealTypes: effectiveSuitableMealTypes(recipe),
       imageUrl: this.resolveRecipeImageUrl(recipe),
       isFavorite,

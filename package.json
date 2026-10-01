@@ -19,6 +19,8 @@
     "catalog:ingredients:nutrition": "tsx scripts/load-ingredient-nutrition.ts",
     "catalog:ingredients:tags": "tsx scripts/load-ingredient-tags.ts",
     "catalog:export": "tsx scripts/export-catalog.ts",
+    "cook-scenarios:load": "tsx scripts/load-cook-scenarios.ts",
+    "cook-scenarios:write": "tsx scripts/write-cook-scenarios.ts",
     "audit:recipes:nutrition": "tsx scripts/audit-recipe-nutrition.ts",
     "recipes:recompute:nutrition": "tsx scripts/recompute-recipe-nutrition.ts",
     "check:error-parity": "tsx scripts/check-error-code-parity.ts",

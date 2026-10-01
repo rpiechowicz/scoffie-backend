@@ -1,0 +1,347 @@
+{
+  "version": "cook-scenarios-pl-v1",
+  "rulesVersion": "2026-09-30.6",
+  "convention": "Scenariusze trybu Gotuj pisane ręcznie (wzorce dla systemu pisania, scoffie-ios docs/workstreams/gotuj/README.md §10). Składniki po NAZWIE z przepisu (`ingredient`, `mentions`) — loader zamienia je na `ingredientId` danej bazy. Wgranie: pnpm cook-scenarios:load.",
+  "scenarios": [
+    {
+      "recipeId": "70d8db3e-e896-460e-ba96-d53d02c1357f",
+      "title": "Kotlet de volaille z ziemniakami i mizerią",
+      "content": {
+        "schemaVersion": 1,
+        "basePortions": 2,
+        "portionUnit": {
+          "id": "cutlet",
+          "forms": ["kotlet", "kotlety", "kotletów"]
+        },
+        "totalMinutes": 50,
+        "tips": [
+          "Masło musi być miękkie — prosto z lodówki rozgnieć je widelcem w ciepłej miseczce.",
+          "Filety wybierz podobnej wielkości — kotlety usmażą się i dopieką w tym samym czasie.",
+          "Przy obracaniu nie przekłuwaj kotletów widelcem — przez dziurkę wycieknie masło."
+        ],
+        "nextTimeTip": "Kotlety możesz zawinąć dzień wcześniej i trzymać w lodówce — obiad zajmie wtedy 25 minut.",
+        "steps": [
+          {
+            "id": "s1",
+            "phase": "PREP",
+            "stage": null,
+            "title": "Zrób masło koperkowe",
+            "body": "Posiekaj cały koperek drobno i odłóż połowę — przyda się do ziemniaków. Masło rozgnieć widelcem z koperkiem na gładką masę. Na folii uformuj {count:rolls|wałeczek|wałeczki|wałeczków} grubości palca, zawiń szczelnie i połóż płasko w zamrażarce.",
+            "ingredients": [
+              {
+                "ingredient": "masło",
+                "amount": 30,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "koperek",
+                "amount": 5,
+                "unit": "g",
+                "part": "HALF"
+              }
+            ],
+            "mentions": [],
+            "note": null,
+            "timer": {
+              "id": "t-butter",
+              "label": "Masło",
+              "minSeconds": 900,
+              "maxSeconds": 900,
+              "trigger": "NOW",
+              "startLabel": "Masło w zamrażarce",
+              "alert": {
+                "title": "Masło gotowe",
+                "body": "Wyjmij wałeczki z zamrażarki."
+              }
+            },
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s2",
+            "phase": "PREP",
+            "stage": "W MIĘDZYCZASIE",
+            "title": "Rozbij filety na kotlety",
+            "body": "Każdy filet przetnij poziomo na dwa płaty, jak otwierając książkę — wyjdą {count:cutlets|kotlet|kotlety|kotletów}. Przykryj folią i rozbij tłuczkiem od środka na ok. 0,5 cm — równa grubość to równe smażenie. Posól i popieprz z obu stron.",
+            "ingredients": [
+              {
+                "ingredient": "filet z kurczaka",
+                "amount": 320,
+                "unit": "g",
+                "part": "ALL"
+              },
+              { "ingredient": "sól", "amount": 1, "unit": "g", "part": "PART" },
+              {
+                "ingredient": "pieprz czarny",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "HALF"
+              }
+            ],
+            "mentions": [],
+            "note": {
+              "kind": "TIP",
+              "text": "Folia nie pozwala mięsu się porwać i pryskać po kuchni."
+            },
+            "timer": null,
+            "during": "t-butter",
+            "scaleNote": null
+          },
+          {
+            "id": "s3",
+            "phase": "PREP",
+            "stage": "W MIĘDZYCZASIE",
+            "title": "Obierz i nastaw ziemniaki",
+            "body": "Większe ziemniaki przekrój na pół, żeby wszystkie ugotowały się w tym samym czasie. Zalej je zimną wodą tak, by były przykryte, posól i postaw na dużym ogniu. Gdy woda zawrze, zmniejsz ogień do średniego i włącz odliczanie.",
+            "ingredients": [
+              {
+                "ingredient": "ziemniak",
+                "amount": 500,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "sól",
+                "amount": 1.5,
+                "unit": "g",
+                "part": "PART"
+              }
+            ],
+            "mentions": [],
+            "note": null,
+            "timer": {
+              "id": "t-potatoes",
+              "label": "Ziemniaki",
+              "minSeconds": 1200,
+              "maxSeconds": 1200,
+              "trigger": "EVENT",
+              "startLabel": "Gdy woda zawrze",
+              "alert": {
+                "title": "Ziemniaki gotowe?",
+                "body": "Nóż ma wchodzić bez oporu."
+              }
+            },
+            "during": "t-butter",
+            "scaleNote": {
+              "fromPortions": 5,
+              "text": "Przy tylu porcjach weź największy garnek — woda ma przykryć ziemniaki."
+            }
+          },
+          {
+            "id": "s4",
+            "phase": "PREP",
+            "stage": "W MIĘDZYCZASIE",
+            "title": "Przygotuj panierkę",
+            "body": "Do pierwszego talerza wsyp mąkę, w drugim roztrzep jajko widelcem, do trzeciego wsyp bułkę tartą. Ustaw je w rzędzie w tej kolejności — przyda się to przy podwójnej panierce.",
+            "ingredients": [
+              {
+                "ingredient": "mąka pszenna",
+                "amount": 20,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "jajko",
+                "amount": 1,
+                "unit": "szt",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "bułka tarta",
+                "amount": 50,
+                "unit": "g",
+                "part": "ALL"
+              }
+            ],
+            "mentions": [],
+            "note": null,
+            "timer": null,
+            "during": "t-butter",
+            "scaleNote": null
+          },
+          {
+            "id": "s5",
+            "phase": "COOK",
+            "stage": null,
+            "title": "Nagrzej piekarnik do 180°C",
+            "body": "Ustaw grzanie góra–dół, bez termoobiegu. Nagrzeje się, zanim usmażysz kotlety.",
+            "ingredients": [],
+            "mentions": [],
+            "note": null,
+            "timer": null,
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s6",
+            "phase": "PREP",
+            "stage": null,
+            "title": "Zawiń kotlety z masłem",
+            "body": "Wyjmij wałeczki z zamrażarki. Każdy połóż na krótszym brzegu kotleta. Zawiń raz, załóż boki kotleta do środka, jak przy naleśniku z nadzieniem, i zwijaj dalej ciasno do końca. Łączeniem do dołu — tak roladka się nie rozwinie.",
+            "ingredients": [],
+            "mentions": ["masło", "filet z kurczaka"],
+            "note": {
+              "kind": "CUE",
+              "text": "Z żadnej strony nie widać masła. Jeśli widać — dociśnij mięso palcami."
+            },
+            "timer": null,
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s7",
+            "phase": "PREP",
+            "stage": null,
+            "title": "Obtocz roladki podwójnie",
+            "body": "Każdą roladkę obtocz kolejno w mące, jajku i bułce tartej, a potem jeszcze raz w jajku i bułce. Dociśnij panierkę dłońmi. Druga warstwa to zabezpieczenie — trzyma masło w środku podczas smażenia.",
+            "ingredients": [],
+            "mentions": ["mąka pszenna", "jajko", "bułka tarta"],
+            "note": null,
+            "timer": null,
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s8",
+            "phase": "COOK",
+            "stage": "SMAŻENIE",
+            "title": "Smaż kotlety na złoto",
+            "body": "Rozgrzej olej na patelni na średnim ogniu — jest gotowy, gdy okruch bułki od razu zaczyna skwierczeć. Połóż kotlety łączeniem do dołu, żeby się zasklepiły. Obracaj co 3 minuty, aż będą złote ze wszystkich stron.",
+            "ingredients": [
+              {
+                "ingredient": "olej rzepakowy",
+                "amount": 30,
+                "unit": "ml",
+                "part": "ALL"
+              }
+            ],
+            "mentions": [],
+            "note": {
+              "kind": "WARNING",
+              "text": "Olej pryska — kładź kotlety od siebie."
+            },
+            "timer": {
+              "id": "t-cutlets",
+              "label": "Kotlety",
+              "minSeconds": 600,
+              "maxSeconds": 720,
+              "trigger": "NOW",
+              "startLabel": "Kotlety na patelni",
+              "alert": {
+                "title": "Sprawdź kolor",
+                "body": "Blade? Dosmaż jeszcze chwilę."
+              }
+            },
+            "during": null,
+            "scaleNote": {
+              "fromPortions": 4,
+              "text": "Smaż w dwóch turach — ciasna patelnia gotuje zamiast smażyć."
+            }
+          },
+          {
+            "id": "s9",
+            "phase": "COOK",
+            "stage": null,
+            "title": "Dopiecz w piekarniku",
+            "body": "Przełóż je do naczynia żaroodpornego albo na blachę i wstaw na środkową półkę.",
+            "ingredients": [],
+            "mentions": ["filet z kurczaka"],
+            "note": {
+              "kind": "CUE",
+              "text": "W środku 74°C albo po nakłuciu wypływa przezroczysty sok, bez różowego."
+            },
+            "timer": {
+              "id": "t-oven",
+              "label": "Kotlety",
+              "minSeconds": 300,
+              "maxSeconds": 300,
+              "trigger": "NOW",
+              "startLabel": "W piekarniku",
+              "alert": {
+                "title": "Kotlety gotowe",
+                "body": "Wyjmij je z piekarnika."
+              }
+            },
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s10",
+            "phase": "PREP",
+            "stage": "W MIĘDZYCZASIE",
+            "title": "Zrób mizerię",
+            "body": "Pokrój ogórek w cienkie plasterki, posól i odstaw na chwilę. Odciśnij wodę dłońmi — mizeria nie będzie wodnista. Wymieszaj ze śmietaną i pieprzem.",
+            "ingredients": [
+              {
+                "ingredient": "ogórek",
+                "amount": 250,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "sól",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "REST"
+              },
+              {
+                "ingredient": "śmietana 12",
+                "amount": 60,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "pieprz czarny",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "REST"
+              }
+            ],
+            "mentions": [],
+            "note": null,
+            "timer": null,
+            "during": "t-oven",
+            "scaleNote": null
+          },
+          {
+            "id": "s11",
+            "phase": "FINISH",
+            "stage": null,
+            "title": "Odcedź ziemniaki",
+            "body": "Postaw garnek na chwilę na gorącej płycie bez pokrywki, żeby odparowały, i posyp resztą koperku.",
+            "ingredients": [
+              {
+                "ingredient": "koperek",
+                "amount": 5,
+                "unit": "g",
+                "part": "REST"
+              }
+            ],
+            "mentions": [],
+            "note": null,
+            "timer": null,
+            "during": null,
+            "scaleNote": null
+          },
+          {
+            "id": "s12",
+            "phase": "SERVE",
+            "stage": null,
+            "title": "Podaj",
+            "body": "Na talerz połóż kotlet, ziemniaki i mizerię.",
+            "ingredients": [],
+            "mentions": [],
+            "note": {
+              "kind": "WARNING",
+              "text": "Kotlet przekrój dopiero na talerzu i ostrożnie — ze środka wypłynie gorące masło."
+            },
+            "timer": null,
+            "during": null,
+            "scaleNote": null
+          }
+        ]
+      }
+    }
+  ]
+}
