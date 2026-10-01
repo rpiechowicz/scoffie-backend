@@ -578,14 +578,11 @@ function mentionsIngredient(
   // zamiast jednostki) — porównanie z KAŻDYM składnikiem, bez względu na
   // wymiar: „50 ml soli” to ilość soli, choć sól jest w szczyptach (review
   // Codexa, #265). Dalsza część zdania — tylko składniki w tym wymiarze.
-  // Po jednostce: pierwsze słowo, a za przymiotnikiem jeszcze kolejne
-  // („50 g drobnej soli”) — nie dalej, bo tam zaczyna się następna
-  // czynność („1,5 l wysmaruj masłem”).
+  // Po jednostce: pierwsze słowo, a za przymiotnikiem lub przysłówkiem
+  // kolejne — aż do rzeczownika („50 ml bardzo drobno mielonej soli”); nie
+  // dalej, bo tam zaczyna się następna czynność („1,5 l wysmaruj masłem”).
   let reach = 1;
-  while (
-    reach < Math.min(3, tailWords.length) &&
-    ADJECTIVE_END.test(tailWords[reach - 1])
-  ) {
+  while (reach < tailWords.length && ADJECTIVE_END.test(tailWords[reach - 1])) {
     reach += 1;
   }
   // Słowo przed liczbą to zwykle dopełnienie czasownika („Zalej żelatynę
@@ -628,6 +625,14 @@ const THING_STOP = new Set([
   'ok',
   'okolo',
   'ca',
+  'bardzo',
+  'lekko',
+  'dobrze',
+  'mocno',
+  'drobno',
+  'grubo',
+  'swiezo',
+  'cienko',
   'po',
   'co',
   'najmniej',

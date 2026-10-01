@@ -1504,6 +1504,16 @@ describe('system pisania — walidatory twarde', () => {
         expect(
           numberErrors(salty, 'Dodaj 50 ml drobno mielonej soli.'),
         ).toHaveLength(1);
+        const cold = withRecipe(
+          [{ ingredientId: 'sol-z', name: 'sól', amount: 1, unit: 'szczypta' }],
+          'Dolej 50 ml bardzo zimnej wody.',
+        );
+        expect(numberErrors(cold, 'Dolej 50 ml bardzo zimnej wody.')).toEqual(
+          [],
+        );
+        expect(
+          numberErrors(cold, 'Dodaj 50 ml bardzo drobno mielonej soli.'),
+        ).toHaveLength(1);
         expect(numberErrors(salty, 'Dolej 50 ml wody.')).toEqual([]);
         // Nawias z określnikiem — dalej ilość rzeczy przed nawiasem.
         const oily = withRecipe(
