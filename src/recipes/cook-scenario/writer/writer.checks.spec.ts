@@ -1487,6 +1487,13 @@ describe('system pisania — walidatory twarde', () => {
             'Do miarki odmierz 50 ml, wlej olej na patelnię.',
           ),
         ).toHaveLength(1);
+        // Przyimek po jednostce to okolicznik, nie odmierzana rzecz.
+        expect(
+          numberErrors(
+            recipe,
+            'Odmierz 50 ml do miarki, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
       });
 
       it('tury: „wsyp pierogi partiami” to tury, „podawaj porcjami” i „wlewaj po chochli” — nie; „w dwóch turach” = dwa timery', () => {

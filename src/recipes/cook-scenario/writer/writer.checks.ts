@@ -501,6 +501,26 @@ const normalizedWords = (fragment: string): string[] =>
     .split(/[^a-z]+/)
     .filter(Boolean);
 
+/** Przyimki — po jednostce zaczynają okolicznik („do miarki”), nie rzecz. */
+const PREPOSITIONS = new Set([
+  'do',
+  'na',
+  'w',
+  'we',
+  'z',
+  'ze',
+  'po',
+  'od',
+  'przy',
+  'pod',
+  'nad',
+  'za',
+  'dla',
+  'bez',
+  'przez',
+  'okolo',
+]);
+
 /** Polecenia, od których po przecinku zaczyna się nowa czynność. */
 const IMPERATIVES = new Set([
   'dodaj',
@@ -569,11 +589,16 @@ function quantityTail(rest: string): string {
   )[0];
   for (const match of clause.matchAll(/,\s*(\p{L}+)/gu)) {
     const head = clause.slice(0, match.index);
-    // Tylko gdy ilość ma już swoją rzecz przed przecinkiem — „Odmierz 50 ml,
-    // wlej olej” to ilość oleju (review Codexa, #265).
+    // Tylko gdy ilość ma już swoją rzecz: odmierzana rzecz stoi TUŻ po
+    // jednostce, w dopełniaczu („350 ml wody, dopraw…”). „Odmierz 50 ml,
+    // wlej olej” i „50 ml do miarki, wlej olej” to ilość oleju (review
+    // Codexa, #265) — pierwsze słowo po jednostce nie może być przyimkiem.
+    const first = normalizedWords(head)[0];
     if (
       IMPERATIVES.has(normalizeText(match[1])) &&
-      normalizedWords(head).some((word) => word.length >= 3)
+      first !== undefined &&
+      first.length >= 3 &&
+      !PREPOSITIONS.has(first)
     ) {
       clause = head;
       break;
