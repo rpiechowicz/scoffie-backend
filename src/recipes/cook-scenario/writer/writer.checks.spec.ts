@@ -1434,6 +1434,136 @@ describe('system pisania — walidatory twarde', () => {
         expect(numberErrors(withRecipe([], line), body)).toEqual([]);
       });
 
+      it.each([
+        // Fala 1 — prawdziwe przepisy (sól w szczyptach, polecenie po przecinku).
+        [
+          'Wlej bulion warzywny i 350 ml wody, dopraw solą i pieprzem, przykryj garnek.',
+          'Wlej bulion i 350 ml wody, dopraw połową soli i pieprzu.',
+        ],
+        [
+          'Zmiksuj mąkę, mleko, jajka, 5 ml oleju, sól i 50 ml wody na gładkie ciasto.',
+          'Do kielicha blendera wlej mleko i 50 ml wody, wbij jajka, dodaj mąkę, sól i część oleju.',
+        ],
+      ])(
+        'fala 1: „%s” → „%s” — woda, nie sól (szczypta) ani mleko',
+        (line, body) => {
+          const recipe = withRecipe(
+            [
+              {
+                ingredientId: 'sol-s',
+                name: 'sól morska',
+                amount: 1,
+                unit: 'szczypta',
+              },
+              {
+                ingredientId: 'bul',
+                name: 'bulion warzywny',
+                amount: 350,
+                unit: 'ml',
+              },
+              { ingredientId: 'mle', name: 'mleko', amount: 250, unit: 'ml' },
+            ],
+            line,
+          );
+          expect(numberErrors(recipe, body)).toEqual([]);
+        },
+      );
+
+      it('„Odmierz 50 ml, wlej olej” — bez rzeczy przed przecinkiem to ilość oleju (review Codexa, #265)', () => {
+        const recipe = withRecipe(
+          [
+            {
+              ingredientId: 'ole2',
+              name: 'olej słonecznikowy',
+              amount: 50,
+              unit: 'ml',
+            },
+          ],
+          'Do miarki odmierz 50 ml, wlej olej na patelnię.',
+        );
+        expect(
+          numberErrors(
+            recipe,
+            'Do miarki odmierz 50 ml, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
+        // Rzecz tuż przy liczbie — bez względu na wymiar (sól w szczyptach).
+        const salty = withRecipe(
+          [
+            {
+              ingredientId: 'sol-m',
+              name: 'sól morska',
+              amount: 1,
+              unit: 'szczypta',
+            },
+          ],
+          'Dolej 50 ml wody i 50 g mąki ziemniaczanej rozrobionej w wodzie.',
+        );
+        expect(numberErrors(salty, 'Dodaj 50 ml soli.')).toHaveLength(1);
+        expect(numberErrors(salty, 'Dodaj 50 g soli.')).toHaveLength(1);
+        expect(
+          numberErrors(salty, 'Dodaj 50 ml drobno mielonej soli.'),
+        ).toHaveLength(1);
+        const cold = withRecipe(
+          [{ ingredientId: 'sol-z', name: 'sól', amount: 1, unit: 'szczypta' }],
+          'Dolej 50 ml bardzo zimnej wody.',
+        );
+        expect(numberErrors(cold, 'Dolej 50 ml bardzo zimnej wody.')).toEqual(
+          [],
+        );
+        expect(
+          numberErrors(cold, 'Dodaj 50 ml bardzo drobno mielonej soli.'),
+        ).toHaveLength(1);
+        expect(
+          numberErrors(
+            cold,
+            'Dodaj 50 ml bardzo zimnej i drobno mielonej soli.',
+          ),
+        ).toHaveLength(1);
+        expect(numberErrors(salty, 'Dolej 50 ml wody.')).toEqual([]);
+        // Nawias z określnikiem — dalej ilość rzeczy przed nawiasem.
+        const oily = withRecipe(
+          [
+            {
+              ingredientId: 'ole3',
+              name: 'olej rzepakowy',
+              amount: 30,
+              unit: 'ml',
+            },
+          ],
+          'Wlej olej (ok. 30 ml) na patelnię.',
+        );
+        expect(numberErrors(oily, 'Wlej olej (ok. 30 ml).')).toHaveLength(1);
+        expect(numberErrors(oily, 'Wlej olej (około 30 ml).')).toHaveLength(1);
+        const oily2 = withRecipe(
+          [
+            {
+              ingredientId: 'ole4',
+              name: 'olej rzepakowy',
+              amount: 30,
+              unit: 'ml',
+            },
+          ],
+          'Wlej olej (po około 30 ml) do każdej foremki.',
+        );
+        expect(
+          numberErrors(oily2, 'Wlej olej (po około 30 ml) do każdej foremki.'),
+        ).toHaveLength(1);
+        // Okolicznik po jednostce to nie odmierzana rzecz (review Codexa #265).
+        expect(
+          numberErrors(
+            recipe,
+            'Odmierz 50 ml czystą miarką, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
+        expect(
+          numberErrors(
+            recipe,
+            'Odmierz 50 ml do miarki, wlej olej na patelnię.',
+          ),
+        ).toHaveLength(1);
+      });
+
       it('tury: „wsyp pierogi partiami” to tury, „podawaj porcjami” i „wlewaj po chochli” — nie; „w dwóch turach” = dwa timery', () => {
         const turns = (line: string) =>
           [...recipeDurationPool([line]).extraTurns].length;

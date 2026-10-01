@@ -458,7 +458,7 @@ const QUANTITY_IN_RECIPE = new RegExp(
 const UNIT_AFTER = new RegExp(`^\\s*([${PL}]+)`, 'iu');
 const toAmount = (raw: string) => Number(raw.replace(',', '.'));
 
-type Dimension = 'mass' | 'volume' | 'count';
+type Dimension = 'mass' | 'volume' | 'count' | 'pinch';
 /**
  * Jednostka w formie kanonicznej i jej wymiar (przegląd nocny: porównanie
  * prefiksem robiło z „g” składnika „1 godzinę” z przepisu, a samo porównanie
@@ -472,7 +472,9 @@ const UNIT_FORMS: [RegExp, string, Dimension][] = [
   [/^(łyżeczk\p{L}*|łyżeczek)$/u, 'łyżeczka', 'volume'],
   [/^(łyżk\p{L}*|łyżek)$/u, 'łyżka', 'volume'],
   [/^(szklank\p{L}*|szklanek)$/u, 'szklanka', 'volume'],
-  [/^(szczypt\p{L}*)$/u, 'szczypta', 'volume'],
+  // Szczypta to osobna miara, nie objętość — sól „1 szczypta” nie może
+  // „pasować” do ilości w ml (fala 1: krem z dyni, naleśniki).
+  [/^(szczypt\p{L}*)$/u, 'szczypta', 'pinch'],
   [/^(szt|sztuk\p{L}*)$/u, 'szt', 'count'],
 ];
 /** Miary kuchenne — mogą dotyczyć składnika w DOWOLNEJ jednostce listy. */
@@ -501,6 +503,12 @@ const normalizedWords = (fragment: string): string[] =>
 
 /** Końcówki dopełniacza — po „i” ta sama ilość dotyczy też tej rzeczy. */
 const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
+/**
+ * Końcówki przymiotnika (bez polskich znaków) albo przysłówka przed nim
+ * („drobno mielonej soli”) — rzecz stoi dalej. Szerzej = surowiej: więcej
+ * słów porównujemy z każdym składnikiem.
+ */
+const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej|o)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
 const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
 
@@ -513,12 +521,18 @@ const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
  */
 function quantityTail(rest: string): string {
   // Po „z / ze” stoi źródło, nie odmierzana rzecz: „2–3 łyżki wody
-  // z makaronu” to ilość wody (przegląd nocny).
+  // z makaronu” to ilość wody (przegląd nocny). Przecinek frazy nie kończy
+  // („przegotowanego, zimnego mleka”) — cięcie na „, polecenie” otwierało
+  // obejścia („Odmierz 50 ml czystą miarką, wlej olej”; review Codexa
+  // #265), a fałszywe alarmy fali 1 usuwa już osobny wymiar szczypty.
   const clause = rest.split(
     /[.;:!?()—–]|,\s*(?:a|potem|następnie|później)\s|\s(?:z|ze)\s/u,
   )[0];
   for (const match of clause.matchAll(/\s(?:i|oraz)\s+(\p{L}+)/gu)) {
-    if (!GENITIVE_END.test(match[1].toLowerCase())) {
+    // Po „i” określenie tej samej rzeczy („zimnej i drobno mielonej soli”)
+    // frazy nie kończy (review Codexa #265).
+    const next = match[1].toLowerCase();
+    if (!GENITIVE_END.test(next) && !ADJECTIVE_END.test(normalizeText(next))) {
       return clause.slice(0, match.index);
     }
   }
@@ -546,28 +560,72 @@ function mentionsIngredient(
   // Słowo tuż przed liczbą (albo przed nawiasem z liczbą) — tylko z tej
   // samej pozycji wyliczenia: po „, ” albo „i” zaczyna się nowa pozycja
   // („z mlekiem kokosowym, 150 ml wody”, „bulion warzywny i 300 ml wody”).
-  const prefix = text
-    .slice(0, numberStart)
+  // Bez określników tuż przed liczbą („olej (ok. 30 ml)”, review Codexa).
+  // Wszystkie po kolei („po około 30 ml”).
+  let before = text.slice(0, numberStart);
+  for (let i = 0; i < 4; i += 1) {
+    before = before.replace(
+      /(^|[^\p{L}])(ok|około|ca|po|co\s+najmniej)\.?\s*$/iu,
+      '$1',
+    );
+  }
+  // „olej (30 ml)” — w nawiasie liczba dopowiada rzecz tuż przed nim.
+  const bracketed = /\(\s*$/u.test(before);
+  const prefix = before
     .replace(/\(\s*$/u, '')
     .split(/[,;:.()—–]/)
     .pop();
   const last = normalizedWords(prefix ?? '').pop();
-  const around = [
-    ...(last && !LIST_JOINERS.has(last) ? [last] : []),
-    ...normalizedWords(tail),
+  const tailWords = normalizedWords(tail);
+  // Rzecz TUŻ przy liczbie (słowo przed nią, dwa po jednostce, słowo
+  // zamiast jednostki) — porównanie z KAŻDYM składnikiem, bez względu na
+  // wymiar: „50 ml soli” to ilość soli, choć sól jest w szczyptach (review
+  // Codexa, #265). Dalsza część zdania — tylko składniki w tym wymiarze.
+  // Po jednostce: pierwsze słowo, a za przymiotnikiem lub przysłówkiem
+  // kolejne — aż do rzeczownika („50 ml bardzo drobno mielonej soli”); nie
+  // dalej, bo tam zaczyna się następna czynność („1,5 l wysmaruj masłem”).
+  let reach = 1;
+  while (
+    reach < tailWords.length &&
+    (ADJECTIVE_END.test(tailWords[reach - 1]) ||
+      // „zimnej i drobno mielonej soli” — spójnik między określeniami
+      ['i', 'oraz'].includes(tailWords[reach - 1]))
+  ) {
+    reach += 1;
+  }
+  // Słowo przed liczbą to zwykle dopełnienie czasownika („Zalej żelatynę
+  // 100 ml wody” — ilość wody), więc idzie z filtrem wymiaru; tylko przed
+  // nawiasem to sama rzecz.
+  const lastWord = last && !LIST_JOINERS.has(last) ? [last] : [];
+  const near = [
+    ...(bracketed ? lastWord : []),
+    ...tailWords.slice(0, reach),
     ...(info.noun ? normalizedWords(info.noun) : []),
   ];
-  const stems = recipe.ingredients
-    .filter((row) => {
-      if (info.noun || KITCHEN_MEASURES.has(info.canon)) return true;
-      return unitInfo(row.unit).dim === info.dim;
-    })
-    .flatMap((row) =>
+  const stemsOf = (rows: WriterRecipe['ingredients']) =>
+    rows.flatMap((row) =>
       normalizedWords(row.name)
         .filter((word) => word.length >= 3)
         .map((word) => word.slice(0, 3)),
     );
-  return around.some((word) => stems.some((stem) => word.startsWith(stem)));
+  const all = stemsOf(recipe.ingredients);
+  const sameDimension = stemsOf(
+    recipe.ingredients.filter(
+      (row) =>
+        Boolean(info.noun) ||
+        KITCHEN_MEASURES.has(info.canon) ||
+        unitInfo(row.unit).dim === info.dim,
+    ),
+  );
+  const hits = (words: string[], stems: string[]) =>
+    words.some((word) => stems.some((stem) => word.startsWith(stem)));
+  return (
+    hits(near, all) ||
+    hits(
+      [...(bracketed ? [] : lastWord), ...tailWords.slice(reach)],
+      sameDimension,
+    )
+  );
 }
 
 /** Słowa bez znaczenia dla „czego dotyczy ilość”: czasowniki i określniki. */
@@ -575,6 +633,14 @@ const THING_STOP = new Set([
   'ok',
   'okolo',
   'ca',
+  'bardzo',
+  'lekko',
+  'dobrze',
+  'mocno',
+  'drobno',
+  'grubo',
+  'swiezo',
+  'cienko',
   'po',
   'co',
   'najmniej',
