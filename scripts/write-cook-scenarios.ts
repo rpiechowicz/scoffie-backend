@@ -81,6 +81,13 @@ import {
   REVIEWER_SYSTEM,
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
+import {
+  DEFAULT_GATE,
+  describeGate,
+  qualityGate,
+  resolveGateConfig,
+  type GateConfig,
+} from '../src/recipes/cook-scenario/writer/writer.gate';
 import { acquireLock } from '../src/recipes/cook-scenario/writer/writer.lock';
 import {
   batchReport,
@@ -113,6 +120,8 @@ interface Args {
   gateReject: number;
   gateCost: number;
   noGate: boolean;
+  /** Któraś z flag bramki podana jawnie (zmiana przy wznowieniu). */
+  gateExplicit: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -131,9 +140,10 @@ function parseArgs(argv: string[]): Args {
     journal: null,
     resume: null,
     breakLock: false,
-    gateReject: 0.2,
-    gateCost: 0.1,
+    gateReject: DEFAULT_GATE.reject,
+    gateCost: DEFAULT_GATE.cost,
     noGate: false,
+    gateExplicit: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -163,10 +173,16 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
-    else if (flag === '--gate-reject') args.gateReject = positive(next());
-    else if (flag === '--gate-cost') args.gateCost = positive(next());
-    else if (flag === '--no-gate') args.noGate = true;
-    else throw new Error(`nieznana opcja ${flag}`);
+    else if (flag === '--gate-reject') {
+      args.gateReject = positive(next());
+      args.gateExplicit = true;
+    } else if (flag === '--gate-cost') {
+      args.gateCost = positive(next());
+      args.gateExplicit = true;
+    } else if (flag === '--no-gate') {
+      args.noGate = true;
+      args.gateExplicit = true;
+    } else throw new Error(`nieznana opcja ${flag}`);
   }
   if (
     !args.resume &&
@@ -311,6 +327,8 @@ type JournalFile = BatchJournal & {
   signatures: Record<string, string>;
   /** sha256 promptu autora (z wzorcem) i recenzenta z początku serii. */
   promptHash: string;
+  /** Bramka jakości serii — część trwałego stanu (review Codexa, noc 1.10). */
+  gate?: GateConfig;
 };
 
 async function readJournal(path: string): Promise<JournalFile> {
@@ -352,41 +370,6 @@ async function writeJournal(path: string, journal: JournalFile) {
     // Windows nie pozwala otworzyć katalogu — tam rename jest już trwały
     // na poziomie NTFS (dziennik metadanych).
   }
-}
-
-/**
- * Bramka jakości serii (review Codexa, noc 30.09): systemowy problem —
- * np. cała kategoria przepisów odrzucana — ma zatrzymać serię, zanim
- * zapłacimy za cały katalog. Udział REJECTED — od 30 zadań z wynikiem;
- * koszt — po wszystkich zadaniach serii.
- */
-function qualityGate(
-  jobs: ScenarioJob[],
-  args: Args,
-  final = false,
-): string | null {
-  if (!jobs.length) return null;
-  // Wydatek WSZYSTKICH zadań serii (także w toku) na przepis — dolna granica
-  // końcowej średniej, więc wolno ją sprawdzać od pierwszej rundy. Sama
-  // średnia zakończonych byłaby zaniżona: tanie kończą się pierwsze, drogie
-  // (poprawki) później (review Codexa, noc 30.09).
-  const cost =
-    jobs.reduce((sum, job) => sum + job.spentMicroUsd, 0) /
-    jobs.length /
-    1_000_000;
-  // Po ostatniej rundzie koszt nie ma już czego bronić — tylko odrzucenia.
-  if (!final && cost > args.gateCost) {
-    return `wydatek ${cost.toFixed(3)} $ na przepis serii już teraz (próg ${args.gateCost} $)`;
-  }
-  const finished = jobs
-    .filter((job) => job.hasResult)
-    .map((job) => job.outcome());
-  if (finished.length < 30) return null;
-  const rejected = finished.filter((o) => o.status === 'REJECTED').length;
-  if (rejected / finished.length > args.gateReject) {
-    return `odrzuconych ${rejected} z ${finished.length} (próg ${Math.round(args.gateReject * 100)}%)`;
-  }
-  return null;
 }
 
 /**
@@ -460,6 +443,13 @@ async function main() {
     const resumed = args.resume ? await readJournal(args.resume) : null;
     // Wznowienie pisze tymi samymi modelami co początek serii.
     const options = resumed ? resumed.options : writerOptions();
+    const gateResolved = resolveGateConfig(
+      { enabled: !args.noGate, reject: args.gateReject, cost: args.gateCost },
+      args.gateExplicit,
+      resumed?.gate,
+    );
+    const gateConfig = gateResolved.config;
+    if (gateResolved.changed) console.log(gateResolved.changed);
     const example = await loadExample(prisma);
     if (resumed && resumed.promptHash !== promptHash(example)) {
       throw new Error(
@@ -470,7 +460,7 @@ async function main() {
       ? []
       : await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $${args.batch || resumed ? (args.noGate ? ' · bramka WYŁĄCZONA' : ` · bramka: odrzucone > ${Math.round(args.gateReject * 100)}%, koszt > ${args.gateCost} $`) : ''}`,
+      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch || resumed ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $${args.batch || resumed ? ` · bramka: ${describeGate(gateConfig)}` : ''}`,
     );
 
     if (args.dryRun) {
@@ -631,13 +621,12 @@ async function main() {
                 options,
                 signatures,
                 promptHash: promptHash(example),
+                gate: gateConfig,
               }),
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
             runId,
-            gate: args.noGate
-              ? undefined
-              : (final) => qualityGate(jobs, args, final),
+            gate: (final) => qualityGate(jobs, gateConfig, final),
           },
         );
         // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.
