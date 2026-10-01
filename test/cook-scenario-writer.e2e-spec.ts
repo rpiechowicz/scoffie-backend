@@ -8,6 +8,7 @@ import {
 import { parseCookScenarioContent } from '../src/recipes/cook-scenario/cook-scenario.validate';
 import type { WriteOutcome } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
+  loadRevisionCandidate,
   loadWriterRecipe,
   publishWrittenScenario,
   saveWrittenScenario,
@@ -354,6 +355,69 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       data: { validationReport: { outcome: 'VALIDATED' } },
     });
     expect(await current()).toBe(false);
+  });
+
+  it('poprawka (--revise): kandydat tylko przy aktualnym REJECTED, a nieaktualny punkt startu nic nie dopisuje', async () => {
+    const loaded = (await loadWriterRecipe(prisma, KOTLET.recipeId))!;
+    const content = await kotletContent();
+    const review = {
+      score: 3,
+      issues: [{ stepId: 's2', severity: 'MAJOR' as const, text: 'timer' }],
+      summary: 'do poprawy',
+    };
+    const save = (
+      status: WriteOutcome['status'],
+      revisedFrom?: string,
+      jobId?: string,
+    ) =>
+      prisma.$transaction((tx) =>
+        saveWrittenScenario(tx, {
+          recipe: loaded.recipe,
+          signature: loaded.signature,
+          outcome: { ...outcome(status, content), review },
+          generator: { source: 'writer', test: true },
+          revisedFrom,
+          jobId,
+        }),
+      );
+    const idOf = async (version: number) => {
+      const row = await prisma.recipeCookScenario.findUniqueOrThrow({
+        where: { recipeId_version: { recipeId: KOTLET.recipeId, version } },
+        select: { id: true },
+      });
+      created.push(row.id);
+      return row.id;
+    };
+
+    const rejected = await idOf((await save('REJECTED')).version);
+    const candidate = await loadRevisionCandidate(prisma, KOTLET.recipeId);
+    expect(candidate?.revisedFrom.scenarioId).toBe(rejected);
+    expect(candidate?.seed.review).toEqual(review);
+    expect(candidate?.seed.content).toEqual(content);
+
+    // Poprawka od aktualnego REJECTED się zapisuje…
+    const first = await save('VALIDATED', rejected, 'rev-1');
+    expect(first.superseded).toBeUndefined();
+    await idOf(first.version);
+    // …a VALIDATED nie jest już do poprawki.
+    expect(await loadRevisionCandidate(prisma, KOTLET.recipeId)).toBeNull();
+
+    // Druga poprawka od tego samego (już nieaktualnego) REJECTED — np. paczka
+    // odebrana po tym, jak przepis dostał nowszy wynik — nic nie dopisuje.
+    const versionsBefore = await prisma.recipeCookScenario.count({
+      where: { recipeId: KOTLET.recipeId },
+    });
+    const late = await save('REJECTED', rejected, 'rev-2');
+    expect(late).toMatchObject({
+      superseded: true,
+      status: 'VALIDATED',
+      version: first.version,
+    });
+    expect(
+      await prisma.recipeCookScenario.count({
+        where: { recipeId: KOTLET.recipeId },
+      }),
+    ).toBe(versionsBefore);
   });
 
   describe('publikacja wersji VALIDATED (dla panelu, E3c)', () => {
