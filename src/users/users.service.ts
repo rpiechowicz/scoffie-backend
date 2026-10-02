@@ -442,19 +442,10 @@ export class UsersService {
       }
     }
 
-    if (data.excludedIngredientIds !== undefined) {
-      // Bez deduplikacji ta sama pieczarka wpisana dwa razy przez asystenta
-      // i przez ustawienia dawałaby dwa wiersze w kontekście modelu.
-      update.excludedIngredientIds = Array.from(
-        new Set(data.excludedIngredientIds),
-      );
-      create.excludedIngredientIds = update.excludedIngredientIds;
-    }
-
-    if (data.maxPrepTimeMinutes !== undefined) {
-      update.maxPrepTimeMinutes = data.maxPrepTimeMinutes;
-      create.maxPrepTimeMinutes = data.maxPrepTimeMinutes ?? undefined;
-    }
+    // `excludedIngredientIds` i `maxPrepTimeMinutes` (dawne „Czego nie jem”)
+    // są od 2.10.2026 przyjmowane i POMIJANE: iOS wysyła je przy każdym
+    // zapisie diety (puste), a starszy build mógłby wpisać wartość, której
+    // nikt już nie widzi ani nie zmieni. Kolumny zostają zawsze puste.
 
     if (data.goal !== undefined) {
       update.goal = data.goal;

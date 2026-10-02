@@ -285,7 +285,8 @@ describe('Panel — katalog: jakość, baza danych, ruch, sterowanie', () => {
       },
     });
 
-    // „Czego nie jem”: jajko u jednej osoby.
+    // Stare „Czego nie jem” (dane sprzed 2.10.2026): jajko u jednej osoby —
+    // panel ma go już NIE pokazywać.
     await prisma.userPreference.create({
       data: { userId: ids.user, excludedIngredientIds: [ids.egg] },
     });
@@ -389,14 +390,8 @@ describe('Panel — katalog: jakość, baza danych, ruch, sterowanie', () => {
     expect(count(popularity.shared, ids.good)).toBe(30);
     expect(count(popularity.linkOpens, ids.good)).toBe(29);
     expect(popularity.shared.every((row) => row.id !== ids.private)).toBe(true);
-    const egg = popularity.excludedIngredients.find(
-      (row) => row.key === `jajko-b4-${stamp}`,
-    );
-    expect(egg).toEqual({
-      key: `jajko-b4-${stamp}`,
-      name: `Składnik jajko-b4-${stamp}`,
-      count: 1,
-    });
+    // „Czego nie jem” zniknęło z aplikacji — statystyka też.
+    expect(popularity).not.toHaveProperty('excludedIngredients');
     // Tylko liczby — żadnych identyfikatorów osób.
     expect(JSON.stringify(popularity)).not.toContain(ids.user);
   });

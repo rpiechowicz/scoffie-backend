@@ -71,6 +71,9 @@ export class UpdatePreferencesDto {
   allergens?: string[];
 
   /**
+   * WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je
+   * pomija — „Czego nie jem” zniknęło z aplikacji (iOS #179).
+   *
    * Czego ten domownik nie je, choć nie jest to alergia.
    *
    * Identyfikatory składników, nie nazwy: „pieczarki" i „pieczarka" to dla
@@ -86,6 +89,8 @@ export class UpdatePreferencesDto {
   excludedIngredientIds?: string[];
 
   /**
+   * WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je pomija.
+   *
    * Ile minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.
    *
    * To podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna

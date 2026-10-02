@@ -398,7 +398,6 @@ export class AgentCatalogService {
             preferences: {
               select: {
                 allergens: true,
-                excludedIngredientIds: true,
                 dietPreference: true,
               },
             },
@@ -422,7 +421,6 @@ export class AgentCatalogService {
         : rows;
 
     const allergens = new Set<string>();
-    const excluded = new Set<string>();
     const diets = new Set<DietPreferenceValue>();
     const applied: string[] = [];
     let withheld = 0;
@@ -430,16 +428,11 @@ export class AgentCatalogService {
       const prefs = row.user.preferences;
       const own = {
         allergens: prefs?.allergens ?? [],
-        excluded: prefs?.excludedIngredientIds ?? [],
         diet: prefs?.dietPreference ?? 'NONE',
       };
       own.allergens.forEach((id) => allergens.add(id));
-      own.excluded.forEach((id) => excluded.add(id));
       if (own.diet !== 'NONE') diets.add(own.diet);
-      const restricted =
-        own.allergens.length > 0 ||
-        own.excluded.length > 0 ||
-        own.diet !== 'NONE';
+      const restricted = own.allergens.length > 0 || own.diet !== 'NONE';
       if (!restricted) continue;
       if (!context.consentedUserIds.has(row.userId)) {
         withheld += 1;
@@ -449,9 +442,6 @@ export class AgentCatalogService {
         ...(own.diet !== 'NONE' ? [`dieta ${DIET_LABELS[own.diet]}`] : []),
         ...(own.allergens.length > 0
           ? [`bez: ${[...own.allergens].sort().join(', ')}`]
-          : []),
-        ...(own.excluded.length > 0
-          ? [`${own.excluded.length} wykluczonych składników`]
           : []),
       ];
       applied.push(`${row.user.displayName}: ${parts.join('; ')}`);
@@ -464,7 +454,9 @@ export class AgentCatalogService {
     return {
       audience: {
         allergens: [...allergens].sort(),
-        excludedIngredientIds: [...excluded].sort(),
+        // Wykluczeń z profilu nie ma od 2.10.2026 („Czego nie jem” usunięte
+        // z iOS, #179) — silnik wyszukiwania dalej je przyjmuje.
+        excludedIngredientIds: [],
         diets: [...diets].sort(),
       },
       applied,

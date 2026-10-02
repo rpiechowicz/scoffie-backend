@@ -521,7 +521,7 @@ export class WeeklyPlansService {
     assertReplaceTokens(dto, replaceRecipeId);
     assertPortionPolicyShape(dto.portionPolicy, dto.portions);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
-    // Jedno zapytanie o domowników (identyfikatory, alergeny, wykluczenia)
+    // Jedno zapytanie o domowników (identyfikatory, alergeny)
     // zamiast czterech o ten sam skład — audyt 2: ręczne wstawienie posiłku
     // robiło ~8 zapytań przed transakcją.
     const members = await this.loadHouseholdMembersForGate(householdId);
@@ -549,14 +549,13 @@ export class WeeklyPlansService {
       dto.plannedServings,
     );
 
-    // Te same twarde bramki, co w `applyWeekPlan` (alergeny i wykluczenia
-    // domowników). Do 3.09.2026 miał je tylko zapis tygodnia — asystent nie
+    // Te same twarde bramki, co w `applyWeekPlan` (alergeny domowników). Do 3.09.2026 miał je tylko zapis tygodnia — asystent nie
     // mógł wstawić dania z alergenem, a ręka z telefonu mogła. Ładowane
     // PRZED transakcją, sprawdzane w niej, gdy znane jest już audytorium.
     const plannableForGate = await this.loadPlannableRecipes(householdId, [
       dto.recipeId,
     ]);
-    const { allergensByMember, exclusionsByMember } = members;
+    const { allergensByMember } = members;
     const memberIdsForGate = members.memberIds;
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -759,7 +758,6 @@ export class WeeklyPlansService {
         plannableForGate,
         memberIdsForGate,
         allergensByMember,
-        exclusionsByMember,
       ).find(
         (entry) =>
           entry.code === 'RECIPE_ALLERGEN_CONFLICT' ||
@@ -1116,7 +1114,7 @@ export class WeeklyPlansService {
     const weekStartDate = parseWeekStart(weekStart);
     const dryRun = dto.dryRun === true;
 
-    const { memberIds, allergensByMember, exclusionsByMember } =
+    const { memberIds, allergensByMember } =
       await this.loadHouseholdMembersForGate(householdId);
     const recipes = await this.loadPlannableRecipes(
       householdId,
@@ -1128,7 +1126,6 @@ export class WeeklyPlansService {
       recipes,
       memberIds,
       allergensByMember,
-      exclusionsByMember,
     );
     if (violations.length > 0) {
       return {
@@ -1487,16 +1484,17 @@ export class WeeklyPlansService {
    */
   /** Alergeny per domownik — brak wiersza preferencji znaczy „brak alergenów". */
   /**
-   * Skład domu do bramek planu w JEDNYM zapytaniu: identyfikatory,
-   * alergeny i wykluczenia. Alergeny i wykluczenia zostają osobnymi mapami,
-   * bo to inna rzecz i inny komunikat: alergen jest o zdrowiu, wykluczenie
-   * o gustach — wspólny worek dawałby zdanie „danie zawiera alergeny
-   * domownika: pieczarka", które jest nieprawdą.
+   * Skład domu do bramek planu w JEDNYM zapytaniu: identyfikatory i alergeny.
+   *
+   * Wykluczeń z profilu (`UserPreference.excludedIngredientIds`) bramka NIE
+   * czyta od 2.10.2026: „Czego nie jem” zniknęło z iOS 23.09 (#179) i nikt
+   * nie widział, co blokuje danie — odmowa bez widocznej przyczyny. Wykluczanie
+   * składników żyje w filtrach przepisów na telefonie. `collectPlanViolations`
+   * dalej umie sprawdzić wykluczenia (parametr), ale żadna ścieżka ich nie podaje.
    */
   private async loadHouseholdMembersForGate(householdId: string): Promise<{
     memberIds: Set<string>;
     allergensByMember: Map<string, string[]>;
-    exclusionsByMember: Map<string, string[]>;
   }> {
     const rows = await this.prisma.membership.findMany({
       where: { householdId },
@@ -1505,7 +1503,7 @@ export class WeeklyPlansService {
         user: {
           select: {
             preferences: {
-              select: { allergens: true, excludedIngredientIds: true },
+              select: { allergens: true },
             },
           },
         },
@@ -1515,12 +1513,6 @@ export class WeeklyPlansService {
       memberIds: new Set(rows.map((row) => row.userId)),
       allergensByMember: new Map(
         rows.map((row) => [row.userId, row.user.preferences?.allergens ?? []]),
-      ),
-      exclusionsByMember: new Map(
-        rows.map((row) => [
-          row.userId,
-          row.user.preferences?.excludedIngredientIds ?? [],
-        ]),
       ),
     };
   }
@@ -1723,7 +1715,7 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    const { memberIds, allergensByMember, exclusionsByMember } =
+    const { memberIds, allergensByMember } =
       await this.loadHouseholdMembersForGate(householdId);
     const recipeIds = dto.slots.map((slot) => slot.recipeId);
     const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
@@ -1737,7 +1729,6 @@ export class WeeklyPlansService {
       plannable,
       memberIds,
       allergensByMember,
-      exclusionsByMember,
     );
     if (violations.length > 0) {
       return {

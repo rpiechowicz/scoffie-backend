@@ -78,8 +78,8 @@ const makePrismaMock = ({
       findUnique: jest
         .fn()
         .mockResolvedValue({ id: 'mem-1', userId, householdId }),
-      // Jeden mock obsługuje odczyt alergenów i wykluczeń — oba czytają te
-      // same wiersze członkostwa, tak jak zrobiłaby baza.
+      // Wiersz ze starym `excludedIngredientIds` — baza go jeszcze ma, ale
+      // bramka planu go już nie czyta.
       findMany: jest.fn().mockResolvedValue([
         {
           userId,
@@ -236,11 +236,11 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
     });
   });
 
-  it('wykluczenia domownika („nie jem pieczarek") blokują podgląd tak samo jak zapis', async () => {
-    // Regresja z 1.09: podgląd ładował wykluczenia, ale nie przekazywał ich
-    // do walidatora. Karta pokazywała zupę z pieczarkami jako czystą, a
-    // „Dodaj do planu" (apply) odrzucał ją — użytkownik widział mylący
-    // komunikat o planie, który „zmienił się w międzyczasie".
+  it('stare wykluczenia z profilu („Czego nie jem”) nie blokują podglądu', async () => {
+    // Od 2.10.2026 bramka planu nie czyta `excludedIngredientIds` — ekran
+    // zniknął z iOS (#179), więc odmowa nie miałaby widocznej przyczyny.
+    // Podgląd i zapis czytają skład domu tą samą metodą, więc dalej się
+    // zgadzają (regresja z 1.09: karta czysta, „Dodaj do planu” odmawiał).
     const prisma = makePrismaMock({ otherExcluded: [mushroomId] });
     const service = await buildService(prisma);
 
@@ -251,37 +251,6 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
       {
         slots: [
           slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId }),
-        ],
-      },
-    );
-
-    expect(preview.slots).toBeNull();
-    expect(preview.violations).toHaveLength(1);
-    expect(preview.violations[0]).toMatchObject({
-      index: 0,
-      code: 'RECIPE_EXCLUDED_INGREDIENT',
-      recipeId: soupId,
-    });
-  });
-
-  it('wykluczenie liczy się tylko dla osób, które jedzą dany posiłek', async () => {
-    // Ta sama reguła co w zapisie: jedno „nie jem" nie wykreśla dania tym,
-    // którzy jedzą je bez problemu.
-    const prisma = makePrismaMock({ otherExcluded: [mushroomId] });
-    const service = await buildService(prisma);
-
-    const preview = await service.previewWeekPlan(
-      userId,
-      householdId,
-      weekStart,
-      {
-        slots: [
-          slot({
-            dayOfWeek: 'TUE',
-            mealType: 'DINNER',
-            recipeId: soupId,
-            participantIds: [userId],
-          }),
         ],
       },
     );

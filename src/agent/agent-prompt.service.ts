@@ -154,7 +154,9 @@ export class AgentPromptService {
         timeZone: dates.timeZone,
         clientTime: clientClock(dates.timeZone),
         enabledMealTypes: household?.enabledMealTypes ?? [],
-        members,
+        // `restrictions` jest zawsze puste (dawne „Czego nie jem”, patrz
+        // `MemberContext`) — do modelu nie idzie, żeby nie obiecywał wykluczeń.
+        members: members.map(({ restrictions: _unused, ...member }) => member),
         membersWithheld: withheld,
         proposalMode,
         handoff,

@@ -879,8 +879,6 @@ export class HouseholdsService {
                 goal: true,
                 activityLevel: true,
                 proteinG: true,
-                excludedIngredientIds: true,
-                maxPrepTimeMinutes: true,
                 fatG: true,
                 carbsG: true,
               },
@@ -889,25 +887,7 @@ export class HouseholdsService {
         },
       },
     });
-    // Nazwy wykluczonych składników jednym zapytaniem dla całego domu:
-    // prompt dostaje „nie je: pieczarka", a nie listę identyfikatorów.
-    const excludedIds = Array.from(
-      new Set(
-        rows.flatMap(
-          (row) => row.user.preferences?.excludedIngredientIds ?? [],
-        ),
-      ),
-    );
-    const names = new Map<string, string>();
-    if (excludedIds.length > 0) {
-      const found = await this.prisma.ingredient.findMany({
-        where: { id: { in: excludedIds } },
-        select: { id: true, name: true },
-      });
-      for (const ingredient of found) names.set(ingredient.id, ingredient.name);
-    }
-
-    return rows.map((row) => toMemberContext(row, new Date(), names));
+    return rows.map((row) => toMemberContext(row, new Date()));
   }
 
   async updateMemberRole(

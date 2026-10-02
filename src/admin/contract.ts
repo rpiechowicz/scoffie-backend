@@ -1570,13 +1570,6 @@ export interface CatalogRankItem {
   count: number;
 }
 
-/** Składnik z „czego nie jem” — sama liczba osób, bez osób. */
-export interface CatalogExcludedIngredient {
-  key: string;
-  name: string;
-  count: number;
-}
-
 export interface CatalogPopularity {
   /** okno rankingów „w planach”, „zjedzone”, „proponowane” */
   days: number;
@@ -1595,8 +1588,6 @@ export interface CatalogPopularity {
   /** aktywne przepisy, których nikt nigdy nie dodał do planu (do 50) */
   neverUsed: CatalogRankItem[];
   neverUsedTotal: number;
-  /** `UserPreference.excludedIngredientIds` — liczba osób na składnik */
-  excludedIngredients: CatalogExcludedIngredient[];
 }
 
 /** `GET /admin/catalog/insights` */
