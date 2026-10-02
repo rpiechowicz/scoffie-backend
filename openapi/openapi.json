@@ -1418,6 +1418,49 @@
         "tags": ["me"]
       }
     },
+    "/public/app-version": {
+      "get": {
+        "operationId": "appVersionStatus",
+        "parameters": [
+          {
+            "name": "platform",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "ios",
+              "type": "string",
+              "enum": ["ios", "android"]
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "Wersja aplikacji (`CFBundleShortVersionString` / `versionName`), np. `1.0.2`.\nBrak albo nieczytelna = serwer nie blokuje.",
+            "schema": { "maxLength": 32, "example": "1.0.2", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppVersionStatus" }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "tags": ["AppVersion"]
+      }
+    },
     "/me/announcements": {
       "get": {
         "operationId": "announcementsList",
@@ -9286,6 +9329,24 @@
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
       },
+      "AppPlatform": { "enum": ["android", "ios"], "type": "string" },
+      "AppVersionStatus": {
+        "type": "object",
+        "properties": {
+          "platform": { "$ref": "#/components/schemas/AppPlatform" },
+          "minVersion": {
+            "description": "Najniższa wersja, która może działać; `null` = bez progu.",
+            "type": "string",
+            "nullable": true
+          },
+          "updateRequired": {
+            "description": "`true` = ta wersja jest za stara i aplikacja ma pokazać ekran\n„Zaktualizuj”. Bez (poprawnej) wersji w pytaniu zawsze `false`.",
+            "type": "boolean"
+          },
+          "storeUrl": { "type": "string" }
+        },
+        "required": ["minVersion", "platform", "storeUrl", "updateRequired"]
+      },
       "AuthLogoutEverywhereResponse": {
         "type": "object",
         "properties": { "revokedSessions": { "type": "number" } },
@@ -11870,12 +11931,12 @@
           "calorieGoal": { "type": "number" },
           "allergens": { "type": "array", "items": { "type": "string" } },
           "excludedIngredientIds": {
-            "description": "Czego ten domownik nie je, choć nie jest to alergia.\n\nIdentyfikatory składników, nie nazwy: „pieczarki\" i „pieczarka\" to dla\nbazy dwie różne rzeczy, a lista po nazwach rozjechałaby się przy\npierwszej korekcie katalogu. Pusta tablica kasuje wykluczenia.",
+            "description": "WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je\npomija — „Czego nie jem” zniknęło z aplikacji (iOS #179).\n\nCzego ten domownik nie je, choć nie jest to alergia.\n\nIdentyfikatory składników, nie nazwy: „pieczarki\" i „pieczarka\" to dla\nbazy dwie różne rzeczy, a lista po nazwach rozjechałaby się przy\npierwszej korekcie katalogu. Pusta tablica kasuje wykluczenia.",
             "type": "array",
             "items": { "type": "string" }
           },
           "maxPrepTimeMinutes": {
-            "description": "Ile minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.\n\nTo podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna\npieczeń ma prawo trwać dłużej.",
+            "description": "WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je pomija.\n\nIle minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.\n\nTo podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna\npieczeń ma prawo trwać dłużej.",
             "type": "number",
             "nullable": true
           },
@@ -12661,7 +12722,7 @@
             "required": ["calorieGoal", "macros", "macrosSource"]
           },
           "restrictions": {
-            "description": "Ograniczenia, których nie da się wyrazić alergenem.\n\n`excludedIngredients` idzie z NAZWAMI, nie samymi identyfikatorami:\nten obiekt trafia wprost do promptu, a „nie je 3fa85f64…\" nie znaczy\ndla modelu nic. Identyfikator zostaje obok, bo po nim walidator planu\nporównuje skład przepisu.",
+            "description": "Dawne „Czego nie jem” (wykluczone składniki, limit czasu na danie) —\nod 2.10.2026 ZAWSZE puste: ekran zniknął z iOS 23.09 (#179), więc nikt\nnie widział, co blokuje danie. Pole zostaje w kontrakcie\n`households:memberPreferences`, bo klient Androida (OpenAPI) ma je jako\nwymagane; do promptu nie idzie (`AgentPromptService`).",
             "type": "object",
             "properties": {
               "excludedIngredients": {

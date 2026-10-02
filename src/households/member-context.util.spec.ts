@@ -128,4 +128,24 @@ describe('toMemberContext', () => {
     expect(serialized).not.toContain('MALE');
     expect(serialized).not.toContain('1996');
   });
+
+  it('dawne „Czego nie jem” jest zawsze puste (pole zostaje w kontrakcie)', () => {
+    // Android ma `restrictions` jako wymagane w kliencie z OpenAPI; treść
+    // z bazy (konto sprzed 2.10.2026) nie wychodzi nigdzie.
+    const legacy = {
+      ...row({}),
+      user: {
+        ...row({}).user,
+        preferences: {
+          ...row({}).user.preferences!,
+          excludedIngredientIds: ['ing-pieczarka'],
+          maxPrepTimeMinutes: 20,
+        },
+      },
+    } as MemberContextRow;
+    expect(toMemberContext(legacy, NOW).restrictions).toEqual({
+      excludedIngredients: [],
+      maxPrepTimeMinutes: null,
+    });
+  });
 });

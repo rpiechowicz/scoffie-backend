@@ -76,6 +76,8 @@ describe('nadpisania env z panelu', () => {
         'THROTTLE_AUTH_REFRESH_IP_LIMIT',
         'THROTTLE_AGENT_MESSAGE_LIMIT',
         'THROTTLE_AGENT_POLL_LIMIT',
+        'APP_MIN_VERSION_IOS',
+        'APP_MIN_VERSION_ANDROID',
       ].sort(),
     );
     for (const key of [

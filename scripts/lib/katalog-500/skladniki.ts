@@ -333,9 +333,9 @@ const EXISTING: IngredientAddition[] = [
     note: 'Gotowy sos do makaronu ze słoika.',
   },
   {
-    name: 'zioło angielskie',
+    name: 'ziele angielskie',
     nutrition: n('g', 263, 6.1, 30, 8.7, 21.6, 77),
-    note: 'Ziele angielskie (nazwa w katalogu to „zioło angielskie").',
+    note: 'Do 2.10.2026 w katalogu jako „zioło angielskie" (alias w bazie).',
   },
 
   // ─── inne ───

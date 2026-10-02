@@ -183,7 +183,7 @@ describe('kitchenMeasure — miara kuchenna przypraw do wyświetlania', () => {
       'majonez',
       'kurkuma',
       'gałka muszkatołowa',
-      'zioło angielskie',
+      'ziele angielskie',
       'czosnek granulowany',
       'płatki chili',
       'cukier brązowy',

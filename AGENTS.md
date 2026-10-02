@@ -177,6 +177,11 @@ etapami i mierzenie efektu zmian.
   kupione i odsłania listę schowaną po wyczyszczeniu historii. To NIE jest spiżarnia (aplikacja
   dalej nie wie, co stoi w szafce). Pozycje z `getShoppingListState` niosą `addedFrom` (tytuły
   przepisów); archiwa nie. Dowód: `test/shopping-extras.e2e-spec.ts`.
+- „Czego nie jem” WYCOFANE (2.10.2026; ekran zniknął z iOS 23.09, #179): `UserPreference.excludedIngredientIds`
+  i `maxPrepTimeMinutes` NIE są czytane (walidator planu, planer, wyszukiwarka i prompt asystenta) ani zapisywane
+  (`updatePreferences` przyjmuje pola od starszych buildów i je pomija). `MemberContext.restrictions` jest zawsze
+  puste, ale zostaje w `households:memberPreferences` (Android ma je jako wymagane). Silniki ograniczeń dalej
+  przyjmują wykluczenia — żadne źródło ich nie podaje. Nie przywracać odczytu bez ekranu, który je pokazuje.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

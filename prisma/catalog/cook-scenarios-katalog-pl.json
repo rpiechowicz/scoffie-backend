@@ -3052,7 +3052,7 @@
   {
    "recipeId": "784d3f30-e71b-4746-ae02-77335e781414",
    "title": "Barszcz biały z jajkiem i kiełbasą",
-   "portableHash": "sha256:30add693d19acab96f1deb463dff2426a8af9448636e8059a0e7d4ccfebf0464",
+   "portableHash": "sha256:062791cd428e61fb462fbbd37ce6b8bcb7c2ecd6066e281f3dde56bacf16ccc2",
    "content": {
     "tips": [
      "Weź surową białą kiełbasę, nie parzoną — to jej wywar jest bazą zupy.",
@@ -3061,7 +3061,7 @@
     "steps": [
      {
       "id": "s1",
-      "body": "Włóż kiełbasę do garnka z 1 l zimnej wody, dodaj liść laurowy i zioło angielskie. Gotuj na małym ogniu, bez gwałtownego bulgotania.",
+      "body": "Włóż kiełbasę do garnka z 1 l zimnej wody, dodaj liść laurowy i ziele angielskie. Gotuj na małym ogniu, bez gwałtownego bulgotania.",
       "note": {
        "kind": "CUE",
        "text": "Kiełbasa jest jędrna, a w środku bez różowego."
@@ -3098,7 +3098,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -3363,7 +3363,7 @@
   {
    "recipeId": "dd18ccbd-4c63-4bfc-8f95-cbc35dc2f0c6",
    "title": "Barszcz czerwony z uszkami z grzybami",
-   "portableHash": "sha256:76fc6cb4b72e4b63f2ca4aced1b664251b5176c52885c6bd96158f4053ff54a6",
+   "portableHash": "sha256:d3080faad42715a8522dbb705658968b7da4d074adf575e12be1d34fe9932d7f",
    "content": {
     "tips": [
      "Kup ciemne, jędrne buraki — jasne dadzą blady, mało wyrazisty barszcz.",
@@ -3545,7 +3545,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -6228,7 +6228,7 @@
   {
    "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
    "title": "Bigos z kiełbasą i suszonymi grzybami",
-   "portableHash": "sha256:8be1f67b2de5c108d6327a4030ae00bbe6763082a6dadea7491174435e574552",
+   "portableHash": "sha256:2da21713ad826b7079e434087af72513b9536fb206fa6420d16b62c2fe2d21a4",
    "content": {
     "tips": [
      "Weź duży, szeroki garnek z grubym dnem — bigos zajmie go po brzegi, a gruby spód nie pozwoli mu się przypalić.",
@@ -6318,7 +6318,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -31433,7 +31433,7 @@
   {
    "recipeId": "b5d90918-ad87-437d-a690-7098311b9803",
    "title": "Domowy pasztet z indyka z pieczywem",
-   "portableHash": "sha256:ff06cf38b4e72a6d7ce9414730100e28b9d42df6927355780783e49c2e8a5f09",
+   "portableHash": "sha256:8f09b385d868ddb32434d070dbbf442a16dfa388c6d9443628d708e48fc2cde8",
    "content": {
     "tips": [
      "Wątróbkę oczyść z błonek i żyłek przed gotowaniem — inaczej pasztet będzie lekko gorzki.",
@@ -31516,7 +31516,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -31570,7 +31570,7 @@
       "during": null,
       "mentions": [
        "liść laurowy",
-       "zioło angielskie"
+       "ziele angielskie"
       ],
       "scaleNote": null,
       "ingredients": []
@@ -34788,7 +34788,7 @@
   {
    "recipeId": "b1f025fe-4633-4ac5-bd18-6ec9ab45eed7",
    "title": "Duszony udziec z indyka z warzywami i ziemniakami",
-   "portableHash": "sha256:eebbca2e5e7ab7cdf07d71c69f3b2352c792c238e51cb4f2be668325dfa74225",
+   "portableHash": "sha256:f719c49f159ecaad4872b144f1d27231e0b6ae0c8785a2fc077cc29e2e4b8381",
    "content": {
     "tips": [
      "Po pokrojeniu osusz mięso ręcznikiem papierowym — sucha powierzchnia lepiej się rumieni.",
@@ -34937,7 +34937,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -35066,7 +35066,7 @@
       "during": null,
       "mentions": [
        "liść laurowy",
-       "zioło angielskie"
+       "ziele angielskie"
       ],
       "scaleNote": null,
       "ingredients": [
@@ -43297,7 +43297,7 @@
   {
    "recipeId": "3b2c7050-2082-49ed-a2e4-e55b57e90487",
    "title": "Golonka pieczona z kapustą",
-   "portableHash": "sha256:3c60b4b7705353990a51f85257fe6069a9f7dd50ad49f9812a502329858c9c10",
+   "portableHash": "sha256:d9054d6a91344410092c583731836321af63de83d44b3669557eaddf92510baa",
    "content": {
     "tips": [
      "Wybierz golonkę z nieuszkodzoną skórą — to ona robi się chrupiąca.",
@@ -43349,7 +43349,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -43796,7 +43796,7 @@
   {
    "recipeId": "e51e387d-cff6-4986-a724-58882378a019",
    "title": "Grochówka z kiełbasą",
-   "portableHash": "sha256:1fc5150cb5412c890a404d1e0decff7c00a0fc4ca9efe1b8233c4c9768179b87",
+   "portableHash": "sha256:fadebb032d000a137856a7d26ec4e379ae719e0dac9b7851b16ebd5b6b2835fd",
    "content": {
     "tips": [
      "Wybierz kiełbasę wyraźnie wędzoną — to ona nadaje zupie główny smak.",
@@ -43842,7 +43842,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -63702,7 +63702,7 @@
   {
    "recipeId": "04b68e5e-f1d1-4ac1-90ff-3ca57d5e3860",
    "title": "Kapuśniak z kiszonej kapusty na żeberkach",
-   "portableHash": "sha256:50fc6161896cc613b06ae1838cef1c0ec28356506a39977cf5b2de5af573ca30",
+   "portableHash": "sha256:c6892c37391c3a9293ba557dd0d3f8a0c7a2898ac82375a91aa3786c5dbd781d",
    "content": {
     "tips": [
      "Weź mięsiste żeberka na kościach — z samych kości wywar wyjdzie chudy i bez smaku.",
@@ -63745,7 +63745,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -64233,7 +64233,7 @@
   {
    "recipeId": "cab169b6-a9d9-4a5c-a2fb-9629c0fb9fb3",
    "title": "Kapusta z grochem i skwarkami",
-   "portableHash": "sha256:ca67b5c6a92e07beeaead13065b8d1bae3dae6ba9809e746b8e8e974e60d132f",
+   "portableHash": "sha256:8add008463ee9d93c1be898b4a3a26d6cfac564d7d6435b40d82de1c885bfef8",
    "content": {
     "tips": [
      "Groch łuskany namocz wieczorem poprzedniego dnia — czas moczenia nie wlicza się w czas gotowania.",
@@ -64329,7 +64329,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -64483,7 +64483,7 @@
   {
    "recipeId": "14257fe8-db93-44ed-ac91-89002d103660",
    "title": "Kapusta z grzybami",
-   "portableHash": "sha256:e70ce50be492ab4349bb3fe7c515564ff9bbd46226cddce140c411dc1190e39d",
+   "portableHash": "sha256:d631dd04fbc6b730040756fc169ff8ad7bd1a6153950bb841c09c4ea47782474",
    "content": {
     "tips": [
      "Wybierz pieczarki jasne i zwarte, bez ciemnych plam — po smażeniu nie puszczą dużo wody.",
@@ -64550,7 +64550,7 @@
      },
      {
       "id": "s3",
-      "body": "Do garnka z kapustą dodaj zioło angielskie i liść laurowy, podlej 200 ml wody. Przykryj i duś na małym ogniu, co jakiś czas zamieszaj od dna.",
+      "body": "Do garnka z kapustą dodaj ziele angielskie i liść laurowy, podlej 200 ml wody. Przykryj i duś na małym ogniu, co jakiś czas zamieszaj od dna.",
       "note": {
        "kind": "CUE",
        "text": "Kapusta jest wyraźnie miększa i nie chrupie."
@@ -64578,7 +64578,7 @@
       "scaleNote": null,
       "ingredients": [
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -64769,7 +64769,7 @@
   {
    "recipeId": "49a7a08e-3932-48d9-ac1c-c1e17b34dffd",
    "title": "Karkówka duszona z cebulą i ziemniakami",
-   "portableHash": "sha256:c4455eeef36998ff939f9c5fd3d73e44fd1a6aa81f954b6b042f35bba67d80bb",
+   "portableHash": "sha256:960f835985df4e541cc0434ee0ae08392ad18790ad6b4a9342a7fda698f26148",
    "content": {
     "tips": [
      "Wybierz karkówkę z delikatnym przerostem tłuszczu — po długim duszeniu będzie najbardziej miękka i soczysta.",
@@ -64850,7 +64850,7 @@
      },
      {
       "id": "s3",
-      "body": "Pokrój cebulę w grube piórka i wrzuć na patelnię obok mięsa. Smaż 5 minut, mieszając. Pod koniec dodaj liść laurowy i zioło angielskie.",
+      "body": "Pokrój cebulę w grube piórka i wrzuć na patelnię obok mięsa. Smaż 5 minut, mieszając. Pod koniec dodaj liść laurowy i ziele angielskie.",
       "note": {
        "kind": "CUE",
        "text": "Cebula jest szklista na brzegach i pachnie słodko."
@@ -64878,7 +64878,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -64974,7 +64974,7 @@
      },
      {
       "id": "s7",
-      "body": "Wyjmij z sosu liść laurowy i zioło angielskie. Odcedź ziemniaki i zostaw je w garnku bez pokrywki na chwilę, żeby odparowały.",
+      "body": "Wyjmij z sosu liść laurowy i ziele angielskie. Odcedź ziemniaki i zostaw je w garnku bez pokrywki na chwilę, żeby odparowały.",
       "note": null,
       "phase": "FINISH",
       "stage": null,
@@ -64983,7 +64983,7 @@
       "during": null,
       "mentions": [
        "liść laurowy",
-       "zioło angielskie",
+       "ziele angielskie",
        "ziemniak"
       ],
       "scaleNote": null,
@@ -65936,7 +65936,7 @@
   {
    "recipeId": "89e1fe6a-c740-492e-ba7d-fc8a645fd128",
    "title": "Kartoflanka z kiełbasą i majerankiem",
-   "portableHash": "sha256:9b7290da108018898e15575434a713729da73e03420d58c65ecb7b244fb7b335",
+   "portableHash": "sha256:d264447e4d8c948792b7dadff44b66d5acedbd253f0efd70abf123ad9a5d9a5b",
    "content": {
     "tips": [
      "Wybierz mączyste ziemniaki — łatwiej się rozpadają i same zagęszczają zupę.",
@@ -65945,7 +65945,7 @@
     "steps": [
      {
       "id": "s1",
-      "body": "Obierz marchew, pietruszkę i seler, pokrój w kostkę i wrzuć do garnka. Zalej 1,2 l wody, dodaj zioło angielskie i liść laurowy. Gdy woda zawrze, zmniejsz ogień i włącz odliczanie.",
+      "body": "Obierz marchew, pietruszkę i seler, pokrój w kostkę i wrzuć do garnka. Zalej 1,2 l wody, dodaj ziele angielskie i liść laurowy. Gdy woda zawrze, zmniejsz ogień i włącz odliczanie.",
       "note": null,
       "phase": "COOK",
       "stage": null,
@@ -65985,7 +65985,7 @@
         "amount": 50
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -72152,7 +72152,7 @@
   {
    "recipeId": "061532b4-4688-4a85-bd89-8b512ebc9bcc",
    "title": "Kiełbasa z kapustą zasmażaną i ziemniakami",
-   "portableHash": "sha256:8ea709bdf85269c12d261575217dc906cb8965847053ca099869f7927edfcb5f",
+   "portableHash": "sha256:60c4188cddb74edb4f21a4494d37cbfc42578588ec8c500f04cf8f1a311d2709",
    "content": {
     "tips": [
      "Weź szeroki garnek z pokrywką — kapusta będzie się dusić równo, a później zmieści się w nim cała zawartość patelni.",
@@ -72235,7 +72235,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -73114,7 +73114,7 @@
   {
    "recipeId": "f2f7529b-4d6f-4db5-929f-916f5978a80e",
    "title": "Klopsiki szwedzkie z ziemniakami i żurawiną",
-   "portableHash": "sha256:26fbc4754723bd092123cd6218c32dd26f1f17003e58903a65578234f04e6b26",
+   "portableHash": "sha256:827a35fa4750a03be34cba2114ead3623d0c694579f17dec36ce745b6bce0321",
    "content": {
     "tips": [
      "Weź dużą, szeroką patelnię — zmieści się na niej sporo klopsików naraz i potem cały sos.",
@@ -73192,7 +73192,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -74220,7 +74220,7 @@
   {
    "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
    "title": "Kluski śląskie z gulaszem wołowym",
-   "portableHash": "sha256:d3da8f3ab6a5e108810a2c4af91acab70d68db5c4d02798e75c084c5a23446c4",
+   "portableHash": "sha256:d83cf2d3fe430584354f8834ac9f9000b7b528730458a706a2272d693735ac78",
    "content": {
     "tips": [
      "Wołowinę wyjmij z lodówki wcześniej i osusz ręcznikiem — zimne, mokre mięso dusi się zamiast się brązowić.",
@@ -74307,7 +74307,7 @@
      },
      {
       "id": "s4",
-      "body": "Wróć z mięsem do garnka. Wmieszaj paprykę i koncentrat, po chwili wlej 500 ml gorącej wody. Dodaj liść laurowy, zioło angielskie, sól i pieprz, zamieszaj.",
+      "body": "Wróć z mięsem do garnka. Wmieszaj paprykę i koncentrat, po chwili wlej 500 ml gorącej wody. Dodaj liść laurowy, ziele angielskie, sól i pieprz, zamieszaj.",
       "note": {
        "kind": "TIP",
        "text": "Paprykę mieszaj krótko przed zalaniem — przypalona robi gorzki sos."
@@ -74341,7 +74341,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -103653,7 +103653,7 @@
   {
    "recipeId": "128c64d2-9123-4589-847a-0e7a9b25d4e6",
    "title": "Kwaśnica z żeberkami",
-   "portableHash": "sha256:a36e37ca31b6ca331de22b2c48be2203171ab36ee9305cf961d378d3b05689c5",
+   "portableHash": "sha256:96b9d71bcd3812fc6e2d6fa2e342de991c88b81d28c6a8ff1b1a295d4029c516",
    "content": {
     "tips": [
      "Wybierz żeberka z dużą ilością mięsa, a nie same kości — wywar będzie treściwszy, a w misce zostanie co jeść.",
@@ -103699,7 +103699,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -153784,7 +153784,7 @@
   {
    "recipeId": "d2ffabb6-2f84-446d-a2d9-c44f765a10f6",
    "title": "Pieczeń wieprzowa z kapustą kiszoną",
-   "portableHash": "sha256:57e5795e4cd0eb5d66e7bdedc05f8f08176d24b407cd1db6508489389a77a49e",
+   "portableHash": "sha256:9946a89d1fc8db09b5e2cb255a54a60cf534011faff10bd5fe332ca1b2a75063",
    "content": {
     "tips": [
      "Weź brytfannę lub żeliwny garnek ze szczelną pokrywką — para ma zostać w środku, bo to ona zmiękcza mięso.",
@@ -153933,7 +153933,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -179548,7 +179548,7 @@
   {
    "recipeId": "dff61c2d-246a-44a9-97f3-6dcb3e44b3c9",
    "title": "Rolada wołowa z ogórkiem kiszonym i kluskami śląskimi",
-   "portableHash": "sha256:b3b2233255c77d9508c4cf3e00f5f7753cda98495baafda76633c448a7e5d99c",
+   "portableHash": "sha256:cc8dbaef56c8056293f5c596775c4db98572659ffa1520e45de5202e253aa4ad",
    "content": {
     "tips": [
      "Do zrazów weź kawałek chudej, drobnowłóknistej wołowiny — grube włókna zostają twarde nawet po długim duszeniu.",
@@ -179724,7 +179724,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -181668,7 +181668,7 @@
   {
    "recipeId": "02f84579-530e-4de2-afa6-d6e38095854a",
    "title": "Ryba po grecku z ziemniakami",
-   "portableHash": "sha256:2120bfc18087db60ec13b458b30f05cdc4fa1e2af79052dc16d3b45dba5141a3",
+   "portableHash": "sha256:2da0b1d3d346c9a5ae106df6cb44e03268d19c8e1256767eaa6f29bd0513af39",
    "content": {
     "tips": [
      "Mrożonego dorsza rozmroź wcześniej w lodówce. Wodnista ryba nie przysmaży się na złoto.",
@@ -181767,7 +181767,7 @@
         "amount": 80
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -203515,7 +203515,7 @@
   {
    "recipeId": "6dc39336-bd95-4bb5-b3a5-aa827b5b1fe5",
    "title": "Śledzie w oleju z cebulą",
-   "portableHash": "sha256:a80a5c5bb1c1e2bdec0fc50090b3861ff5d8178959111cf86f54fece96ace3aa",
+   "portableHash": "sha256:e71220327e8c58350b7eea4d5c0ffbb0a1c7bd75ea11e2f4dc368b699afcfc01",
    "content": {
     "tips": [
      "Weź czyste, suche naczynie ze szczelną pokrywką — wilgoć w środku skraca trwałość śledzi.",
@@ -203610,7 +203610,7 @@
       "scaleNote": null,
       "ingredients": [
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -234561,7 +234561,7 @@
   {
    "recipeId": "dc109327-40b9-48c1-b2af-4ab4237df5ac",
    "title": "Żeberka z grilla w sosie BBQ z kukurydzą",
-   "portableHash": "sha256:282f8a4e191f1a67741a0249899df817bca951c1f945e989eb1e936b7ac3e75f",
+   "portableHash": "sha256:66d5ebf4eeea67617b7f593494782fdd7ccf904fca10bb13720bb98d349ce6c7",
    "content": {
     "tips": [
      "Kup żeberka z grubą warstwą mięsa na kościach — po gotowaniu nie wyschną na grillu.",
@@ -234620,7 +234620,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -237103,7 +237103,7 @@
   {
    "recipeId": "c47637f0-2f98-48c0-8dd9-19e5bedcc5dc",
    "title": "Zrazy wołowe zawijane z kaszą gryczaną",
-   "portableHash": "sha256:85ff619060d7ed1b5ef58f11cba62b6e524e2d86ed8f898fb03408c90081b510",
+   "portableHash": "sha256:3234e08eeab0fedc7e06b5e9134bd12afd603cae92de94587d2e71e755062d49",
    "content": {
     "tips": [
      "Weź wołowinę zrazową lub udziec — po rozbiciu mięso jest cienkie i po długim duszeniu robi się miękkie.",
@@ -237220,7 +237220,7 @@
      },
      {
       "id": "s4",
-      "body": "Przełóż zrazy do garnka. Dodaj resztę cebuli w piórkach, liść laurowy i ziele angielskie (zioło angielskie), wlej 500 ml gorącej wody i zagotuj. Przykryj i zmniejsz ogień na mały; w razie potrzeby dolewaj wody.",
+      "body": "Przełóż zrazy do garnka. Dodaj resztę cebuli w piórkach, liść laurowy i ziele angielskie, wlej 500 ml gorącej wody i zagotuj. Przykryj i zmniejsz ogień na mały; w razie potrzeby dolewaj wody.",
       "note": {
        "kind": "CUE",
        "text": "Widelec wchodzi w mięso bez oporu, a zraz lekko się rozpada."
@@ -237259,7 +237259,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -237666,7 +237666,7 @@
   {
    "recipeId": "258e7042-c75d-4b26-8e20-516de8ab211e",
    "title": "Zupa fasolowa z kiełbasą",
-   "portableHash": "sha256:62827ca8b27fc3db853da9da152dea788b3d430434a6d41a6081b153d579205e",
+   "portableHash": "sha256:79e925cf730d43af9742d7a29e1672f7961ffaf9f9882532d6bd8f4b5e39b6cc",
    "content": {
     "tips": [
      "Wybierz kiełbasę z wyraźnym wędzonym zapachem — to ona nadaje zupie główny smak."
@@ -237723,7 +237723,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -238165,7 +238165,7 @@
   {
    "recipeId": "f079ff5e-67b5-441f-b575-b06c96cb8f39",
    "title": "Zupa grzybowa wigilijna",
-   "portableHash": "sha256:ee0499dc6f8307f89d1210bda7998065dc9978496dd5b5228b09d74bd7f07f8b",
+   "portableHash": "sha256:370ab384cf6034d783db20fbb85dfff71b531b33908bf52952d330e94e8d4655",
    "content": {
     "tips": [
      "Wybierz suszone grzyby ciemne, mocno pachnące i bez pyłu — to one robią smak całej zupy.",
@@ -238276,7 +238276,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -238505,7 +238505,7 @@
   {
    "recipeId": "ef0ca6b7-0bf5-44d7-87a0-e54465c1c4dc",
    "title": "Zupa grzybowa z łazankami",
-   "portableHash": "sha256:6381cea5d224c90d327680df11c8e2ffe79b8846a06c2af813c1924638fcbe79",
+   "portableHash": "sha256:c13724a22602da8add9ba8e55569b8b37c64af84a54b5f6c13f740d0678e5460",
    "content": {
     "tips": [
      "Wybierz suszone grzyby całe, o mocnym zapachu — od nich zależy smak całej zupy.",
@@ -238571,7 +238571,7 @@
      },
      {
       "id": "s3",
-      "body": "Marchew, pietruszkę i seler obierz i wrzuć do garnka. Zalej 1,2 l wody, dodaj zioło angielskie i liść laurowy. Zagotuj, zmniejsz ogień i gotuj pod uchyloną pokrywką.",
+      "body": "Marchew, pietruszkę i seler obierz i wrzuć do garnka. Zalej 1,2 l wody, dodaj ziele angielskie i liść laurowy. Zagotuj, zmniejsz ogień i gotuj pod uchyloną pokrywką.",
       "note": {
        "kind": "CUE",
        "text": "Marchew jest miękka, ale się nie rozpada."
@@ -238614,7 +238614,7 @@
         "amount": 60
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -239365,7 +239365,7 @@
   {
    "recipeId": "da1b8e65-0576-458e-b9d4-32097e347187",
    "title": "Zupa jarzynowa na podudziach z kurczaka",
-   "portableHash": "sha256:79c9ba14a4995b96c183a2865f6a21ca712361afb936fb570b2eaee23fe9da52",
+   "portableHash": "sha256:6b36724758927ff5cf0b2fee46b4ae1f4c2bf795f2ced54aada6fc84de0be160",
    "content": {
     "tips": [
      "Podudzia gotuj ze skórą — daje wywarowi smak, a zdjąć ją łatwo przy obieraniu mięsa.",
@@ -239412,7 +239412,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -239475,7 +239475,7 @@
       "mentions": [
        "podudzie z kurczaka",
        "liść laurowy",
-       "zioło angielskie",
+       "ziele angielskie",
        "por"
       ],
       "scaleNote": null,
@@ -240435,7 +240435,7 @@
   {
    "recipeId": "3a0f86c2-ce28-4147-872a-4e4d248aa45a",
    "title": "Zupa koperkowa z ryżem",
-   "portableHash": "sha256:4bb8ee6fae42d68c23841ad0bdb6426f749d53a8235318bc79f438d4cd8b4ab8",
+   "portableHash": "sha256:1c064e4238e220b3da003e9c6b76394fb9bca6f6677b148fbe8db8b52b821128",
    "content": {
     "tips": [
      "Śmietanę wyjmij z lodówki, zanim zaczniesz gotować — zimna łatwiej się zwarzy w gorącej zupie.",
@@ -240481,7 +240481,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -240544,7 +240544,7 @@
       "mentions": [
        "podudzie z kurczaka",
        "liść laurowy",
-       "zioło angielskie"
+       "ziele angielskie"
       ],
       "scaleNote": null,
       "ingredients": []
@@ -246040,7 +246040,7 @@
   {
    "recipeId": "25681ef4-bce5-4bce-bcd1-135a30dc97a8",
    "title": "Zupa z indykiem i kaszą jaglaną",
-   "portableHash": "sha256:341b42ffda37067143308552d8257ae35905eb5f2aabbeddc4766867ef842063",
+   "portableHash": "sha256:a99b1aaf968fb820fffccb10f5c4f5205ae1ba79c07d9187f6a32fcc1e0dfbbb",
    "content": {
     "tips": [
      "Kaszę płucz naprawdę gorącą wodą — surowa jaglana potrafi nadać zupie gorzki posmak.",
@@ -246094,7 +246094,7 @@
       "scaleNote": null,
       "ingredients": [
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -246289,7 +246289,7 @@
   {
    "recipeId": "2d27c782-d504-4522-bc1a-7a9afe1ba150",
    "title": "Zupa z kurkami i ziemniakami",
-   "portableHash": "sha256:87128b4de98c4e18d57671bd85ac7a5c9cf4de9eb4b2b7a6ca587c5c2a04e1ca",
+   "portableHash": "sha256:b5e4911076e631c24c175ae6d5081e31488793433e0615e76bc266f9e6b12f86",
    "content": {
     "tips": [
      "Kurki wybierz jędrne, o intensywnym zapachu i bez śliskich plam. Im mniej piasku, tym krócej trwa czyszczenie.",
@@ -246362,7 +246362,7 @@
         "amount": 1
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1
@@ -247132,7 +247132,7 @@
   {
    "recipeId": "52f3abc1-713c-42b1-b489-a21add8812ce",
    "title": "Zupa z pulpetami i ziemniakami",
-   "portableHash": "sha256:c3c537da1abde23edc55d95328e14e57d8a93e67b6ad664c3895dddf025a2735",
+   "portableHash": "sha256:9fe5f22cc43d0de6aec7532b9b385cb813f4fcebff70eb8b05dcc32704240933",
    "content": {
     "tips": [
      "Weź duży, wysoki garnek — pulpety potrzebują miejsca, żeby swobodnie pływać w zupie.",
@@ -247184,7 +247184,7 @@
         "amount": 50
        },
        {
-        "ingredient": "zioło angielskie",
+        "ingredient": "ziele angielskie",
         "part": "ALL",
         "unit": "g",
         "amount": 1

@@ -387,18 +387,16 @@ describe('applyWeekPlan E2E', () => {
     });
   });
 
-  // Wykluczenie to nie alergia: „nie jem pieczarek" nie ma nic wspólnego ze
-  // zdrowiem, ale skutek dla planu jest ten sam — takiego dania nie wolno
-  // wstawić. Do Fazy 2 ta informacja żyła wyłącznie w rozmowie z asystentem
-  // i ginęła razem z turą.
-  describe('bramka wykluczonych składników', () => {
+  // „Czego nie jem” zniknęło z iOS 23.09.2026 (#179), a od 2.10.2026 bramka
+  // planu nie czyta `UserPreference.excludedIngredientIds`. Stara wartość
+  // w bazie (konto sprzed zmiany) nie może blokować dania — nikt jej nie
+  // widzi ani nie zmieni, więc odmowa nie miałaby przyczyny na ekranie.
+  describe('stare wykluczenia z profilu nie blokują planu', () => {
     let danie: string;
-    let skladnik: string;
     let ownerId: string;
-    let inny: string;
 
     beforeAll(async () => {
-      const zPieczarka = await prisma.recipe.findFirst({
+      const zeSkladnikami = await prisma.recipe.findFirst({
         where: {
           isCatalog: true,
           isActive: true,
@@ -410,10 +408,10 @@ describe('applyWeekPlan E2E', () => {
         },
         select: { id: true, ingredients: { select: { ingredientId: true } } },
       });
-      if (!zPieczarka)
+      if (!zeSkladnikami)
         throw new Error('katalog dev nie ma kolacji ze składnikami');
-      danie = zPieczarka.id;
-      skladnik = zPieczarka.ingredients[0].ingredientId;
+      danie = zeSkladnikami.id;
+      const skladnik = zeSkladnikami.ingredients[0].ingredientId;
 
       const membership = await prisma.membership.findFirst({
         where: { householdId },
@@ -425,20 +423,6 @@ describe('applyWeekPlan E2E', () => {
         create: { userId: ownerId, excludedIngredientIds: [skladnik] },
         update: { excludedIngredientIds: [skladnik] },
       });
-
-      const other = await prisma.user.create({
-        data: {
-          displayName: `Bez wykluczeń ${Date.now()}`,
-          email: `noexcl-${Date.now()}@apply.local`,
-          authProvider: 'DEV',
-        },
-        select: { id: true },
-      });
-      inny = other.id;
-      createdUserIds.push(inny);
-      await prisma.membership.create({
-        data: { userId: inny, householdId, role: 'MEMBER' },
-      });
     });
 
     afterAll(async () => {
@@ -446,15 +430,10 @@ describe('applyWeekPlan E2E', () => {
         where: { userId: ownerId },
         data: { excludedIngredientIds: [] },
       });
-      await prisma.membership.deleteMany({
-        where: { userId: inny, householdId },
-      });
     });
 
-    it('ręczne wstawienie z telefonu ma tę samą bramkę wykluczeń co zapis tygodnia', async () => {
-      // Do 3.09 tylko `applyWeekPlan` sprawdzał wykluczenia — asystent nie
-      // mógł wstawić dania z pieczarkami, a ręka z telefonu mogła.
-      const refused = await ack<{ id: string }>(
+    it('ręczne wstawienie z telefonu przechodzi', async () => {
+      const accepted = await ack<{ id: string }>(
         socket,
         'weeklyPlans:upsertWeekSlot',
         {
@@ -463,53 +442,17 @@ describe('applyWeekPlan E2E', () => {
           data: { dayOfWeek: 'WED', mealType: 'DINNER', recipeId: danie },
         },
       );
-      expect(refused.ok).toBe(false);
-      if (!refused.ok) expect(refused.code).toBe('RECIPE_EXCLUDED_INGREDIENT');
-
-      // Ta sama reguła audytorium: dla domownika bez wykluczenia wchodzi.
-      const accepted = await ack<{ id: string }>(
-        socket,
-        'weeklyPlans:upsertWeekSlot',
-        {
-          householdId,
-          weekStart: '2026-11-02',
-          data: {
-            dayOfWeek: 'WED',
-            mealType: 'DINNER',
-            recipeId: danie,
-            participantIds: [inny],
-          },
-        },
-      );
       expect(accepted.ok).toBe(true);
       await prisma.weeklyPlan.deleteMany({
         where: { householdId, weekStart: new Date('2026-11-02T00:00:00.000Z') },
       });
     });
 
-    it('danie z wykluczonym składnikiem nie wchodzi do wspólnego posiłku', async () => {
+    it('zapis tygodnia przechodzi bez naruszeń', async () => {
       const result = await apply([slot('TUE', 'DINNER', danie)], {
         dryRun: true,
       });
 
-      expect(result.applied).toBe(false);
-      expect(result.violations[0]).toMatchObject({
-        code: 'RECIPE_EXCLUDED_INGREDIENT',
-        recipeId: danie,
-      });
-      // Osobny kod, nie RECIPE_ALLERGEN_CONFLICT: komunikat o „alergenach"
-      // przy zwykłej niechęci byłby po prostu nieprawdą, a użytkownik go czyta.
-      expect(result.violations[0].code).not.toBe('RECIPE_ALLERGEN_CONFLICT');
-    });
-
-    it('to samo danie przechodzi, gdy je ktoś bez tego wykluczenia', async () => {
-      const result = await apply(
-        [slot('TUE', 'DINNER', danie, { participantIds: [inny] })],
-        { dryRun: true },
-      );
-
-      // Tak samo jak przy alergenach: liczy się AUDYTORIUM posiłku, nie skład
-      // całego domu — jedno „nie jem pieczarek" nie wykreśla dania wszystkim.
       expect(result.violations).toEqual([]);
     });
   });

@@ -1093,7 +1093,13 @@ export interface AuditPage {
 
 // ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
+export type RuntimeSettingKind =
+  | 'boolean'
+  | 'number'
+  | 'list'
+  | 'choice'
+  /** `APP_MIN_VERSION_*`: `1.0.2` albo `off` */
+  | 'version';
 
 export interface RuntimeSettingView {
   /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
@@ -1570,13 +1576,6 @@ export interface CatalogRankItem {
   count: number;
 }
 
-/** Składnik z „czego nie jem” — sama liczba osób, bez osób. */
-export interface CatalogExcludedIngredient {
-  key: string;
-  name: string;
-  count: number;
-}
-
 export interface CatalogPopularity {
   /** okno rankingów „w planach”, „zjedzone”, „proponowane” */
   days: number;
@@ -1595,8 +1594,6 @@ export interface CatalogPopularity {
   /** aktywne przepisy, których nikt nigdy nie dodał do planu (do 50) */
   neverUsed: CatalogRankItem[];
   neverUsedTotal: number;
-  /** `UserPreference.excludedIngredientIds` — liczba osób na składnik */
-  excludedIngredients: CatalogExcludedIngredient[];
 }
 
 /** `GET /admin/catalog/insights` */
