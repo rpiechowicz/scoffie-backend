@@ -14,6 +14,12 @@ import {
   parseNumberStrict,
   parseUsdOrOffStrict,
 } from './agent-env';
+import {
+  APP_MIN_VERSION_KEYS,
+  parseMinVersionStrict,
+  readMinVersion,
+  type AppPlatform,
+} from './app-version';
 
 /**
  * Biała lista ustawień, które panel może nadpisać w locie (ROADMAPA §5.12).
@@ -49,10 +55,15 @@ export const RUNTIME_SETTING_KEYS = [
   'THROTTLE_AUTH_REFRESH_IP_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
+  // Minimalna wersja aplikacji — starsze widzą ekran „Zaktualizuj”
+  // (`GET /public/app-version`). Pusta / off = bez progu.
+  'APP_MIN_VERSION_IOS',
+  'APP_MIN_VERSION_ANDROID',
 ] as const;
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
+export type RuntimeSettingKind =
+  'boolean' | 'number' | 'list' | 'choice' | 'version';
 
 type Normalized = { ok: true; value: string } | { ok: false; error: string };
 
@@ -91,6 +102,22 @@ const count =
 const ALLOWED_ENTRY =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[^\s@,]+@[^\s@,]+\.[^\s@,]+)$/;
 const MAX_ALLOWED_ENTRIES = 200;
+
+const minVersion = (
+  platform: AppPlatform,
+  label: string,
+): RuntimeSettingSpec => ({
+  label,
+  kind: 'version',
+  normalize: (raw) => {
+    const parsed = parseMinVersionStrict(raw);
+    const key = APP_MIN_VERSION_KEYS[platform];
+    return parsed === undefined
+      ? { ok: false, error: `${key}: oczekiwana wersja (np. 1.0.2) albo „off”` }
+      : { ok: true, value: parsed ?? 'off' };
+  },
+  effective: () => readMinVersion(platform) ?? 'off',
+});
 
 const throttle = (key: ThrottleKey, label: string): RuntimeSettingSpec => ({
   label,
@@ -248,6 +275,8 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
     'THROTTLE_AGENT_POLL_LIMIT',
     'Odpytania asystenta na minutę',
   ),
+  APP_MIN_VERSION_IOS: minVersion('ios', 'Minimalna wersja iOS'),
+  APP_MIN_VERSION_ANDROID: minVersion('android', 'Minimalna wersja Androida'),
 };
 
 export function isRuntimeSettingKey(key: string): key is RuntimeSettingKey {

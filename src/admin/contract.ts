@@ -1093,7 +1093,13 @@ export interface AuditPage {
 
 // ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
+export type RuntimeSettingKind =
+  | 'boolean'
+  | 'number'
+  | 'list'
+  | 'choice'
+  /** `APP_MIN_VERSION_*`: `1.0.2` albo `off` */
+  | 'version';
 
 export interface RuntimeSettingView {
   /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
