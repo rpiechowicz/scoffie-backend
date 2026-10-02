@@ -42,17 +42,19 @@ export const CONSENT_ACTION_VALUES: string[] = [...CONSENT_ACTIONS];
 
 /** Bieżąca wersja każdego dokumentu (to klient wysyła w zdarzeniu). */
 export const LEGAL_DOCUMENT_VERSIONS: Record<ConsentKind, string> = {
-  // Wersja 1.1 z 23.09.2026: Sentry jako diagnostyka, bez „wykluczonych
-  // składników” i „maksymalnego czasu gotowania” w danych profilu. Jedna data
-  // dla wszystkich rodzajów, bo iOS wysyła JEDNĄ wersję (`LegalDocMeta`)
-  // przy każdej zgodzie. Minimum zostaje na 1.0 — zmiana nie dodaje odbiorcy
-  // ani celu, więc nikt nie musi klikać od nowa.
-  TERMS: '2026-09-23',
-  PRIVACY: '2026-09-23',
-  AI_ASSISTANT: '2026-09-23',
-  COOKIDOO: '2026-09-23',
-  AGE_16: '2026-09-23',
-  HEALTH_DATA: '2026-09-23',
+  // Wersja 1.2 z 2.10.2026: Resend (poczta o koncie) w polityce prywatności,
+  // nocna kopia bazy na Railwayu zamiast GitHub Actions. Jedna data dla
+  // wszystkich rodzajów, bo iOS wysyła JEDNĄ wersję (`LegalDocMeta`) przy
+  // każdej zgodzie — ta MUSI wejść na prod przed buildem z nową datą
+  // (wersja z przyszłości = odmowa zapisu zgody). Minimum bez zmian: Resend
+  // wysyła pocztę od 11.09 w ramach umowy (bez nowej zgody), a starszy build
+  // dalej wysyła 2026-09-23 i nie może dostać odmowy.
+  TERMS: '2026-10-02',
+  PRIVACY: '2026-10-02',
+  AI_ASSISTANT: '2026-10-02',
+  COOKIDOO: '2026-10-02',
+  AGE_16: '2026-10-02',
+  HEALTH_DATA: '2026-10-02',
 };
 
 /**
