@@ -19,6 +19,7 @@ import { AppThrottleModule } from './common/throttle/throttle.module';
 import { AdminModule } from './admin/admin.module';
 import { RuntimeSettingsModule } from './runtime-settings/runtime-settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { AppVersionModule } from './app-version/app-version.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 
 @Module({
@@ -50,6 +51,7 @@ import { AnnouncementsModule } from './announcements/announcements.module';
     MailModule,
     // Flagi funkcji per dom (`/me/flags`) i banery (`/me/announcements`).
     FeatureFlagsModule,
+    AppVersionModule,
     AnnouncementsModule,
     // Panel administratora (`/admin/*`) — moduł jednokierunkowy jak asystent:
     // woła domenę, nic go nie importuje. Bez ADMIN_ACCESS_* każda jego trasa

@@ -1418,6 +1418,49 @@
         "tags": ["me"]
       }
     },
+    "/public/app-version": {
+      "get": {
+        "operationId": "appVersionStatus",
+        "parameters": [
+          {
+            "name": "platform",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "ios",
+              "type": "string",
+              "enum": ["ios", "android"]
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "Wersja aplikacji (`CFBundleShortVersionString` / `versionName`), np. `1.0.2`.\nBrak albo nieczytelna = serwer nie blokuje.",
+            "schema": { "maxLength": 32, "example": "1.0.2", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppVersionStatus" }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "tags": ["AppVersion"]
+      }
+    },
     "/me/announcements": {
       "get": {
         "operationId": "announcementsList",
@@ -9285,6 +9328,24 @@
           }
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
+      },
+      "AppPlatform": { "enum": ["android", "ios"], "type": "string" },
+      "AppVersionStatus": {
+        "type": "object",
+        "properties": {
+          "platform": { "$ref": "#/components/schemas/AppPlatform" },
+          "minVersion": {
+            "description": "Najniższa wersja, która może działać; `null` = bez progu.",
+            "type": "string",
+            "nullable": true
+          },
+          "updateRequired": {
+            "description": "`true` = ta wersja jest za stara i aplikacja ma pokazać ekran\n„Zaktualizuj”. Bez (poprawnej) wersji w pytaniu zawsze `false`.",
+            "type": "boolean"
+          },
+          "storeUrl": { "type": "string" }
+        },
+        "required": ["minVersion", "platform", "storeUrl", "updateRequired"]
       },
       "AuthLogoutEverywhereResponse": {
         "type": "object",
