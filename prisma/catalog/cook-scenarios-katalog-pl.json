@@ -2,8 +2,8 @@
  "format": "scoffie-cook-scenarios",
  "version": 2,
  "rulesVersion": "2026-09-30.6",
- "exportedAt": "2026-10-01T22:37:53.539Z",
- "count": 991,
+ "exportedAt": "2026-10-02T06:32:10.032Z",
+ "count": 996,
  "scenarios": [
   {
    "recipeId": "5ad450a1-4b53-46c5-a197-9f391621e0b5",
@@ -11413,6 +11413,308 @@
    "source": {
     "scenarioId": "3de742e9-6465-4fa8-99fc-28044b3d76c8",
     "version": 1
+   }
+  },
+  {
+   "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+   "title": "Burgery z mielonego indyka z bułką i warzywami",
+   "portableHash": "sha256:826014c95c229c6c08eeccce7108b3a24129f89b70666d5af312d40056b7c578",
+   "content": {
+    "tips": [
+     "Mielony indyk jest chudy — mieszaj masę tylko do połączenia, za długo ugniatana da twarde kotlety.",
+     "Przed formowaniem zwilż dłonie zimną wodą — masa nie przyklei się do rąk."
+    ],
+    "steps": [
+     {
+      "id": "s1",
+      "body": "Połowę cebuli posiekaj drobno — trafi do mięsa. Resztę pokrój w cienkie krążki. Pomidor pokrój w plastry, sałatę porwij na kawałki.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "PRZYGOTOWANIE",
+      "timer": null,
+      "title": "Pokrój warzywa",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "cebula",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 80
+       },
+       {
+        "ingredient": "pomidor",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 150
+       },
+       {
+        "ingredient": "sałata lodowa",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 40
+       }
+      ]
+     },
+     {
+      "id": "s2",
+      "body": "Wymieszaj indyka z jajkami, bułką tartą i posiekaną cebulą, posól i popieprz. Uformuj {count:burger|kotlet|kotlety|kotletów}, płaskie i nieco szersze od bułki. Kciukiem zrób płytkie wgłębienie na środku.",
+      "note": {
+       "kind": "TIP",
+       "text": "Wgłębienie sprawia, że kotlet nie wybrzuszy się na patelni i zostanie płaski."
+      },
+      "phase": "PREP",
+      "stage": "PRZYGOTOWANIE",
+      "timer": null,
+      "title": "Uformuj kotlety",
+      "during": null,
+      "mentions": [
+       "cebula"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "indyk mielony",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 400
+       },
+       {
+        "ingredient": "jajko",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 2
+       },
+       {
+        "ingredient": "bułka tarta",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 30
+       },
+       {
+        "ingredient": "sól",
+        "part": "PART",
+        "unit": "szczypta",
+        "amount": 0.5
+       },
+       {
+        "ingredient": "pieprz czarny",
+        "part": "ALL",
+        "unit": "szczypta",
+        "amount": 1
+       }
+      ]
+     },
+     {
+      "id": "s3",
+      "body": "Rozgrzej olej na patelni na średnim ogniu i połóż kotlety. Nie ruszaj ich, aż spód się zrumieni.",
+      "note": {
+       "kind": "CUE",
+       "text": "Spód brązowy, kotlet łatwo odchodzi od patelni."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": {
+       "id": "t-side1",
+       "alert": {
+        "body": "Przejdź do obracania kotletów.",
+        "title": "Czas obrócić"
+       },
+       "label": "Kotlety",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 240,
+       "startLabel": "Kotlety na patelni"
+      },
+      "title": "Smaż kotlety",
+      "during": null,
+      "mentions": [
+       "indyk mielony"
+      ],
+      "scaleNote": {
+       "text": "Smaż w dwóch turach — kotlety nie mogą się stykać na patelni.",
+       "fromPortions": 4
+      },
+      "ingredients": [
+       {
+        "ingredient": "olej rzepakowy",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 15
+       }
+      ]
+     },
+     {
+      "id": "s4",
+      "body": "W miseczce wymieszaj jogurt z musztardą i solą na gładko.",
+      "note": null,
+      "phase": "FINISH",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Zrób sos jogurtowy",
+      "during": "t-side1",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "jogurt naturalny",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 40
+       },
+       {
+        "ingredient": "musztarda",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 15
+       },
+       {
+        "ingredient": "sól",
+        "part": "REST",
+        "unit": "szczypta",
+        "amount": 0.5
+       }
+      ]
+     },
+     {
+      "id": "s5",
+      "body": "Przewróć je łopatką i smaż drugą stronę na średnim ogniu.",
+      "note": {
+       "kind": "CUE",
+       "text": "Druga strona tak samo brązowa jak pierwsza."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": {
+       "id": "t-side2",
+       "alert": {
+        "body": "Druga strona usmażona — przejdź do sera.",
+        "title": "Czas na ser"
+       },
+       "label": "Kotlety",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 240,
+       "startLabel": "Kotlety obrócone"
+      },
+      "title": "Obróć kotlety",
+      "during": null,
+      "mentions": [
+       "indyk mielony"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s6",
+      "body": "Przekrój bułki na pół. Połóż je przekrojoną stroną na drugiej, suchej patelni na średnim ogniu, bez tłuszczu.",
+      "note": {
+       "kind": "CUE",
+       "text": "Przekrój złoty i chrupiący na brzegach."
+      },
+      "phase": "COOK",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Podpiecz bułki",
+      "during": "t-side2",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "bułka",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 180
+       }
+      ]
+     },
+     {
+      "id": "s7",
+      "body": "Na każdym kotlecie połóż plaster goudy i przykryj patelnię pokrywką na chwilę.",
+      "note": {
+       "kind": "CUE",
+       "text": "Ser miękko opływa kotlet. W środku mięsa 71°C albo bez różowego w środku."
+      },
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Roztop ser na kotletach",
+      "during": null,
+      "mentions": [
+       "indyk mielony"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "ser gouda",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 40
+       }
+      ]
+     },
+     {
+      "id": "s8",
+      "body": "Dolne połówki bułek posmaruj sosem. Ułóż sałatę, kotlet z serem, plastry pomidora i krążki cebuli. Dodaj ketchup i przykryj górną połówką.",
+      "note": null,
+      "phase": "FINISH",
+      "stage": null,
+      "timer": null,
+      "title": "Złóż burgery",
+      "during": null,
+      "mentions": [
+       "bułka",
+       "jogurt naturalny",
+       "sałata lodowa",
+       "pomidor",
+       "cebula"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "ketchup",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 30
+       }
+      ]
+     }
+    ],
+    "nextTimeTip": "Kotlety możesz uformować kilka godzin wcześniej i trzymać w lodówce pod folią — obiad zajmie wtedy kwadrans.",
+    "portionUnit": {
+     "id": "burger",
+     "forms": [
+      "burger",
+      "burgery",
+      "burgerów"
+     ]
+    },
+    "basePortions": 2,
+    "totalMinutes": 35,
+    "schemaVersion": 1
+   },
+   "generator": {
+    "source": "writer",
+    "attempts": 3,
+    "transport": "batch",
+    "revisedFrom": {
+     "version": 1,
+     "scenarioId": "bf371a18-2f68-4aa7-a61e-f254b8a97e3e"
+    },
+    "writerModel": "claude-opus-5-5",
+    "writerEffort": "medium",
+    "promptVersion": "w8-2026-10-01",
+    "reviewerModel": "claude-sonnet-5-5",
+    "reviewerEffort": "medium"
+   },
+   "review": {
+    "score": 4,
+    "summary": "Scenariusz jest wierny przepisowi: czasy 4–5 minut na stronę, składniki i podział soli się zgadzają. Sygnał bezpieczeństwa dla mielonego indyka (71°C albo bez różowego w środku) został poprawiony. Zostały tylko drobiazgi stylistyczne i organizacyjne, więc można publikować."
+   },
+   "source": {
+    "scenarioId": "37beb296-6c6d-4d5f-8486-cdafea128ddd",
+    "version": 2
    }
   },
   {
@@ -29543,6 +29845,365 @@
    "source": {
     "scenarioId": "ad11daf9-92f2-44af-be69-72ee534330b8",
     "version": 1
+   }
+  },
+  {
+   "recipeId": "b5d90918-ad87-437d-a690-7098311b9803",
+   "title": "Domowy pasztet z indyka z pieczywem",
+   "portableHash": "sha256:ff06cf38b4e72a6d7ce9414730100e28b9d42df6927355780783e49c2e8a5f09",
+   "content": {
+    "tips": [
+     "Wątróbkę oczyść z błonek i żyłek przed gotowaniem — inaczej pasztet będzie lekko gorzki.",
+     "Weź garnek z szerokim dnem i pokrywką, żeby woda w czasie długiego gotowania nie wyparowała."
+    ],
+    "steps": [
+     {
+      "id": "s1",
+      "body": "Indyka pokrój w kostkę, marchew i pietruszkę w plastry, a cebulę na ćwiartki. Wielkość nie musi być idealna, bo wszystko pójdzie potem do miksowania.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "PRZYGOTOWANIE",
+      "timer": null,
+      "title": "Pokrój mięso i warzywa",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "udziec z indyka",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 250
+       },
+       {
+        "ingredient": "marchew",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 100
+       },
+       {
+        "ingredient": "pietruszka korzeń",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 60
+       },
+       {
+        "ingredient": "cebula",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 80
+       }
+      ]
+     },
+     {
+      "id": "s2",
+      "body": "Przełóż do garnka, zalej 400 ml wody, dodaj liść laurowy i ziele angielskie, przykryj. Gdy woda zawrze, zmniejsz ogień na mały i włącz odliczanie.",
+      "note": {
+       "kind": "CUE",
+       "text": "Mięso jest bardzo miękkie, rozpada się pod widelcem i w środku nie ma różowego."
+      },
+      "phase": "COOK",
+      "stage": "GOTOWANIE",
+      "timer": {
+       "id": "t-stew",
+       "alert": {
+        "body": "Zdejmij garnek z ognia i odcedź jego zawartość.",
+        "title": "Koniec gotowania"
+       },
+       "label": "Indyk",
+       "trigger": "EVENT",
+       "maxSeconds": 3000,
+       "minSeconds": 3000,
+       "startLabel": "Gdy woda zawrze"
+      },
+      "title": "Ugotuj mięso z warzywami",
+      "during": null,
+      "mentions": [
+       "udziec z indyka",
+       "marchew",
+       "pietruszka korzeń",
+       "cebula"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "liść laurowy",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "zioło angielskie",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       }
+      ]
+     },
+     {
+      "id": "s3",
+      "body": "Małą keksówkę (ok. 18 cm) wyłóż papierem do pieczenia tak, by brzegi wystawały ponad formę. Za nie łatwo wyjmiesz gotowy pasztet.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Wyłóż keksówkę papierem",
+      "during": "t-stew",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s4",
+      "body": "Gdy na odliczaniu zostanie 10 minut, włóż ją oczyszczoną do garnka i przykryj z powrotem.",
+      "note": {
+       "kind": "CUE",
+       "text": "Wątróbka jest w środku szara, bez różowego."
+      },
+      "phase": "COOK",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Dodaj wątróbkę",
+      "during": "t-stew",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "wątróbka drobiowa",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 80
+       }
+      ]
+     },
+     {
+      "id": "s5",
+      "body": "Odcedź zawartość garnka przez durszlak nad miską, żeby wywar nie przepadł. Wyjmij i wyrzuć liść laurowy oraz ziele angielskie.",
+      "note": null,
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Odcedź i zachowaj wywar",
+      "during": null,
+      "mentions": [
+       "liść laurowy",
+       "zioło angielskie"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s6",
+      "body": "Zawartość durszlaka zmiksuj partiami blenderem na gładko albo dwa razy przemiel w maszynce. Gdy blender się zacina, podlej łyżką wywaru, ale większość zostaw do masy. Gotową masę przełóż do dużej miski.",
+      "note": {
+       "kind": "WARNING",
+       "text": "Gorąca masa wytwarza parę — nie zakręcaj szczelnie pokrywki blendera."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Zmiksuj mięso z warzywami",
+      "during": null,
+      "mentions": [
+       "udziec z indyka",
+       "wątróbka drobiowa",
+       "marchew",
+       "pietruszka korzeń",
+       "cebula"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s7",
+      "body": "Ustaw grzanie góra–dół, bez termoobiegu. Nagrzeje się, zanim wymieszasz masę i przełożysz ją do formy.",
+      "note": null,
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Nagrzej piekarnik do 180°C",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s8",
+      "body": "Roztop masło. Do miski ze zmiksowaną masą dodaj jajko, bułkę tartą, masło, majeranek, gałkę, sól i pieprz, na końcu 80 ml wywaru. Mieszaj, aż całość się połączy.",
+      "note": {
+       "kind": "CUE",
+       "text": "Masa jest gęsta, ale wilgotna — powoli spływa z łyżki."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Wymieszaj masę pasztetową",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "jajko",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 1
+       },
+       {
+        "ingredient": "bułka tarta",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 25
+       },
+       {
+        "ingredient": "masło",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 15
+       },
+       {
+        "ingredient": "majeranek",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 2
+       },
+       {
+        "ingredient": "gałka muszkatołowa",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "sól",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 2
+       },
+       {
+        "ingredient": "pieprz czarny",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 2
+       }
+      ]
+     },
+     {
+      "id": "s9",
+      "body": "Przełóż masę do przygotowanej keksówki. Wyrównaj wierzch zwilżoną łyżką i stuknij formą o blat, żeby pozbyć się pustych miejsc.",
+      "note": null,
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Przełóż masę do formy",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s10",
+      "body": "Wstaw formę na środkową półkę nagrzanego piekarnika.",
+      "note": {
+       "kind": "CUE",
+       "text": "Wierzch jest zrumieniony, a pasztet odchodzi od brzegów formy."
+      },
+      "phase": "COOK",
+      "stage": "PIECZENIE",
+      "timer": {
+       "id": "t-bake",
+       "alert": {
+        "body": "Jeśli wierzch jest blady, zostaw go jeszcze na kilka minut.",
+        "title": "Sprawdź pasztet"
+       },
+       "label": "Pasztet",
+       "trigger": "NOW",
+       "maxSeconds": 3000,
+       "minSeconds": 2700,
+       "startLabel": "W piekarniku"
+      },
+      "title": "Upiecz pasztet",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s11",
+      "body": "Zostaw pasztet w formie, żeby przestygł i się związał. Potem najlepiej schłodź go w lodówce, wtedy kroi się w równe plastry.",
+      "note": null,
+      "phase": "FINISH",
+      "stage": "STUDZENIE",
+      "timer": {
+       "id": "t-cool",
+       "alert": {
+        "body": "Możesz go wyjąć z formy albo schować do lodówki.",
+        "title": "Pasztet przestygł"
+       },
+       "label": "Pasztet",
+       "trigger": "NOW",
+       "maxSeconds": 2400,
+       "minSeconds": 2400,
+       "startLabel": "Pasztet w formie"
+      },
+      "title": "Wystudź pasztet",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s12",
+      "body": "Wyjmij pasztet z formy za brzegi papieru i pokrój w plastry. Ułóż je na kromkach chleba, na wierzch połóż plasterki ogórka kiszonego.",
+      "note": null,
+      "phase": "SERVE",
+      "stage": null,
+      "timer": null,
+      "title": "Podaj pasztet na chlebie",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "chleb żytni",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 300
+       },
+       {
+        "ingredient": "ogórek kiszony",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 180
+       }
+      ]
+     }
+    ],
+    "nextTimeTip": "Pasztet zrób dzień wcześniej i trzymaj w lodówce — po nocy łatwiej się kroi, a smaki się łączą.",
+    "portionUnit": null,
+    "basePortions": 6,
+    "totalMinutes": 170,
+    "schemaVersion": 1
+   },
+   "generator": {
+    "source": "writer",
+    "attempts": 3,
+    "transport": "batch",
+    "revisedFrom": {
+     "version": 1,
+     "scenarioId": "3d66c055-ae29-4276-8525-e648e593f3c5"
+    },
+    "writerModel": "claude-opus-5-5",
+    "writerEffort": "medium",
+    "promptVersion": "w8-2026-10-01",
+    "reviewerModel": "claude-sonnet-5-5",
+    "reviewerEffort": "medium"
+   },
+   "review": {
+    "score": 4,
+    "summary": "Scenariusz wierny przepisowi: czasy 50 min, 45–50 min i 40 min oraz temperatura 180°C zgadzają się z właściwymi czynnościami, a poprzedni MAJOR w s10 został poprawiony. Zostały tylko drobne powtórzenia i niespójności w alarmach i adnotacjach."
+   },
+   "source": {
+    "scenarioId": "08bf1049-6aa4-446b-b4af-e8070ad46f5e",
+    "version": 2
    }
   },
   {
@@ -88742,6 +89403,255 @@
    }
   },
   {
+   "recipeId": "b67d54db-106c-4903-9c8d-78797aed684f",
+   "title": "Kurczak satay z sosem orzechowym i ryżem",
+   "portableHash": "sha256:3f59bee26eb65d12d15ea82e904499a126ee7ba1a160864ee193ea75bb11570c",
+   "content": {
+    "tips": [
+     "Drewniane patyczki do szaszłyków zamocz wcześniej w wodzie — na patelni nie przypalą się."
+    ],
+    "steps": [
+     {
+      "id": "s1",
+      "body": "Pokrój mięso w długie paski. Wymieszaj je w misce z połową sosu sojowego, curry, kurkumą, czosnkiem przeciśniętym przez praskę i olejem. Dokładnie obtocz każdy pasek.",
+      "note": null,
+      "phase": "PREP",
+      "stage": null,
+      "timer": {
+       "id": "t-chicken",
+       "alert": {
+        "body": "Nadziej paski kurczaka na patyczki.",
+        "title": "Marynata gotowa"
+       },
+       "label": "Kurczak",
+       "trigger": "NOW",
+       "maxSeconds": 900,
+       "minSeconds": 900,
+       "startLabel": "W marynacie"
+      },
+      "title": "Zamarynuj kurczaka",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "filet z kurczaka",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 350
+       },
+       {
+        "ingredient": "sos sojowy",
+        "part": "HALF",
+        "unit": "ml",
+        "amount": 7.5
+       },
+       {
+        "ingredient": "curry",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 2
+       },
+       {
+        "ingredient": "kurkuma",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "czosnek",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 2
+       },
+       {
+        "ingredient": "olej rzepakowy",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 10
+       }
+      ]
+     },
+     {
+      "id": "s2",
+      "body": "Ugotuj ryż według instrukcji na opakowaniu. Gotowy zostaw w garnku pod przykryciem, żeby nie wystygł.",
+      "note": {
+       "kind": "CUE",
+       "text": "Ziarna są miękkie, a woda w całości wchłonięta."
+      },
+      "phase": "COOK",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Nastaw ryż jaśminowy",
+      "during": "t-chicken",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "ryż jaśminowy",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 130
+       }
+      ]
+     },
+     {
+      "id": "s3",
+      "body": "Zrób cienkie plasterki i odłóż je na talerz do podania.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Pokrój ogórek",
+      "during": "t-chicken",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "ogórek",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 150
+       }
+      ]
+     },
+     {
+      "id": "s4",
+      "body": "Nawlekaj paski wzdłuż, falistym ruchem, tak by mięso ciasno przylegało do patyczka. Gotowe szaszłyki odłóż na talerz.",
+      "note": null,
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Nadziej kurczaka na patyczki",
+      "during": null,
+      "mentions": [
+       "filet z kurczaka"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s5",
+      "body": "W rondelku na małym ogniu podgrzej masło orzechowe z mlekiem kokosowym, resztą sosu sojowego, cukrem, płatkami chili i sokiem z limonki. Mieszaj ok. 2 minuty. Za gęsty rozrzedź łyżką wody. Zdejmij z ognia i przykryj.",
+      "note": {
+       "kind": "CUE",
+       "text": "Sos jest gładki, bez grudek masła, i leniwie spływa z łyżki."
+      },
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Zrób sos orzechowy",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "masło orzechowe",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 40
+       },
+       {
+        "ingredient": "mleko kokosowe z puszki",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 80
+       },
+       {
+        "ingredient": "sos sojowy",
+        "part": "REST",
+        "unit": "ml",
+        "amount": 7.5
+       },
+       {
+        "ingredient": "cukier brązowy",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 5
+       },
+       {
+        "ingredient": "płatki chili",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "limonka",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 20
+       }
+      ]
+     },
+     {
+      "id": "s6",
+      "body": "Rozgrzej patelnię grillową na średnio wysokim ogniu. Piecz po 3–4 minuty z każdej strony, aż będą przypieczone.",
+      "note": {
+       "kind": "CUE",
+       "text": "W środku 74°C albo sok przezroczysty, bez różowego w środku."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": null,
+      "title": "Usmaż szaszłyki",
+      "during": null,
+      "mentions": [
+       "filet z kurczaka"
+      ],
+      "scaleNote": {
+       "text": "Smaż w dwóch partiach — ciasno ułożone szaszłyki się duszą zamiast przypiekać.",
+       "fromPortions": 4
+      },
+      "ingredients": []
+     },
+     {
+      "id": "s7",
+      "body": "Na talerzach ułóż szaszłyki z ryżem i ogórkiem. Ciepły sos podaj w miseczce do maczania.",
+      "note": null,
+      "phase": "SERVE",
+      "stage": null,
+      "timer": null,
+      "title": "Podaj szaszłyki",
+      "during": null,
+      "mentions": [
+       "ryż jaśminowy",
+       "ogórek",
+       "masło orzechowe"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     }
+    ],
+    "nextTimeTip": "Kurczaka możesz zamarynować rano i trzymać w lodówce — wieczorem zostanie tylko nadziewanie i smażenie.",
+    "portionUnit": null,
+    "basePortions": 2,
+    "totalMinutes": 30,
+    "schemaVersion": 1
+   },
+   "generator": {
+    "source": "writer",
+    "attempts": 3,
+    "transport": "batch",
+    "revisedFrom": {
+     "version": 1,
+     "scenarioId": "64c06205-ec1c-48f5-9432-06d06b60fbbf"
+    },
+    "writerModel": "claude-opus-5-5",
+    "writerEffort": "medium",
+    "promptVersion": "w8-2026-10-01",
+    "reviewerModel": "claude-sonnet-5-5",
+    "reviewerEffort": "medium"
+   },
+   "review": {
+    "score": 4,
+    "summary": "Poprzednie uwagi zostały poprawione: nadziewanie idzie po timerze marynaty, ryż i ogórek idą w czasie marynowania, a sos jest osobnym krokiem przed smażeniem. Zostały tylko drobiazgi stylistyczne i jedna rada niezgrana z krokiem. Scenariusz wierny przepisowi, bezpieczny (sygnał dla kurczaka jest) i gotowy do publikacji."
+   },
+   "source": {
+    "scenarioId": "89c579ba-a4b7-47b8-8557-350b135283af",
+    "version": 2
+   }
+  },
+  {
    "recipeId": "a79981a7-7205-4ad6-9e4d-a3b0cf2f7cb6",
    "title": "Kurczak słodko-kwaśny z ananasem i ryżem",
    "portableHash": "sha256:291b04ec887d71940b03c1c16f5295a4d4a52961e843a0b804b282d6dc9fdc03",
@@ -106328,6 +107238,293 @@
    "source": {
     "scenarioId": "f64b8f9f-3548-48d0-ae9f-127ba7c868ef",
     "version": 1
+   }
+  },
+  {
+   "recipeId": "a9e89d50-74f6-4626-addc-6ab22e1dc457",
+   "title": "Makaron z bobem, boczkiem i śmietaną",
+   "portableHash": "sha256:ff5128d1bb755722523013d06cc733d50d4b5d7b2a246ed9aadaddc827be038a",
+   "content": {
+    "tips": [
+     "Weź młody bób — ma cienką skórkę i jest słodszy, a stary po obraniu bywa mączysty.",
+     "Boczek wybierz wędzony, niezbyt chudy — z tłuszczu, który się wytopi, powstanie baza sosu."
+    ],
+    "steps": [
+     {
+      "id": "s1",
+      "body": "W średnim garnku zagotuj osoloną wodę, wrzuć bób i gotuj 5 minut. Odcedź go i przelej zimną wodą, żeby szybko ostygł. Potem wyciśnij każde ziarno ze skórki.",
+      "note": {
+       "kind": "CUE",
+       "text": "Skórka marszczy się i łatwo schodzi, a ziarno jest miękkie."
+      },
+      "phase": "COOK",
+      "stage": null,
+      "timer": {
+       "id": "t-bean",
+       "alert": {
+        "body": "Odcedź go i przelej zimną wodą.",
+        "title": "Bób gotowy"
+       },
+       "label": "Bób",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 300,
+       "startLabel": "Bób we wrzątku"
+      },
+      "title": "Ugotuj bób",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "bób",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 300
+       }
+      ]
+     },
+     {
+      "id": "s2",
+      "body": "Boczek pokrój w kostkę, cebulę i czosnek posiekaj drobno. Parmezan zetrzyj na drobnej tarce, a koperek posiekaj. Parmezan i koperek odłóż osobno.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Przygotuj dodatki",
+      "during": "t-bean",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "boczek",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 70
+       },
+       {
+        "ingredient": "cebula",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 60
+       },
+       {
+        "ingredient": "czosnek",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 2
+       },
+       {
+        "ingredient": "ser parmezan",
+        "part": "HALF",
+        "unit": "g",
+        "amount": 10
+       },
+       {
+        "ingredient": "koperek",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 5
+       }
+      ]
+     },
+     {
+      "id": "s3",
+      "body": "Nalej wody do dużego garnka, posól i postaw na dużym ogniu pod pokrywką.",
+      "note": null,
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Postaw wodę na makaron",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s4",
+      "body": "Wsyp boczek na zimną, suchą patelnię i smaż na średnim ogniu, co chwilę mieszając.",
+      "note": {
+       "kind": "CUE",
+       "text": "Boczek jest rumiany i chrupiący, na patelni zebrał się tłuszcz."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": {
+       "id": "t-bacon",
+       "alert": {
+        "body": "Rumiany? Czas na cebulę i czosnek.",
+        "title": "Sprawdź boczek"
+       },
+       "label": "Boczek",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 300,
+       "startLabel": "Boczek na patelni"
+      },
+      "title": "Wytop boczek na chrupko",
+      "during": null,
+      "mentions": [
+       "boczek"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s5",
+      "body": "Gdy woda zawrze, wrzuć makaron i gotuj według opakowania. Odcedź go dopiero wtedy, gdy sos będzie gotowy.",
+      "note": null,
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Nastaw makaron",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "makaron penne",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 180
+       }
+      ]
+     },
+     {
+      "id": "s6",
+      "body": "Dodaj do boczku cebulę i czosnek i smaż 3 minuty, mieszając.",
+      "note": {
+       "kind": "CUE",
+       "text": "Cebula jest szklista, czosnek pachnie."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": null,
+      "title": "Podsmaż cebulę z czosnkiem",
+      "during": null,
+      "mentions": [
+       "cebula",
+       "czosnek"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s7",
+      "body": "Wlej śmietankę, dodaj obrany bób i gotuj 2 minuty, mieszając. Jeśli sos jest za gęsty, rozrzedź go łyżką wody z garnka z makaronem.",
+      "note": {
+       "kind": "CUE",
+       "text": "Sos oblepia łyżkę i zostawia ślad, gdy przeciągniesz po dnie patelni."
+      },
+      "phase": "COOK",
+      "stage": "SMAŻENIE",
+      "timer": null,
+      "title": "Zagotuj sos ze śmietanką",
+      "during": null,
+      "mentions": [
+       "bób"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "śmietanka 18",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 150
+       }
+      ]
+     },
+     {
+      "id": "s8",
+      "body": "Przed odcedzeniem odlej pół szklanki wody z gotowania. Jeśli sos jest gotowy wcześniej, zdejmij patelnię z ognia i poczekaj na makaron.",
+      "note": {
+       "kind": "CUE",
+       "text": "Makaron jest sprężysty, w przekroju ma cieniutki jasny rdzeń."
+      },
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Odcedź makaron",
+      "during": null,
+      "mentions": [
+       "makaron penne"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s9",
+      "body": "Wmieszaj odcedzony makaron, połowę parmezanu i pieprz. Mieszaj, aż sos otuli każdą rurkę. Gdy zrobi się za gęsty, dolej odrobinę wody z makaronu.",
+      "note": null,
+      "phase": "FINISH",
+      "stage": null,
+      "timer": null,
+      "title": "Połącz makaron z sosem",
+      "during": null,
+      "mentions": [
+       "makaron penne",
+       "ser parmezan"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "pieprz czarny",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       }
+      ]
+     },
+     {
+      "id": "s10",
+      "body": "Rozłóż makaron na talerze i posyp resztą parmezanu oraz koperkiem.",
+      "note": null,
+      "phase": "SERVE",
+      "stage": null,
+      "timer": null,
+      "title": "Podaj makaron",
+      "during": null,
+      "mentions": [
+       "koperek"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "ser parmezan",
+        "part": "REST",
+        "unit": "g",
+        "amount": 10
+       }
+      ]
+     }
+    ],
+    "nextTimeTip": "Bób możesz ugotować i obrać dzień wcześniej — trzymaj go w lodówce, a obiad wyjdzie szybciej.",
+    "portionUnit": null,
+    "basePortions": 2,
+    "totalMinutes": 30,
+    "schemaVersion": 1
+   },
+   "generator": {
+    "source": "writer",
+    "attempts": 3,
+    "transport": "batch",
+    "revisedFrom": {
+     "version": 1,
+     "scenarioId": "668aedca-f4f1-460f-9b1a-5a8a9fe4c2c8"
+    },
+    "writerModel": "claude-opus-5-5",
+    "writerEffort": "medium",
+    "promptVersion": "w8-2026-10-01",
+    "reviewerModel": "claude-sonnet-5-5",
+    "reviewerEffort": "medium"
+   },
+   "review": {
+    "score": 4,
+    "summary": "Scenariusz jest wierny przepisowi: czasy, składniki i sumy ilości się zgadzają, a timery są przypięte do s1 i s4. Makaron startuje później i ma zabezpieczenie przed rozgotowaniem, a kolejność odlewania wody w s8 jest poprawiona. Zostały tylko drobiazgi stylistyczne, więc można publikować."
+   },
+   "source": {
+    "scenarioId": "96d9cfbc-51b7-438d-869b-d1a837b18fe9",
+    "version": 2
    }
   },
   {
@@ -161358,6 +162555,340 @@
    "source": {
     "scenarioId": "0514d9cb-2732-4929-a9d6-0bf1ad2c3eee",
     "version": 1
+   }
+  },
+  {
+   "recipeId": "5288b506-e7b4-4487-b695-56165628d872",
+   "title": "Pomidory faszerowane kuskusem i serem",
+   "portableHash": "sha256:9d3ec646d81534d423e5b4685b78734a348b959276ecd6dfa5adcf00e2baaa0c",
+   "content": {
+    "tips": [
+     "Wybierz pomidory twarde, podobnej wielkości i z płaskim spodem — miękkie podczas pieczenia się rozpadną, a nierówne nie ustoją w naczyniu.",
+     "Miąższ z pomidorów jest bazą sosu do farszu, więc nie wyrzucaj soku z wydrążania."
+    ],
+    "steps": [
+     {
+      "id": "s1",
+      "body": "Odetnij każdemu pomidorowi wierzch z szypułką i odłóż jako pokrywkę. Środek wybierz łyżeczką razem z sokiem, a miąższ posiekaj. Pomidory postaw odwrócone na desce, żeby odciekły.",
+      "note": {
+       "kind": "CUE",
+       "text": "Ścianki są nieprzebite i trzymają kształt."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Wydrąż pomidory",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "pomidor",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 4
+       }
+      ]
+     },
+     {
+      "id": "s2",
+      "body": "Cebulę, czosnek i natkę drobno pokrój, każde osobno. Ser zetrzyj na tarce i trzecią część odłóż osobno na wierzch pomidorów.",
+      "note": null,
+      "phase": "PREP",
+      "stage": "PRZYGOTOWANIE",
+      "timer": null,
+      "title": "Przygotuj dodatki do farszu",
+      "during": null,
+      "mentions": [
+       "cebula",
+       "czosnek",
+       "natka pietruszki",
+       "ser gouda"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s3",
+      "body": "Ustaw grzanie góra–dół, bez termoobiegu. Nagrzeje się, zanim napełnisz pomidory.",
+      "note": null,
+      "phase": "COOK",
+      "stage": null,
+      "timer": null,
+      "title": "Nagrzej piekarnik do 190°C",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s4",
+      "body": "Wsyp kuskus do miski i zalej gorącym bulionem. Przykryj talerzem i odstaw, niech ziarna napęcznieją.",
+      "note": {
+       "kind": "CUE",
+       "text": "Bulion jest wchłonięty, a ziarna miękkie."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": {
+       "id": "t-couscous",
+       "alert": {
+        "body": "Czas rozdrobnić ziarna widelcem.",
+        "title": "Kuskus napęczniał"
+       },
+       "label": "Kuskus",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 300,
+       "startLabel": "Pod talerzem"
+      },
+      "title": "Zalej kuskus bulionem",
+      "during": null,
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "kasza kuskus",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 80
+       },
+       {
+        "ingredient": "bulion warzywny",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 120
+       }
+      ]
+     },
+     {
+      "id": "s5",
+      "body": "Rozgrzej oliwę w garnku na średnim ogniu, wrzuć cebulę i czosnek i mieszaj, aż zmiękną. Gdy się zeszklą, zmniejsz ogień na najmniejszy i zaczekaj na alarm kuskusu.",
+      "note": {
+       "kind": "CUE",
+       "text": "Cebula jest przezroczysta, czosnek pachnie, nic nie jest brązowe."
+      },
+      "phase": "COOK",
+      "stage": "W MIĘDZYCZASIE",
+      "timer": null,
+      "title": "Zeszklij cebulę z czosnkiem",
+      "during": "t-couscous",
+      "mentions": [],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "cebula",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 50
+       },
+       {
+        "ingredient": "czosnek",
+        "part": "ALL",
+        "unit": "szt",
+        "amount": 1
+       },
+       {
+        "ingredient": "oliwa z oliwek",
+        "part": "ALL",
+        "unit": "ml",
+        "amount": 15
+       }
+      ]
+     },
+     {
+      "id": "s6",
+      "body": "Zdejmij talerz z miski i przeczesz ziarna widelcem.",
+      "note": {
+       "kind": "CUE",
+       "text": "Ziarna są sypkie i oddzielone, bez grudek."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Rozdrobnij kuskus",
+      "during": null,
+      "mentions": [
+       "kasza kuskus"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s7",
+      "body": "Zwiększ ogień do średniego i dodaj do garnka posiekany miąższ pomidorów razem z sokiem. Duś, mieszając co chwilę, a pod koniec częściej, żeby sos nie przywarł do dna.",
+      "note": {
+       "kind": "CUE",
+       "text": "Sos jest gęsty, a łyżka przeciągnięta po dnie zostawia wyraźny ślad."
+      },
+      "phase": "COOK",
+      "stage": "DUSZENIE",
+      "timer": {
+       "id": "t-sauce",
+       "alert": {
+        "body": "Zdejmij garnek z ognia i przejdź do farszu.",
+        "title": "Sos gotowy"
+       },
+       "label": "Sos",
+       "trigger": "NOW",
+       "maxSeconds": 300,
+       "minSeconds": 300,
+       "startLabel": "Sos na ogniu"
+      },
+      "title": "Zrób sos z miąższu",
+      "during": null,
+      "mentions": [
+       "pomidor",
+       "cebula",
+       "czosnek"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s8",
+      "body": "Do kuskusu dodaj sos, natkę, bazylię, pieprz i większą część sera. Mieszaj, aż wszystko się połączy.",
+      "note": {
+       "kind": "CUE",
+       "text": "Farsz jest wilgotny i lekko się klei, ale nie pływa w sosie."
+      },
+      "phase": "PREP",
+      "stage": null,
+      "timer": null,
+      "title": "Wymieszaj farsz",
+      "during": null,
+      "mentions": [
+       "kasza kuskus"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "natka pietruszki",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 10
+       },
+       {
+        "ingredient": "bazylia suszona",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "pieprz czarny",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "ser gouda",
+        "part": "PART",
+        "unit": "g",
+        "amount": 53.3
+       }
+      ]
+     },
+     {
+      "id": "s9",
+      "body": "Wnętrza oprósz solą i wypełnij farszem po brzegi. Posyp odłożonym serem i przykryj pokrywkami. Ustaw ciasno w naczyniu żaroodpornym, żeby się nie przewracały.",
+      "note": null,
+      "phase": "FINISH",
+      "stage": null,
+      "timer": null,
+      "title": "Napełnij pomidory",
+      "during": null,
+      "mentions": [
+       "pomidor"
+      ],
+      "scaleNote": null,
+      "ingredients": [
+       {
+        "ingredient": "sól",
+        "part": "ALL",
+        "unit": "g",
+        "amount": 1
+       },
+       {
+        "ingredient": "ser gouda",
+        "part": "REST",
+        "unit": "g",
+        "amount": 26.7
+       }
+      ]
+     },
+     {
+      "id": "s10",
+      "body": "Wstaw naczynie do nagrzanego piekarnika na środkową półkę.",
+      "note": {
+       "kind": "CUE",
+       "text": "Ser jest roztopiony i lekko zarumieniony, a skórka pomidorów zmarszczona."
+      },
+      "phase": "COOK",
+      "stage": "PIECZENIE",
+      "timer": {
+       "id": "t-tomatoes",
+       "alert": {
+        "body": "Sprawdź ser i skórkę, potem wyjmij naczynie.",
+        "title": "Pomidory gotowe?"
+       },
+       "label": "Pomidory",
+       "trigger": "NOW",
+       "maxSeconds": 1200,
+       "minSeconds": 1200,
+       "startLabel": "W piekarniku"
+      },
+      "title": "Zapiecz pomidory",
+      "during": null,
+      "mentions": [
+       "pomidor",
+       "ser gouda"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     },
+     {
+      "id": "s11",
+      "body": "Rozłóż pomidory po równo na talerze i skrop sokiem zebranym w naczyniu.",
+      "note": null,
+      "phase": "SERVE",
+      "stage": null,
+      "timer": null,
+      "title": "Podaj pomidory",
+      "during": null,
+      "mentions": [
+       "pomidor"
+      ],
+      "scaleNote": null,
+      "ingredients": []
+     }
+    ],
+    "nextTimeTip": "Farsz możesz zrobić dzień wcześniej i trzymać w lodówce. Pomidory napełnij dopiero przed pieczeniem, żeby ścianki nie zmiękły.",
+    "portionUnit": null,
+    "basePortions": 2,
+    "totalMinutes": 50,
+    "schemaVersion": 1
+   },
+   "generator": {
+    "source": "writer",
+    "attempts": 3,
+    "transport": "batch",
+    "revisedFrom": {
+     "version": 1,
+     "scenarioId": "9e8e1d6f-eb45-4751-8e6a-122f11bd861b"
+    },
+    "writerModel": "claude-opus-5-5",
+    "writerEffort": "medium",
+    "promptVersion": "w8-2026-10-01",
+    "reviewerModel": "claude-sonnet-5-5",
+    "reviewerEffort": "medium"
+   },
+   "review": {
+    "score": 4,
+    "summary": "Scenariusz wierny przepisowi: czasy (5, 5, 20 min) i temperatura 190°C zgadzają się z właściwymi czynnościami, składniki sumują się poprawnie, a kuskus rozdrabnia się po alarmie. Poprzednie uwagi zostały poprawione. Pozostały tylko drobiazgi: moment nagrzewania piekarnika, drobne powtórzenia i brak „po dwa na osobę” w podaniu."
+   },
+   "source": {
+    "scenarioId": "93aa43f4-d081-4d5a-a2e0-d2d84c7d5074",
+    "version": 2
    }
   },
   {
