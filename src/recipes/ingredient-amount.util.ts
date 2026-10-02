@@ -100,7 +100,9 @@ const SPICE_PIECES_BY_NAME: Record<
     few: 'ziarna',
     many: 'ziaren',
   },
-  // Ta sama przyprawa pod błędną nazwą w katalogu (do poprawki w danych).
+  // Dawna, błędna nazwa z katalogu (poprawiona 2.10.2026,
+  // `scripts/fix-ziele-angielskie.ts`) — zostaje dla archiwów list zakupów,
+  // które trzymają nazwę z dnia zakupów.
   'ziolo angielskie': {
     grams: 0.25,
     one: 'ziarno',
