@@ -248,6 +248,24 @@ describe('UsersService.updatePreferences', () => {
     });
   });
 
+  describe('dawne „Czego nie jem” (wycofane 2.10.2026)', () => {
+    it('przyjmuje excludedIngredientIds i maxPrepTimeMinutes, ale ich nie zapisuje', async () => {
+      // Starszy build wysyła je przy każdym zapisie diety — odmowa
+      // wywróciłaby cały zapis, a zapis wpisałby niewidoczną blokadę.
+      await service.updatePreferences(mockUserId, {
+        calorieGoal: 2100,
+        excludedIngredientIds: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+        maxPrepTimeMinutes: 30,
+      });
+
+      expect(upsertArg().update).toMatchObject({ calorieGoal: 2100 });
+      for (const field of ['excludedIngredientIds', 'maxPrepTimeMinutes']) {
+        expect(field in upsertArg().update).toBe(false);
+        expect(field in upsertArg().create).toBe(false);
+      }
+    });
+  });
+
   describe('makra', () => {
     it.each([
       ['proteinG', 9999, 'proteinG must not be greater than 400'],

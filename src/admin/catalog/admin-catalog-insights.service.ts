@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { CatalogExcludedIngredient, CatalogInsights } from '../contract';
+import type { CatalogInsights } from '../contract';
 import { readOnlyQuery } from '../read-only-query';
 import {
   compareGapRecipes,
@@ -15,7 +14,6 @@ import {
 export const POPULARITY_DAYS = 30;
 const TOP = 10;
 const NEVER_USED_LIMIT = 50;
-const EXCLUDED_LIMIT = 15;
 
 type Count = { recipeId: string; count: number };
 
@@ -154,17 +152,6 @@ export class AdminCatalogInsightsService {
         WHERE r."isCatalog" = true AND r."isActive" = true
           AND NOT EXISTS (SELECT 1 FROM "PlanItem" pi WHERE pi."recipeId" = r.id)`;
 
-      const excluded = await tx.$queryRaw<CatalogExcludedIngredient[]>(
-        Prisma.sql`
-          SELECT i."normalizedName" AS key, i.name, COUNT(*)::int AS count
-          FROM "UserPreference" up
-          CROSS JOIN LATERAL unnest(up."excludedIngredientIds") AS x(id)
-          JOIN "Ingredient" i ON i.id::text = x.id
-          GROUP BY i.id, i."normalizedName", i.name
-          ORDER BY count DESC, i.name ASC
-          LIMIT ${EXCLUDED_LIMIT}`,
-      );
-
       const neverUsed = rank(
         never.map((row) => ({ recipeId: row.recipeId, count: 0 })),
         meta,
@@ -185,7 +172,6 @@ export class AdminCatalogInsightsService {
           proposed: rank(proposed, meta, TOP),
           neverUsed: neverUsed.slice(0, NEVER_USED_LIMIT),
           neverUsedTotal: neverUsed.length,
-          excludedIngredients: excluded,
         },
         generatedAt: now.toISOString(),
       };

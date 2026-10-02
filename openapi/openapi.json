@@ -11870,12 +11870,12 @@
           "calorieGoal": { "type": "number" },
           "allergens": { "type": "array", "items": { "type": "string" } },
           "excludedIngredientIds": {
-            "description": "Czego ten domownik nie je, choć nie jest to alergia.\n\nIdentyfikatory składników, nie nazwy: „pieczarki\" i „pieczarka\" to dla\nbazy dwie różne rzeczy, a lista po nazwach rozjechałaby się przy\npierwszej korekcie katalogu. Pusta tablica kasuje wykluczenia.",
+            "description": "WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je\npomija — „Czego nie jem” zniknęło z aplikacji (iOS #179).\n\nCzego ten domownik nie je, choć nie jest to alergia.\n\nIdentyfikatory składników, nie nazwy: „pieczarki\" i „pieczarka\" to dla\nbazy dwie różne rzeczy, a lista po nazwach rozjechałaby się przy\npierwszej korekcie katalogu. Pusta tablica kasuje wykluczenia.",
             "type": "array",
             "items": { "type": "string" }
           },
           "maxPrepTimeMinutes": {
-            "description": "Ile minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.\n\nTo podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna\npieczeń ma prawo trwać dłużej.",
+            "description": "WYCOFANE (2.10.2026): przyjmowane dla starszych buildów, serwer je pomija.\n\nIle minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.\n\nTo podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna\npieczeń ma prawo trwać dłużej.",
             "type": "number",
             "nullable": true
           },
@@ -12661,7 +12661,7 @@
             "required": ["calorieGoal", "macros", "macrosSource"]
           },
           "restrictions": {
-            "description": "Ograniczenia, których nie da się wyrazić alergenem.\n\n`excludedIngredients` idzie z NAZWAMI, nie samymi identyfikatorami:\nten obiekt trafia wprost do promptu, a „nie je 3fa85f64…\" nie znaczy\ndla modelu nic. Identyfikator zostaje obok, bo po nim walidator planu\nporównuje skład przepisu.",
+            "description": "Dawne „Czego nie jem” (wykluczone składniki, limit czasu na danie) —\nod 2.10.2026 ZAWSZE puste: ekran zniknął z iOS 23.09 (#179), więc nikt\nnie widział, co blokuje danie. Pole zostaje w kontrakcie\n`households:memberPreferences`, bo klient Androida (OpenAPI) ma je jako\nwymagane; do promptu nie idzie (`AgentPromptService`).",
             "type": "object",
             "properties": {
               "excludedIngredients": {
