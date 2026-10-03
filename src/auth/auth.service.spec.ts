@@ -80,6 +80,8 @@ const makePrismaMock = () => {
         .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      // Tokeny wydane osobie w ostatniej minucie — limit rotacji na konto.
+      count: jest.fn().mockResolvedValue(1),
     },
     membership: {
       findFirst: jest.fn().mockResolvedValue(null),
@@ -810,6 +812,65 @@ describe('AuthService', () => {
           expiresAt: expect.any(Date),
         },
       });
+    });
+
+    // ─── limit rotacji na konto ──────────────────────────────────────────
+    //
+    // Limit throttlera idzie po haszu przedstawionego tokenu, a pętla UDANYCH
+    // rotacji co rotację pokazuje nowy token — czyli nowy klucz. Ten limit
+    // liczy tokeny wydane osobie w ostatniej minucie, pod zamkiem sesji.
+
+    it('limit rotacji na konto: 429 bez rotacji — token zostaje ważny', async () => {
+      prisma.refreshToken.count.mockResolvedValueOnce(30);
+
+      const error = await service
+        .refreshAccessToken('valid-refresh-token')
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(AppException);
+      expect((error as AppException).getStatus()).toBe(429);
+      expect((error as AppException).getResponse()).toMatchObject({
+        code: 'TOO_MANY_REQUESTS',
+        details: ['retryAfterSeconds:60'],
+      });
+      // Liczone pod zamkiem sesji, z oknem minuty od chwili żądania.
+      expect(prisma.refreshToken.count).toHaveBeenCalledWith({
+        where: {
+          userId: mockRefreshToken.userId,
+          createdAt: { gt: expect.any(Date) },
+        },
+      });
+      // Bez rotacji: ponowienie tym samym tokenem po chwili przejdzie, a nie
+      // zostanie wzięte za kradzież.
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('limit rotacji na konto: poniżej progu rotuje normalnie', async () => {
+      prisma.refreshToken.count.mockResolvedValueOnce(29);
+
+      const result = await service.refreshAccessToken('valid-refresh-token');
+
+      expect(result).toHaveProperty('refreshToken');
+      expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('limit rotacji na konto czyta env per żądanie', async () => {
+      const original = process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT;
+      process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT = '5';
+      try {
+        prisma.refreshToken.count.mockResolvedValueOnce(5);
+        await expect(
+          service.refreshAccessToken('valid-refresh-token'),
+        ).rejects.toBeInstanceOf(AppException);
+      } finally {
+        if (original === undefined) {
+          delete process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT;
+        } else {
+          process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT = original;
+        }
+      }
     });
 
     // ─── wyścig dwóch żądań tym samym tokenem ────────────────────────────

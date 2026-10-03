@@ -9,6 +9,10 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthProvider, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
+import {
+  readThrottleLimit,
+  THROTTLE_WINDOW_MS,
+} from '../common/throttle/throttle-env';
 import { purchaseIdentityHashForUser } from '../config/purchase-identity';
 import { PrismaService } from '../prisma/prisma.service';
 import { disconnectRevokedUser } from '../common/ws-rooms';
@@ -470,6 +474,18 @@ export class AuthService {
       tokenHash,
       now,
     );
+    if (successor === 'throttled') {
+      // Token NIE został zrotowany — klient ponowi tym samym po chwili.
+      this.logger.warn(
+        `refresh throttled: user ${storedToken.userId} przekroczył limit rotacji na konto`,
+      );
+      throw new AppException(
+        'TOO_MANY_REQUESTS',
+        'Za dużo odświeżeń sesji. Spróbuj ponownie za chwilę.',
+        HttpStatus.TOO_MANY_REQUESTS,
+        [`retryAfterSeconds:${Math.ceil(THROTTLE_WINDOW_MS / 1000)}`],
+      );
+    }
     if (!successor) {
       // Przegrany wyscig: oba zadania widzialy `revokedAt: null` w
       // `findUnique`, ale rotacje wygralo jedno. Warunkowy UPDATE przegranego
@@ -533,11 +549,15 @@ export class AuthService {
     userId: string,
     tokenHash: string,
     now: Date,
-  ): Promise<{
-    rawToken: string;
-    tokenHash: string;
-    tokenVersion: number;
-  } | null> {
+  ): Promise<
+    | {
+        rawToken: string;
+        tokenHash: string;
+        tokenVersion: number;
+      }
+    | 'throttled'
+    | null
+  > {
     const rawToken = randomBytes(64).toString('hex');
     const successorHash = this.hashRefreshToken(rawToken);
     const expiresAt = new Date(now);
@@ -545,6 +565,21 @@ export class AuthService {
 
     return this.prisma.$transaction(async (tx) => {
       await this.lockUserSessions(tx, userId);
+      // Limit RODZINY, a właściwie konta: limit throttlera idzie po haszu
+      // przedstawionego tokenu, a pętla udanych rotacji co rotację pokazuje
+      // nowy token, czyli nowy klucz. Liczymy więc tokeny wydane tej osobie
+      // w ostatniej minucie — pod zamkiem sesji, więc równoległe rotacje się
+      // nie prześlizgną, i w bazie, więc limit jest wspólny dla instancji.
+      // Odczyt tylko dla prawdziwej rotacji, nie dla każdego żądania.
+      const recent = await tx.refreshToken.count({
+        where: {
+          userId,
+          createdAt: { gt: new Date(now.getTime() - THROTTLE_WINDOW_MS) },
+        },
+      });
+      if (recent >= readThrottleLimit('THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT')) {
+        return 'throttled' as const;
+      }
       // Uniewaznienie warunkowe (`revokedAt: null`): to samo zapytanie
       // sprawdza i zajmuje, wiec z dwoch rownoleglych zadan tym samym tokenem
       // pare wyda tylko jedno. Drugie czeka tutaj na blokadzie wiersza.

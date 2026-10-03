@@ -182,6 +182,64 @@ describe('Throttling E2E', () => {
     });
   });
 
+  /**
+   * Pętla UDANYCH rotacji: każda daje nowy token, więc limit per hasz jej nie
+   * widzi. Łapie ją limit na konto, liczony w bazie pod zamkiem sesji. Przez
+   * serwis, nie przez HTTP — bezpiecznik IP z suity wyżej zjadł już okno.
+   */
+  describe('limit rotacji na konto', () => {
+    const ACCOUNT_LIMIT = 3;
+    let previous: string | undefined;
+
+    beforeAll(() => {
+      previous = process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT;
+      process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT = String(ACCOUNT_LIMIT);
+    });
+
+    afterAll(() => {
+      if (previous === undefined) {
+        delete process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT;
+      } else {
+        process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT = previous;
+      }
+    });
+
+    it('pętla udanych rotacji dostaje 429; token zostaje ważny na później', async () => {
+      const auth = app.get(AuthService);
+      const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+      const session = await auth.loginDev({
+        displayName: `Pętla ${stamp}`,
+        email: `loop-${stamp}@throttling.local`,
+      });
+      createdUserIds.push(session.user.id);
+      if (session.household) createdHouseholdIds.push(session.household.id);
+
+      // Logowanie wydało jeden token, więc przy limicie 3 przechodzą dwie
+      // rotacje, a trzecia trafia w sufit.
+      let token = session.refreshToken;
+      for (let i = 0; i < ACCOUNT_LIMIT - 1; i += 1) {
+        token = (await auth.refreshAccessToken(token)).refreshToken;
+      }
+      const blocked = await auth
+        .refreshAccessToken(token)
+        .catch((caught: unknown) => caught);
+      expect(blocked).toMatchObject({ status: 429 });
+      expect(
+        (blocked as { getResponse(): unknown }).getResponse(),
+      ).toMatchObject({ code: 'TOO_MANY_REQUESTS' });
+
+      // Odmowa nie zrotowała tokenu: po podniesieniu limitu (u klienta —
+      // po upływie okna) ten sam token działa, a nie wygląda na kradzież.
+      process.env.THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT = '100';
+      const next = await auth.refreshAccessToken(token);
+      expect(next.refreshToken).not.toBe(token);
+      const alive = await prisma.refreshToken.count({
+        where: { userId: session.user.id, revokedAt: null },
+      });
+      expect(alive).toBe(1);
+    });
+  });
+
   it('`/ops/health` nie jest limitowane — 429 wywróciłby healthcheck Railway', async () => {
     for (let i = 0; i < AUTH_LIMIT + 5; i += 1) {
       await request(app.getHttpServer()).get('/ops/health').expect(200);
