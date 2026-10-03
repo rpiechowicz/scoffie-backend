@@ -284,7 +284,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
           status: 'VALIDATED',
           recipeContentHash: top.recipeContentHash,
           rulesVersion: top.rulesVersion,
-          content: content as object,
+          content,
           generator: { source: 'writer' },
         },
       });
