@@ -19,8 +19,6 @@ const row = (patch: Partial<RecipeFacetsRow> = {}): RecipeFacetsRow => ({
   occasions: [],
   equipment: [],
   features: ['LUNCHBOX'],
-  sourceProvider: null,
-  sourceRecipeId: null,
   ingredients: [
     { name: 'Filet z kurczaka', department: 'Mięso' },
     { name: 'Ryż basmati', department: 'Sypkie' },
@@ -43,7 +41,6 @@ describe('filtry listy katalogu', () => {
       diets: ['LACTOSE_FREE', 'GLUTEN_FREE'],
       fiberPerServing: 4.5,
       saltPerServing: 1.3,
-      thermomix: false,
       ingredients: [
         { name: 'Filet z kurczaka', department: 'Mięso' },
         { name: 'Ryż basmati', department: 'Sypkie' },
@@ -115,19 +112,6 @@ describe('filtry listy katalogu', () => {
       'GLUTEN_FREE',
     ]);
     expect(tagsOnly.proteins).toEqual([]);
-  });
-
-  it('Thermomix: odpowiednik w Cookidoo z id przepisu', () => {
-    expect(
-      toRecipeListFacets(
-        row({ sourceProvider: 'cookidoo', sourceRecipeId: 'r123' }),
-      ).thermomix,
-    ).toBe(true);
-    expect(
-      toRecipeListFacets(
-        row({ sourceProvider: 'cookidoo', sourceRecipeId: ' ' }),
-      ).thermomix,
-    ).toBe(false);
   });
 
   it('keto po węglowodanach na porcję', () => {

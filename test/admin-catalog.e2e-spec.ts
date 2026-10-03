@@ -407,7 +407,6 @@ describe('Panel administratora — katalog (e2e)', () => {
         diets: ['LACTOSE_FREE', 'VEGETARIAN', 'GLUTEN_FREE'],
         fiberPerServing: 0,
         saltPerServing: 0,
-        thermomix: false,
         // W kolejności linii przepisu (płatki zapisane wcześniej).
         ingredients: [
           { name: 'płatki', department: 'test' },
