@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Prisma } from '@prisma/client';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -284,7 +285,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
           status: 'VALIDATED',
           recipeContentHash: top.recipeContentHash,
           rulesVersion: top.rulesVersion,
-          content,
+          content: content as Prisma.InputJsonValue,
           generator: { source: 'writer' },
         },
       });
