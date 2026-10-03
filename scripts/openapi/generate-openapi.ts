@@ -493,6 +493,36 @@ function namedResponse(
 
 type ServerEvent = { event: string; file: string; line: number; body: string };
 
+/**
+ * Opisy z biblioteki standardowej TypeScriptu (`lib.*.d.ts`), które od TS 6
+ * `typescript-json-schema` dokleja do pól typu `Date`, `Record`, `Partial`,
+ * `Awaited` — szum w kontrakcie. Specyfikacja mówi tylko naszymi
+ * komentarzami (wynik bez nich = ten sam co na TS 5.9, sprawdzone 3.10.2026).
+ */
+const TS_LIB_DESCRIPTION_PREFIXES = [
+  'Construct a type with a set of properties K of type T',
+  'Enables basic storage and retrieval of dates and times.',
+  'Make all properties in T optional',
+  'Recursively unwraps the "awaited type" of a type.',
+];
+
+function stripLibDescriptions(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(stripLibDescriptions);
+  if (!node || typeof node !== 'object') return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (
+      key === 'description' &&
+      typeof value === 'string' &&
+      TS_LIB_DESCRIPTION_PREFIXES.some((prefix) => value.startsWith(prefix))
+    ) {
+      continue;
+    }
+    out[key] = stripLibDescriptions(value);
+  }
+  return out;
+}
+
 function scanServerEvents(program: ts.Program): ServerEvent[] {
   const checker = program.getTypeChecker();
   const out: ServerEvent[] = [];
@@ -681,7 +711,9 @@ async function main(): Promise<void> {
       let lastError: unknown;
       for (const candidate of [name, `${name}${FIX_SUFFIX}`]) {
         try {
-          const schema = generator.getSchemaForSymbol(candidate, true);
+          const schema = stripLibDescriptions(
+            generator.getSchemaForSymbol(candidate, true),
+          ) as TJS.Definition;
           const { definitions: nested, ...root } = schema;
           Object.assign(definitions, nested ?? {});
           definitions[name] = root;

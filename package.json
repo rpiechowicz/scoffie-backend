@@ -132,6 +132,7 @@
   },
   "pnpm": {
     "overrides": {
+      "typescript-json-schema>typescript": "$typescript",
       "@isaacs/brace-expansion": ">=5.0.1",
       "qs": ">=6.16.0",
       "minimatch@<4": ">=10.2.3",
