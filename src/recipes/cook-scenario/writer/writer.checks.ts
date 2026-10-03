@@ -199,6 +199,15 @@ const unitSeconds = (unit: string) => {
   return 60;
 };
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
+/**
+ * Czas złożony „2 godziny 15 minut”, „1 h 30 min”, „godzinę i 15 minut”
+ * (agenci 2.10: duszenie 2 h 15 min). `DURATION` widzi w nim dwa osobne
+ * czasy; timer na sumę (8100 s) nie miał pokrycia w przepisie.
+ */
+const COMPOUND_DURATION = new RegExp(
+  `(?:(\\d+)\\s*)?(?:godz[${PL}.]*|h(?![${PL}]))\\s*(?:i\\s+)?(\\d+)\\s*min[${PL}.]*`,
+  'giu',
+);
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
@@ -225,7 +234,18 @@ const COOKING_TURN = /(piecz|gotuj|smaż|grilluj|opiekaj|gofr|wrząt)/iu;
  * inaczej najwyżej dwie (prompt: najwyżej trzy tury z timerem).
  */
 const extraTurnsIn = (sentence: string): number =>
-  /w\s+(?:dwóch|2)\s+(?:turach|partiach)/iu.test(sentence) ? 1 : 2;
+  /w\s+(?:dwóch|2)\s+(?:turach|partiach)|drug[iąaey]/iu.test(sentence) ? 1 : 2;
+/**
+ * Tura nazwana wprost, bez słów z `BATCH_WORK` (agenci 2.10, katalog:
+ * „piecz każdy gofr 4–5 minut”, „piecz każdą partię 3–4 minuty”, „Tak samo
+ * usmaż drugi omlet” — w omletach ZWYKLE w następnym kroku, bez czasu).
+ * Tylko dopuszcza drugi timer tej samej długości — nie każe go dawać.
+ */
+/** Powtórka w NASTĘPNYM kroku — tylko jawne „tak samo usmaż/upiecz…”. */
+const TURN_REPEAT_NEXT =
+  /tak\s+samo\s+(?:u|przy|za)?(?:smaż|piecz|gotuj|grilluj|opiekaj)/iu;
+const TURN_REPEAT =
+  /tak\s+samo\s+(?:u|przy|za)?(?:smaż|piecz|gotuj|grilluj|opiekaj)|(?:każd|kolejn|następn)\p{L}*\s+(?:\p{L}+\s+)?(?:parti|porcj|tur[ęy]|blach|gofr|omlet|plac|naleśnik|tortill|pizz|racuch|blin|pancake|kotlet|burger)/iu;
 const WAITING_WORK =
   /(duś|dus[zi]|gotuj|piecz|zapiekaj|pod\s+przykryciem|odstaw|marynuj|chłodź|mroź)/iu;
 
@@ -258,6 +278,13 @@ export interface DurationPool {
    * ostrzeżeń „nie ma timera” to była właśnie aktywna praca).
    */
   active: Set<number>;
+  /**
+   * Indeksy `ranges` z sumy czasu złożonego („2 godziny 15 minut” → 8100 s).
+   * Dopuszczają timer na całość, ale tekst ich nie „twierdzi” — scenariusz
+   * z timerem do punktu kontrolnego („Zostało 15 minut duszenia”) przechodził
+   * dotąd i ma przechodzić (regresja na 1046 scenariuszach, 3.10.2026).
+   */
+  compound: Set<number>;
 }
 
 export function recipeDurations(instructions: string[]): [number, number][] {
@@ -272,7 +299,7 @@ export function recipeDurations(instructions: string[]): [number, number][] {
 function claimedDurations(text: string): [number, number][] {
   const pool = recipeDurationPool([text]);
   const derived = new Set(pool.perSide.map((group) => group.combined));
-  return pool.ranges.filter((_, i) => !derived.has(i));
+  return pool.ranges.filter((_, i) => !derived.has(i) && !pool.compound.has(i));
 }
 
 /** Koniec zdania: [.!?] i spacja przed wielką literą (nie skrót „ok.”). */
@@ -342,7 +369,14 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
   const perSide: DurationPool['perSide'] = [];
   const active = new Set<number>();
   const extraTurns = new Set<number>();
-  for (const line of instructions) {
+  const compound = new Set<number>();
+  instructions.forEach((line, index) => {
+    // Powtórka w następnym kroku bez własnego czasu („Tak samo usmaż drugi
+    // omlet”) dotyczy czasów TEGO kroku.
+    const next = instructions[index + 1] ?? '';
+    const repeatedNext =
+      TURN_REPEAT_NEXT.test(next) &&
+      !new RegExp(DURATION.source, 'iu').test(next);
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
       const from = toNumber(match[1]) * seconds;
@@ -377,26 +411,35 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
           perSide.push({ singles: [first, first + 1], combined: first + 2 });
         }
       } else if (
-        BATCH_WORK.test(own) &&
-        !ADDING_GRADUALLY.test(own) &&
-        (!/porcjami/iu.test(own) || COOKING_TURN.test(own))
+        (BATCH_WORK.test(own) &&
+          !ADDING_GRADUALLY.test(own) &&
+          (!/porcjami/iu.test(own) || COOKING_TURN.test(own))) ||
+        TURN_REPEAT.test(own) ||
+        repeatedNext
       ) {
         // Kolejne tury tym samym czasem (najwyżej trzy z timerem, więcej —
         // tekstem). Dopisane PO grupie „z każdej strony” i tylko bez niej —
         // kopia przed grupą przesuwała jej indeksy (przegląd nocny).
-        for (let turn = 0; turn < extraTurnsIn(own); turn += 1) {
+        const context = repeatedNext ? `${own} ${next}` : own;
+        for (let turn = 0; turn < extraTurnsIn(context); turn += 1) {
           extraTurns.add(found.length);
           found.push(range);
         }
       }
+    }
+    for (const match of line.matchAll(COMPOUND_DURATION)) {
+      const seconds =
+        (match[1] ? toNumber(match[1]) : 1) * 3600 + toNumber(match[2]) * 60;
+      compound.add(found.length);
+      found.push([seconds, seconds]);
     }
     const lower = line.toLowerCase();
     if (lower.includes('kwadrans')) found.push([900, 900]);
     if (lower.includes('pół godziny')) found.push([1800, 1800]);
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
-  }
-  return { ranges: found, perSide, active, extraTurns };
+  });
+  return { ranges: found, perSide, active, extraTurns, compound };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -509,6 +552,8 @@ const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
  * słów porównujemy z każdym składnikiem.
  */
 const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej|o)$/u;
+/** Końcówki trybu rozkazującego (bez polskich znaków): dodaj, wsyp, gotuj, zmniejsz, wloz. */
+const IMPERATIVE_END = /(aj|ej|ij|uj|yj|sz|cz|oz|uc|ol)$/u;
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
 const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
 
@@ -597,6 +642,24 @@ function mentionsIngredient(
   // 100 ml wody” — ilość wody), więc idzie z filtrem wymiaru; tylko przed
   // nawiasem to sama rzecz.
   const lastWord = last && !LIST_JOINERS.has(last) ? [last] : [];
+  // Ilość WODY (nie ma jej na liście składników) kończy się na „, nowa
+  // czynność” — „Zagotuj 1,5 l wody, dodaj ocet”, „zalej 300 ml wody, dodaj
+  // liść laurowy” (agenci 2.10, katalog). Tylko przed czasownikiem, który
+  // nie jest nazwą składnika: „150 ml wody i/lub mleka” dalej dzieli ilość,
+  // a „50 ml czystą miarką, wlej olej” (review Codexa #265) — nie woda.
+  let farWords = tailWords.slice(reach);
+  if (/^(wod|wrz)/.test(tailWords[reach - 1] ?? '')) {
+    const cut = /,\s*(\p{L}+)/u.exec(tail);
+    const verb = cut ? normalizeText(cut[1]) : '';
+    const isIngredient = recipe.ingredients.some((row) =>
+      normalizedWords(row.name).some(
+        (word) => word.length >= 3 && verb.startsWith(word.slice(0, 3)),
+      ),
+    );
+    if (cut && IMPERATIVE_END.test(verb) && !isIngredient) {
+      farWords = normalizedWords(tail.slice(0, cut.index)).slice(reach);
+    }
+  }
   const near = [
     ...(bracketed ? lastWord : []),
     ...tailWords.slice(0, reach),
@@ -621,10 +684,7 @@ function mentionsIngredient(
     words.some((word) => stems.some((stem) => word.startsWith(stem)));
   return (
     hits(near, all) ||
-    hits(
-      [...(bracketed ? [] : lastWord), ...tailWords.slice(reach)],
-      sameDimension,
-    )
+    hits([...(bracketed ? [] : lastWord), ...farWords], sameDimension)
   );
 }
 
@@ -1523,7 +1583,9 @@ function checkSafety(
 
 /** Temperatury „po czym poznać” (§5.5) — wolno je pisać bez przepisu. */
 const SAFETY_TEMPERATURES = new Set([63, 71, 74]);
-const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|stopni)/giu;
+// „200C” / „200 C” bez znaku stopnia — tak pisze dwa przepisy katalogu
+// (agenci 2.10: temperatura z przepisu „nie była w przepisie”).
+const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|stopni|C(?![\p{L}]))/gu;
 
 /** Krótkie czynności („mieszaj 1 minutę”) nie zmieniają czasu dania. */
 const SHORT_SECONDS = 120;
@@ -1797,7 +1859,9 @@ function checkTimers(
       range[1] >= MIN_TIMER_SECONDS &&
       !result.owner.has(index) &&
       !pool.active.has(index) &&
-      !pool.extraTurns.has(index)
+      !pool.extraTurns.has(index) &&
+      // Suma czasu złożonego — części mają swoje pokrycie.
+      !pool.compound.has(index)
     ) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
