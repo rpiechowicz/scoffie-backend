@@ -543,6 +543,140 @@ export interface CookFeedbackData {
   items: CookFeedbackItem[];
 }
 
+// ——— Gotuj: scenariusze przepisów (E3c) ———
+
+/**
+ * Stan trybu Gotuj przepisu katalogu:
+ * - `PUBLISHED` — telefony mają scenariusz;
+ * - `STALE` — przepis zmienił się po publikacji, Gotuj zniknął z telefonów
+ *   (trigger bazy) — sprawdź i opublikuj ponownie;
+ * - `VALIDATED` — napisany i sprawdzony, nieopublikowany;
+ * - `REJECTED` — odrzucony (walidator, recenzent albo wycofany w panelu);
+ * - `SKIPPED` — przepis trywialny, bez Gotuj (D29);
+ * - `NONE` — nigdy nie pisany.
+ */
+export type CookScenarioState =
+  'PUBLISHED' | 'STALE' | 'VALIDATED' | 'REJECTED' | 'SKIPPED' | 'NONE';
+
+export interface CookScenarioListItem {
+  recipeId: string;
+  title: string;
+  mealType: MealType;
+  /** przepis aktywny w katalogu */
+  isActive: boolean;
+  state: CookScenarioState;
+  publishedVersion: number | null;
+  /** najnowsza wersja w ogóle (także odrzucona albo nieaktualna) */
+  latestVersion: number | null;
+  /** ostatnia zmiana wiersza scenariusza */
+  updatedAt: IsoDate | null;
+  skipReason: string | null;
+}
+
+/** `GET /admin/cook/scenarios` — wszystkie przepisy katalogu. */
+export interface CookScenarioListData {
+  counts: Record<CookScenarioState, number>;
+  items: CookScenarioListItem[];
+}
+
+/** Treść scenariusza — kopia `CookScenarioContent` z domeny (Gotuj §6). */
+export interface CookScenarioTimerView {
+  id: string;
+  label: string;
+  minSeconds: number;
+  maxSeconds: number;
+  trigger: 'NOW' | 'EVENT';
+  startLabel: string;
+  alert: { title: string; body: string };
+}
+export interface CookScenarioStepView {
+  id: string;
+  phase: 'PREP' | 'COOK' | 'FINISH' | 'SERVE';
+  stage: string | null;
+  title: string;
+  body: string;
+  ingredients: {
+    ingredientId: string;
+    amount: number;
+    unit: string;
+    part: 'ALL' | 'HALF' | 'REST' | 'PART';
+  }[];
+  mentions: string[];
+  note: { kind: 'CUE' | 'WARNING' | 'TIP'; text: string } | null;
+  timer: CookScenarioTimerView | null;
+  during: string | null;
+  scaleNote: { fromPortions: number; text: string } | null;
+}
+export interface CookScenarioContentView {
+  schemaVersion: 1;
+  basePortions: number;
+  portionUnit: { id: string; forms: [string, string, string] } | null;
+  totalMinutes: number;
+  tips: string[];
+  nextTimeTip: string | null;
+  steps: CookScenarioStepView[];
+}
+
+export interface CookScenarioVersionRow {
+  id: string;
+  version: number;
+  status:
+    | 'DRAFT'
+    | 'VALIDATED'
+    | 'PUBLISHED'
+    | 'RETIRED'
+    | 'REJECTED'
+    | 'STALE'
+    | 'SKIPPED';
+  rulesVersion: string;
+  /** `writer`, `agent`, `golden`, `panel` — skąd treść */
+  source: string | null;
+  createdAt: IsoDate;
+  publishedAt: IsoDate | null;
+  /** ocena recenzenta 1–5 (system pisania) */
+  reviewScore: number | null;
+  reviewSummary: string | null;
+}
+
+/** `GET /admin/cook/scenarios/:recipeId`. */
+export interface CookScenarioDetail {
+  recipe: {
+    id: string;
+    title: string;
+    servings: number;
+    isActive: boolean;
+    instructions: string[];
+    ingredients: {
+      ingredientId: string;
+      name: string;
+      amount: number;
+      unit: string;
+    }[];
+  };
+  state: CookScenarioState;
+  publishedVersion: number | null;
+  skipReason: string | null;
+  versions: CookScenarioVersionRow[];
+  /** treść do podglądu i edycji: opublikowana, inaczej najnowsza z treścią */
+  current: {
+    version: number;
+    status: CookScenarioVersionRow['status'];
+    content: CookScenarioContentView;
+  } | null;
+  /**
+   * Walidatory twarde (te same co przy pisaniu) na `current` i BIEŻĄCYM
+   * przepisie — przy `STALE` mówią, czy treść da się opublikować bez zmian.
+   */
+  checks: { errors: string[]; warnings: string[] } | null;
+}
+
+/** `POST /admin/cook/scenarios/:recipeId/publish` (step-up). */
+export interface CookScenarioPublishBody {
+  content: CookScenarioContentView;
+  /** wersja, którą edytowano — inna najnowsza w bazie = 409 CONFLICT */
+  basedOnVersion: number | null;
+}
+
 // ——— Subskrypcje ———
 
 export interface AppleNotification {
