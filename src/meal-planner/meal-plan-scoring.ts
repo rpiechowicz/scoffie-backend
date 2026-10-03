@@ -215,9 +215,10 @@ export function plannerConstraintSet(
 /**
  * Pierwszy powód, dla którego przepis NIE może stanąć w tym slocie; `null` =
  * może. Reguły żyją we wspólnym silniku (`checkRecipe`, N8A) — te same co
- * wyszukiwarka i walidator zapisu. Dieta jest tu twarda, choć walidator
- * zapisu (`collectPlanViolations`) jej nie sprawdza — planer nie proponuje
- * dania, którego jedzący nie powinien jeść.
+ * wyszukiwarka i walidator zapisu. Dieta jest tu twarda; walidator
+ * zapisu (`collectPlanViolations`) sprawdza ją tylko w zapisie asystenta i tylko
+ * dla pozycji zmienionych (S5) — planer nie proponuje dania, którego jedzący
+ * nie powinien jeść.
  */
 export function hardFilterReason(
   recipe: PlannerRecipe,

@@ -601,7 +601,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
     name: 'check_plan_conflicts',
     description:
-      'Sprawdź, czy ZAPISANY plan tygodnia łamie czyjeś alergeny albo wykluczenia. ' +
+      'Sprawdź, czy ZAPISANY plan tygodnia łamie czyjeś alergeny, wykluczenia albo dietę. ' +
       'Wywołuj ZAWSZE, gdy ktoś pyta, czy danie albo plan jest bezpieczny dla ' +
       'konkretnej osoby („czy środowy obiad jest ok dla Zosi?", „co mogę dać Ani?"). ' +
       'NIE odpowiadaj na takie pytania z pamięci ani ze składników — pełny skład ' +

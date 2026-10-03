@@ -242,14 +242,14 @@ The GitHub token never reaches the logs, the clone URL or process arguments:
 git gets the `Authorization` header through `GIT_CONFIG_*` environment variables,
 curl reads it from its config on stdin.
 
-| Variable | Value / where from |
-| --- | --- |
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (reference variable — private network) |
-| `GITHUB_TOKEN` | fine-grained PAT (below) |
-| `OPS_ALERT_WEBHOOK_URL` | the same webhook as `db-backup` / `scoffie-backend` |
-| `GITHUB_REPO` | optional, default `rpiechowicz/scoffie-backend` |
-| `CATALOG_SYNC_BASE_BRANCH` | optional, default `develop` |
-| `CATALOG_SYNC_DRY_RUN` | `true` = export + diff + commit locally, **no push, no PR** (first deploy) |
+| Variable                   | Value / where from                                                         |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `DATABASE_URL`             | `${{Postgres.DATABASE_URL}}` (reference variable — private network)        |
+| `GITHUB_TOKEN`             | fine-grained PAT (below)                                                   |
+| `OPS_ALERT_WEBHOOK_URL`    | the same webhook as `db-backup` / `scoffie-backend`                        |
+| `GITHUB_REPO`              | optional, default `rpiechowicz/scoffie-backend`                            |
+| `CATALOG_SYNC_BASE_BRANCH` | optional, default `develop`                                                |
+| `CATALOG_SYNC_DRY_RUN`     | `true` = export + diff + commit locally, **no push, no PR** (first deploy) |
 
 Service settings (Railway panel; config-as-code is deprecated there): new
 service from the GitHub repo `rpiechowicz/scoffie-backend`, branch `main`, root
@@ -310,12 +310,12 @@ Sentry project `scoffie/scoffie-backend` (NestJS, **data region EU**,
 `de.sentry.io`). Every signal is switched by a variable on the
 `scoffie-backend` service, so turning one off needs no code deploy:
 
-| Variable | Prod | What it does |
-| --- | --- | --- |
-| `SENTRY_DSN` | set | Master switch. Empty = the SDK is a no-op. Errors: only unexpected ones (5xx, see `src/common/app-exception.filter.ts` and `src/common/ws-response.ts`). |
-| `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Share of HTTP requests traced (spans for Nest, http, Prisma). WebSocket traffic is not traced. |
-| `SENTRY_PROFILE_SESSION_SAMPLE_RATE` | `1` | CPU profiles during traced spans; decided once per process. Requires traces > 0. Native add-on (`@sentry/profiling-node`, version pinned to `@sentry/nestjs`). |
-| `SENTRY_LOGS` | `true` | `warn`/`error` lines of the Nest logger go to Sentry Logs (`SentryForwardingLogger`). |
+| Variable                             | Prod   | What it does                                                                                                                                                   |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                         | set    | Master switch. Empty = the SDK is a no-op. Errors: only unexpected ones (5xx, see `src/common/app-exception.filter.ts` and `src/common/ws-response.ts`).       |
+| `SENTRY_TRACES_SAMPLE_RATE`          | `0.1`  | Share of HTTP requests traced (spans for Nest, http, Prisma). WebSocket traffic is not traced.                                                                 |
+| `SENTRY_PROFILE_SESSION_SAMPLE_RATE` | `1`    | CPU profiles during traced spans; decided once per process. Requires traces > 0. Native add-on (`@sentry/profiling-node`, version pinned to `@sentry/nestjs`). |
+| `SENTRY_LOGS`                        | `true` | `warn`/`error` lines of the Nest logger go to Sentry Logs (`SentryForwardingLogger`).                                                                          |
 
 Metrics (`scoffie.agent.*`, `scoffie.ws.*`, `scoffie.http.throttled`) are sent
 whenever the DSN is set; they mirror the `/ops/metrics` counters but survive
@@ -454,7 +454,9 @@ Siedemnaście narzędzi, w czterech grupach:
 
 Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem albo
 wykluczonym składnikiem domownika nie da się wstawić do posiłku, który ta
-osoba je (`RECIPE_ALLERGEN_CONFLICT`, `RECIPE_EXCLUDED_INGREDIENT`), przepisu
+osoba je (`RECIPE_ALLERGEN_CONFLICT`, `RECIPE_EXCLUDED_INGREDIENT`), asystent
+nie wstawi ani nie przesunie dania spoza diety jedzących (`RECIPE_DIET_CONFLICT`;
+pozycji, których nie zmienia, nie sprawdza — ręczny wybór zostaje), przepisu
 katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`), przepisu
 użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
 naruszeniu zapis tygodnia nie zapisuje NICZEGO. Do modelu NIE idzie sylwetka

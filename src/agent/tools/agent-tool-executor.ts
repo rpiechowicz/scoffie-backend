@@ -136,6 +136,8 @@ const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
     'Danie zawiera alergen któregoś z jedzących — wybierz inne danie na ten slot.',
   RECIPE_EXCLUDED_INGREDIENT:
     'Danie zawiera składnik, którego ktoś z jedzących nie je — wybierz inne danie.',
+  RECIPE_DIET_CONFLICT:
+    'Danie nie pasuje do diety kogoś z jedzących — wybierz inne danie.',
 };
 
 /**
@@ -1735,7 +1737,7 @@ export class AgentToolExecutor {
    * razy, drugi raz gorzej sformatowaną.
    */
   /**
-   * Konflikty alergenowe i wykluczenia w ZAPISANYM planie tygodnia.
+   * Konflikty alergenowe, wykluczenia i dieta w ZAPISANYM planie tygodnia.
    *
    * Bierze bieżący tydzień jako listę slotów i przepuszcza go przez tę samą
    * bramkę, co zapis (`previewWeekPlan` → `collectPlanViolations`), więc
@@ -1844,6 +1846,8 @@ export class AgentToolExecutor {
       context.householdId,
       weekStart,
       { slots },
+      // Raport, nie zapis: dieta dla każdej pozycji, także tej sprzed zmian.
+      { dietScope: 'all' },
     );
     return {
       weekStart,

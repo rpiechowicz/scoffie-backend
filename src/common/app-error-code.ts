@@ -80,6 +80,9 @@ export const APP_ERROR_CODES = [
   // pilnował tego wyłącznie prompt, a model nie widzi pełnej listy składników.
   'RECIPE_ALLERGEN_CONFLICT',
   'RECIPE_EXCLUDED_INGREDIENT',
+  // Danie łamie dietę kogoś z jedzących — tylko w zapisie planu asystenta
+  // (`applyWeekPlan`), dla pozycji nowych albo z innym audytorium (S5).
+  'RECIPE_DIET_CONFLICT',
   // Próba edycji albo kasowania przepisu ze WSPÓLNEGO katalogu. Dla asystenta
   // to instrukcja, nie ślepa uliczka: ma zrobić własną kopię w gospodarstwie,
   // a nie ponawiać zapis.

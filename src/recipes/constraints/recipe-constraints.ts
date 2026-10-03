@@ -20,7 +20,8 @@ import { ingredientMatches, words } from '../ingredient-match.util';
  * kopią starego kodu: `constraint-engine.equivalence.spec.ts`) z jedną
  * świadomą zmianą: „bez X” po rdzeniu słowa, jak wyszukiwarka (S6).
  * Różnice między silnikami, które zostają (pora z bazowym `mealType`
- * w zapisie, dieta w zapisie, tagi ORAZ vs grupy) — patrz testy charakteryzujące
+ * w zapisie, dieta w zapisie tylko asystenta i tylko dla zmienionych pozycji,
+ * tagi ORAZ vs grupy) — patrz testy charakteryzujące
  * (`constraint-semantics.characterization.spec.ts`); każda to osobna decyzja.
  *
  * Moduł leży w `recipes/`, a nie w `meal-planner/`: planer importuje utile
