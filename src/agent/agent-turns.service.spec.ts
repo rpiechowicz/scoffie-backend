@@ -10,7 +10,10 @@ import {
   AgentTurnsService,
   TURN_TIMEOUT_GRACE_MS,
 } from './agent-turns.service';
-import { AiUsageCountersService } from './ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  GLOBAL_SCOPE,
+} from './ai-usage-counters.service';
 import { AgentUsageLedger } from './agent-usage-ledger.service';
 import { PostMessageDto } from './dto/post-message.dto';
 import { UpstreamBreaker } from './upstream-breaker';
@@ -330,6 +333,71 @@ describe('AgentTurnsService', () => {
       // Bez żywych tur te same pieniądze mieszczą się pod sufitem.
       prisma.agentTurn.count.mockResolvedValue(0);
       await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+    });
+
+    // Atomowość budżetu instalacji (backlog workstreamu, raport 01 A2): blisko
+    // sufitu rachunek powtarza transakcja startu — z jej migawki, więc
+    // równoległe starty z różnych domów i instancji szereguje SSI.
+    describe('budżet instalacji blisko sufitu — w transakcji', () => {
+      /** Żywe tury CAŁEJ instalacji: `where` bez rozmowy i bez domu. */
+      const isInstallationCount = (args: { where?: object }) =>
+        !!args.where &&
+        !('conversationId' in args.where) &&
+        !('conversation' in args.where);
+
+      it('odmawia, gdy tury z migawki transakcji zjadają resztę budżetu', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 1,
+          turnCostReserveUsd: 0.25,
+        });
+        // Wydane $0,50; przed transakcją żadnej żywej tury — przechodzi.
+        counters.read.mockResolvedValue(500_000);
+        prisma.agentTurn.count.mockResolvedValue(0);
+        // W transakcji widać już dwie tury innych domów: 0,50 + 2 × 0,25.
+        tx.agentTurn.count.mockImplementation((args: { where?: object }) =>
+          Promise.resolve(isInstallationCount(args) ? 2 : 0),
+        );
+
+        expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+        expect(tx.agentTurn.create).not.toHaveBeenCalled();
+        expect(counters.read).toHaveBeenCalledWith(
+          GLOBAL_SCOPE,
+          '2026-08-31',
+          'costMicroUsd',
+          tx,
+        );
+      });
+
+      it('daleko od sufitu nie liczy tur instalacji w transakcji', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 100,
+          turnCostReserveUsd: 0.25,
+        });
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
+      });
+
+      it('bez rezerwacji (0) nie ma czego szeregować', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 1,
+          turnCostReserveUsd: 0,
+        });
+        counters.read.mockResolvedValue(999_000);
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(counters.read).not.toHaveBeenCalledWith(
+          GLOBAL_SCOPE,
+          '2026-08-31',
+          'costMicroUsd',
+          tx,
+        );
+      });
     });
 
     it('budżet niewyczerpany przepuszcza turę', async () => {

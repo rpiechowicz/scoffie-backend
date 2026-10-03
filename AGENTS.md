@@ -223,8 +223,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   `Location`, klient odpytuje `GET /agent/turns/:id`. Kolejność odmów jest częścią kontraktu
   (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik i zamykany proces
   [503 `AI_UPSTREAM_PAUSED`] → sufity domu z samych wydanych [503] → budżet instalacji z rezerwacją
-  [503, NIEATOMOWO] → [tx SERIALIZABLE: lease 409 → semafor domu 409 → sufity domu z rezerwacją
-  503 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca WYŁĄCZNIE za turę, która nic nie
+  [503] → [tx SERIALIZABLE: lease 409 → semafor domu 409 → sufity domu z rezerwacją 503 →
+  blisko sufitu instalacji (`INSTALLATION_ATOMIC_HEADROOM_TURNS` rezerw) jej rachunek jeszcze raz,
+  atomowo, 503 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca WYŁĄCZNIE za turę, która nic nie
   kosztowała — na każdej ścieżce domknięcia (`AgentUsageLedger.refundIfFree`, warunek
   `costMicroUsd: 0` w samym `updateMany`) i BEZ WZGLĘDU na rodzaj błędu: od 27.09.2026 także
   nie-ponawialny błąd dostawcy (401 nieważny klucz, 404 model, 400) oddaje wiadomość, gdy tura nic
