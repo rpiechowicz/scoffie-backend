@@ -10,6 +10,7 @@ import { AdminAuditModule } from './audit/admin-audit.module';
 import { AdminAlertsModule } from './alerts/admin-alerts.module';
 import { AdminAssistantModule } from './assistant/admin-assistant.module';
 import { AdminCatalogModule } from './catalog/admin-catalog.module';
+import { AdminCookModule } from './cook/admin-cook.module';
 import { AdminGdprModule } from './gdpr/admin-gdpr.module';
 import { AdminDatabaseModule } from './database/admin-database.module';
 import { AdminTrafficModule } from './traffic/admin-traffic.module';
@@ -55,6 +56,7 @@ import { AdminLiveModule } from './live/admin-live.module';
     AdminSubscriptionsModule,
     AdminAssistantModule,
     AdminCatalogModule,
+    AdminCookModule,
     AdminIntegrationsModule,
     AdminAuditModule,
     AdminSettingsModule,

@@ -7,6 +7,7 @@ import { CatalogSyncService } from './catalog-sync.service';
 import { RecipeSharingService } from './sharing/recipe-sharing.service';
 import { PublicRecipesController } from './sharing/public-recipes.controller';
 import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
+import { CookFeedbackService } from './cook-scenario/cook-feedback.service';
 
 @Module({
   controllers: [PublicRecipesController],
@@ -18,6 +19,7 @@ import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
     CatalogSyncService,
     RecipeSharingService,
     CookScenariosService,
+    CookFeedbackService,
   ],
   // Serwisy wystawione dla `src/agent/`: narzędzia asystenta wołają domenę
   // in-process, przez te same metody, co handlery WS.

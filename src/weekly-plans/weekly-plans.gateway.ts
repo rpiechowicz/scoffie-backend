@@ -29,6 +29,7 @@ import { ApplyWeekPlanDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
+import { LogCookedMealDto } from './dto/log-cooked-meal.dto';
 import { SetPortionDto } from './dto/set-portion.dto';
 import { Server, Socket } from 'socket.io';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -115,6 +116,11 @@ class WeeklyPlansRemoveWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
 class WeeklyPlansSetMealEatenPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: SetMealEatenDto;
+}
+
+class WeeklyPlansLogCookedMealPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: LogCookedMealDto;
 }
 
 class WeeklyPlansSetPortionPayload extends WeeklyPlansHouseholdWeekPayload {
@@ -860,6 +866,50 @@ export class WeeklyPlansGateway
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
       });
+
+      return result;
+    });
+  }
+
+  /**
+   * „Zjedzone” po gotowaniu w trybie Gotuj — odhaczenie dania z planu albo
+   * dopisanie ugotowanego spoza planu (`logCookedMeal`). Rozgłoszenie jak
+   * odhaczenie (`SET_MEAL_EATEN`, techniczne — telefony odświeżają tydzień
+   * bez powiadomienia): domownik nie dostaje pusha o cudzym obiedzie, a
+   * lista zakupów się nie zmienia (pozycja `cookedOffPlan` jej nie zasila).
+   */
+  @SubscribeMessage('weeklyPlans:logCookedMeal')
+  logCookedMeal(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansLogCookedMealPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansLogCookedMealPayload, payload);
+      const result = await this.weeklyPlansService.logCookedMeal(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.broadcastMealEaten({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changedByUserId: userId,
+        dayOfWeek: result.dayOfWeek,
+        mealType: result.mealType,
+      });
+      // Gotujący doszedł do audytorium cudzej pozycji — porcji przybyło,
+      // lista zakupów się zmieniła (wpis `cookedOffPlan` jej nie rusza).
+      if (result.changeKind === 'DETAILS_CHANGED') {
+        this.emitShoppingListChanged({
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'UPSERT_SLOT',
+          changedByUserId: userId,
+        });
+      }
 
       return result;
     });

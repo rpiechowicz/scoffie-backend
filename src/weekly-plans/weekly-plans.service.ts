@@ -28,6 +28,7 @@ import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
+import { LogCookedMealDto } from './dto/log-cooked-meal.dto';
 import { SetPortionDto } from './dto/set-portion.dto';
 import { DayOfWeek, MealType, Prisma } from '@prisma/client';
 import { AppErrorCode } from '../common/app-error-code';
@@ -56,6 +57,7 @@ import {
 } from './utils/week-write-lock.util';
 import {
   servingsPerPerson,
+  visibleToMember,
   weeklyBalanceForMember,
 } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
@@ -507,6 +509,22 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
     input: UpsertWeekSlotDto,
+    /**
+     * Tylko `logCookedMeal` (Gotuj, „Zjedzone” spoza planu): nowa pozycja
+     * dostaje `cookedOffPlan`, istniejąca zostaje NIETKNIĘTA (to plan
+     * domownika, nie nasz zapis), a `markEaten` biegnie w tej samej
+     * transakcji, po zamku tygodnia — wpis i odhaczenie razem albo wcale.
+     * `join` — gotujący DOCHODZI do audytorium istniejącej pozycji (zwykły
+     * zapis planu z tokenem: porcje, bramki, lista zakupów jak przy ręcznym
+     * dodaniu osoby) i jest odhaczony w tej samej transakcji.
+     */
+    cookLog?: {
+      markEaten: (
+        tx: Prisma.TransactionClient,
+        planItemId: string,
+      ) => Promise<void>;
+      join?: boolean;
+    },
   ) {
     // Walidacja na wejściu, PRZED pierwszym zapytaniem: dekoratory DTO nie
     // działają na WS, a asystent woła tę metodę in-process. Dalej używamy
@@ -592,13 +610,18 @@ export class WeeklyPlansService {
         return stamp;
       };
 
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
+      // Wpis po gotowaniu (`cookLog`) listy zakupów nie zmienia
+      // (`cookedOffPlan`), więc nie odsłania listy schowanej po wyczyszczeniu
+      // historii i nie każe jej przeliczać.
+      if (!cookLog || cookLog.join) {
+        await tx.shoppingListArchiveState.deleteMany({
+          where: {
+            householdId,
+            weekStart: weekStartDate,
+            currentArchiveId: null,
+          },
+        });
+      }
 
       // „Zmień danie": stary wariant znika w tej samej transakcji, w której
       // wchodzi nowy. Dwa skutki, oba celowe: slot nigdy nie stoi pusty
@@ -682,6 +705,21 @@ export class WeeklyPlansService {
         // Token bez zamiany celuje w TĘ pozycję — nie ma jej (usunięta albo
         // jeszcze nieodtworzona), więc klient pisze do stanu, którego nie ma.
         throw revisionConflict(null);
+      }
+      // Gotuj: przepis zdążył trafić do tego slotu (drugi telefon, ponowienie
+      // po utraconej odpowiedzi) — odhaczamy go tam, nie ruszając audytorium
+      // ani porcji, które ustawił ktoś inny.
+      if (cookLog && !cookLog.join && existingItem) {
+        await cookLog.markEaten(tx, existingItem.id);
+        const kept = await tx.planItem.findUniqueOrThrow({
+          where: { id: existingItem.id },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        return {
+          ...withPlanItemRelationIds(kept),
+          replacedItemIds: [] as string[],
+          changeKind: 'NOOP' as const,
+        };
       }
       // Porcje z żądania — potrzebne już tu: zamiana dania z alokacją BEZ
       // jawnych porcji usunęłaby ją razem z pozycją, a z jawnymi, ale bez
@@ -855,6 +893,7 @@ export class WeeklyPlansService {
               tx,
             );
           }
+          if (cookLog) await cookLog.markEaten(tx, existingItem.id);
           const kept = await tx.planItem.findUniqueOrThrow({
             where: { id: existingItem.id },
             include: PLAN_ITEM_INCLUDE,
@@ -929,9 +968,18 @@ export class WeeklyPlansService {
           weekStartDate,
           tx,
         );
+        // Gotuj (`join`): odhaczenie w tej samej transakcji, odczyt po nim.
+        const finalItem = cookLog
+          ? await cookLog.markEaten(tx, existingItem.id).then(() =>
+              tx.planItem.findUniqueOrThrow({
+                where: { id: existingItem.id },
+                include: PLAN_ITEM_INCLUDE,
+              }),
+            )
+          : updatedItem;
 
         return {
-          ...withPlanItemRelationIds(updatedItem),
+          ...withPlanItemRelationIds(finalItem),
           replacedItemIds,
           changeKind: replaced
             ? ('REPLACED' as const)
@@ -1013,6 +1061,7 @@ export class WeeklyPlansService {
             recipeId: dto.recipeId,
             plannedServings,
             revision,
+            cookedOffPlan: cookLog !== undefined && !cookLog.join,
             participants: {
               create: effectiveParticipantIds.map((id) => ({ userId: id })),
             },
@@ -1043,6 +1092,27 @@ export class WeeklyPlansService {
           }
           throw error;
         });
+
+      if (cookLog?.join) {
+        await this.shoppingListService.markShoppingListStale(
+          householdId,
+          weekStartDate,
+          tx,
+        );
+      }
+      if (cookLog) {
+        await cookLog.markEaten(tx, createdItem.id);
+        // Odczyt po odhaczeniu — `consumptions` w odpowiedzi ma je już mieć.
+        const eaten = await tx.planItem.findUniqueOrThrow({
+          where: { id: createdItem.id },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        return {
+          ...withPlanItemRelationIds(eaten),
+          replacedItemIds,
+          changeKind: 'CREATED' as const,
+        };
+      }
 
       await this.shoppingListService.markShoppingListStale(
         householdId,
@@ -2406,6 +2476,175 @@ export class WeeklyPlansService {
     });
 
     return withPlanItemRelationIds(updated);
+  }
+
+  /**
+   * „Zjedzone” po gotowaniu w trybie Gotuj (docs iOS Gotuj D21, D56).
+   *
+   * Wszystko według tego, co gotujący WIDZI w Kalendarzu i bilansie
+   * (`visibleToMember`: własne danie w porze wygrywa ze wspólnym, cudzych
+   * imiennych nie widzi) — odhaczenie pozycji, której nie widać, nie
+   * zostawiłoby śladu ani w planie, ani w kcal.
+   *
+   * 1. Przepis stoi DZIŚ w planie i gotujący go widzi (najpierw w porze
+   *    z żądania) — odhaczamy go tam, jak `setMealEaten`. Tak kończy się też
+   *    ponowienie po utraconej odpowiedzi.
+   * 2. Stoi, ale tylko dla innych — gotujący dochodzi do audytorium tej
+   *    pozycji (ta sama „suma audytoriów”, co ręczne dodanie przepisu dla
+   *    drugiej osoby; porcje osób zostają, `PRESERVE`) i jest odhaczony —
+   *    w JEDNEJ transakcji (`cookLog.join`).
+   * 3. Nie stoi — dopisujemy OBOK tego, co jest w porze (D56: nigdy nie
+   *    zastępujemy, plan jest wspólny) i odhaczamy gotującego w JEDNEJ
+   *    transakcji. Pozycja ma `cookedOffPlan`, więc lista zakupów jej nie
+   *    liczy. Audytorium: „Wspólne”, gdy porcji co najmniej tyle, ilu
+   *    domowników, a gotujący nie ma w tej porze własnego dania (inaczej
+   *    nie zobaczyłby wspólnego); w pozostałych przypadkach sam gotujący. Porcje z reguły auto
+   *    (1 na osobę): bilans liczy zjedzone, nie ugotowane. Alergen
+   *    domownika przy „Wspólne” = wpis tylko dla gotującego; alergen samego
+   *    gotującego = odmowa bramki, jak przy każdym zapisie planu.
+   *
+   * Bramki, limity slotów i zamek tygodnia — te same co `upsertWeekSlot`
+   * (przez niego idzie zapis).
+   */
+  async logCookedMeal(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: LogCookedMealDto,
+  ) {
+    const validated = await validateDto(LogCookedMealDto, input);
+    // iOS wysyła UUID wielkimi literami, baza oddaje małymi — porównania
+    // niżej idą w JS (`===`), nie w zapytaniu.
+    const dto = { ...validated, recipeId: validated.recipeId.toLowerCase() };
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+    await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
+
+    const dayItems = await this.prisma.planItem.findMany({
+      where: {
+        weeklyPlan: { householdId, weekStart: weekStartDate },
+        dayOfWeek: dto.dayOfWeek,
+      },
+      select: {
+        mealType: true,
+        recipeId: true,
+        revision: true,
+        participants: { select: { userId: true } },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const items = dayItems.map((item) => ({
+      mealType: item.mealType,
+      recipeId: item.recipeId,
+      revision: item.revision,
+      participantIds: item.participants.map((p) => p.userId),
+    }));
+    const inSlot = (mealType: MealType) =>
+      items.filter((item) => item.mealType === mealType);
+    // Pora z żądania pierwsza, potem kolejność dnia.
+    const slotOrder = [
+      dto.mealType,
+      ...MEAL_TYPES_IN_DAY_ORDER.filter((type) => type !== dto.mealType),
+    ];
+    const eat = (mealType: MealType) =>
+      this.setMealEaten(userId, householdId, weekStart, {
+        dayOfWeek: dto.dayOfWeek,
+        mealType,
+        recipeId: dto.recipeId,
+        isEaten: true,
+      }).then((item) => ({ ...item, changeKind: 'NOOP' as const }));
+    // Pozycja zniknęła między odczytem a zapisem — piszemy dalej, jakby jej
+    // nie było, zamiast oddawać gotującemu 404.
+    const gone = (error: unknown) =>
+      error instanceof AppException && error.code === 'PLAN_ITEM_NOT_FOUND';
+
+    for (const mealType of slotOrder) {
+      const visible = visibleToMember(inSlot(mealType), userId);
+      if (!visible.some((item) => item.recipeId === dto.recipeId)) continue;
+      try {
+        return await eat(mealType);
+      } catch (error) {
+        if (!gone(error)) throw error;
+      }
+    }
+
+    const markEaten = async (
+      tx: Prisma.TransactionClient,
+      planItemId: string,
+    ) => {
+      await tx.planItemConsumption.upsert({
+        where: { planItemId_userId: { planItemId, userId } },
+        update: {},
+        create: { planItemId, userId },
+      });
+    };
+
+    const forOthers = slotOrder
+      .flatMap((mealType) => inSlot(mealType))
+      .find((item) => item.recipeId === dto.recipeId);
+    if (forOthers && forOthers.participantIds.length > 0) {
+      // Imienna pozycja innych — gotujący DOCHODZI do audytorium (suma
+      // audytoriów jak przy ręcznym dodaniu osoby; porcje osób `PRESERVE`,
+      // token z odczytu — pozycja z alokacją bez niego odmawia) i jest
+      // odhaczony w tej samej transakcji. Nieaktualny token = konflikt.
+      return this.upsertWeekSlot(
+        userId,
+        householdId,
+        weekStart,
+        {
+          dayOfWeek: dto.dayOfWeek,
+          mealType: forOthers.mealType,
+          recipeId: dto.recipeId,
+          participantIds: [...forOthers.participantIds, userId],
+          portionPolicy: 'PRESERVE',
+          expectedRevision: forOthers.revision,
+        },
+        { markEaten, join: true },
+      );
+    }
+    if (forOthers) {
+      // „Wspólne”, które gotującemu zasłania jego własne danie w tej porze
+      // (`visibleToMember`). Uczynić je widocznym dałoby się tylko,
+      // zawężając audytorium innym, a drugiej pozycji z tym przepisem
+      // w porze być nie może — odhaczamy więc tę: zapis jest, choć Kalendarz
+      // gotującego pokazuje jego własne danie. Rzadkie, świadome.
+      try {
+        return await eat(forOthers.mealType);
+      } catch (error) {
+        if (!gone(error)) throw error;
+      }
+    }
+
+    const memberCount = (await this.loadMemberIds(householdId)).size;
+    const cookLog = { markEaten };
+    const write = (participantIds: string[]) =>
+      this.upsertWeekSlot(
+        userId,
+        householdId,
+        weekStart,
+        {
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+          recipeId: dto.recipeId,
+          participantIds,
+        },
+        cookLog,
+      );
+    const hasOwnInSlot = inSlot(dto.mealType).some((item) =>
+      item.participantIds.includes(userId),
+    );
+    if (dto.servings < memberCount || hasOwnInSlot) return write([userId]);
+    try {
+      return await write([]);
+    } catch (error) {
+      if (
+        error instanceof AppException &&
+        error.code === 'RECIPE_ALLERGEN_CONFLICT'
+      ) {
+        return write([userId]);
+      }
+      throw error;
+    }
   }
 
   /**
