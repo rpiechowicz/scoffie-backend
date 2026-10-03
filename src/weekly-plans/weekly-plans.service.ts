@@ -115,14 +115,17 @@ const PLAN_ITEM_INCLUDE = {
 } satisfies Prisma.PlanItemInclude;
 
 /**
- * Audytorium jako porównywalny klucz: posortowane id osób, a „wszyscy” (puste
- * albo każdy domownik) — `*`, tak jak zapis zwija pełną listę do „Wspólne”.
+ * Diety, których pilnuje zapis planu asystenta: tylko SKŁADNIKOWE (mięso,
+ * ryba, nabiał…). KETO i HIGH_PROTEIN to cele makro — planer je optymalizuje,
+ * ale w zapisie byłyby wetem dla całego domu (przepis bez makr, owsianka
+ * z mało białka), a ogólny komunikat nie pozwala modelowi wyjaśnić odmowy.
  */
-function audienceKey(participantIds: string[], memberIds: Set<string>): string {
-  const unique = Array.from(new Set(participantIds));
-  if (unique.length === 0 || unique.length === memberIds.size) return '*';
-  return unique.sort().join(',');
-}
+const WRITE_GATE_DIETS: ReadonlySet<DietPreferenceValue> = new Set([
+  'VEGETARIAN',
+  'VEGAN',
+  'PESCATARIAN',
+  'PALEO',
+]);
 
 /** Wiersz `PlanItem` dokładnie w kształcie `PLAN_ITEM_INCLUDE`. */
 type PlanItemRow = Prisma.PlanItemGetPayload<{
@@ -232,18 +235,19 @@ type PlannableRecipe = {
 };
 
 /**
- * Dieta w walidatorze zapisu planu asystenta (decyzja S5, 3.10.2026): planer
+ * Dieta w walidatorze zapisu tygodnia (decyzja S5, 3.10.2026): planer
  * i wyszukiwarka diety pilnują, a zapis nie — model wybierający danie
  * w poprawce propozycji mógł wstawić mięso wegetarianinowi. Sprawdzamy TYLKO
- * pozycje nowe albo z innym audytorium: ręcznie dodane danie spoza diety,
- * którego asystent nie rusza, nie może zablokować mu zapisu całego tygodnia
- * (ryzyko R3 z N8A). Ręczny zapis z telefonu (`upsertWeekSlot`) diety nie
- * sprawdza — to wybór człowieka.
+ * osoby, które pozycja DOKŁADA do jedzących względem bazy (nowa pozycja =
+ * wszyscy jej jedzący): ręcznie dodane danie spoza diety, którego asystent nie
+ * rusza albo tylko zawęża, nie może zablokować mu zapisu tygodnia (ryzyko R3
+ * z N8A). Ręczny zapis pozycji z telefonu (`upsertWeekSlot`) i cofnięcie
+ * propozycji (`dietScope: 'none'`) diety nie sprawdzają.
  */
 type DietGate = {
   dietByMember: Map<string, DietPreferenceValue>;
-  /** Audytorium pozycji dziś w bazie: klucz `dzień|pora|przepis` → posortowane id. */
-  current: Map<string, string>;
+  /** Jedzący pozycji dziś w bazie: klucz `dzień|pora|przepis` → osoby. */
+  current: Map<string, ReadonlySet<string>>;
 };
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
@@ -295,6 +299,12 @@ export type ApplyWeekPlanHooks = {
    * `expectedRevision` — polityka nie jest polem DTO.
    */
   portionsPolicy?: PortionsWritePolicy;
+  /**
+   * `none` — bez bramki diety. Tylko cofnięcie propozycji: przywraca dokładną
+   * migawkę stanu, który legalnie był w bazie (danie spoza diety dodane
+   * ręcznie). Wolno WYŁĄCZNIE z `guard` (odcisk tygodnia pod zamkiem).
+   */
+  dietScope?: 'changed' | 'none';
 };
 
 /** Jedna pozycja proponowanego tygodnia, gotowa do pokazania człowiekowi. */
@@ -1217,6 +1227,11 @@ export class WeeklyPlansService {
         `applyWeekPlan: portionsPolicy "${hooks.portionsPolicy}" wymaga guarda sprawdzającego odcisk tygodnia w tej samej transakcji.`,
       );
     }
+    if (hooks.dietScope === 'none' && !hooks.guard) {
+      throw new Error(
+        'applyWeekPlan: dietScope "none" wymaga guarda sprawdzającego odcisk tygodnia w tej samej transakcji.',
+      );
+    }
     const dto = await validateDto(ApplyWeekPlanDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
@@ -1228,11 +1243,21 @@ export class WeeklyPlansService {
       householdId,
       dto.slots.map((slot) => slot.recipeId),
     );
-    const currentAudiences = await this.loadCurrentAudiences(
-      householdId,
-      weekStartDate,
-      memberIds,
-    );
+    // Odczyt poza zamkiem tygodnia, jak cała walidacja: równoległa edycja
+    // między nim a zapisem może najwyżej przepuścić danie, które człowiek
+    // właśnie usunął — to samo „ostatni zapis wygrywa”, co dla reszty pól.
+    // Propozycje chroni odcisk tygodnia w `guard`.
+    const dietGate =
+      hooks.dietScope === 'none'
+        ? null
+        : {
+            dietByMember,
+            current: await this.loadCurrentAudiences(
+              householdId,
+              weekStartDate,
+              memberIds,
+            ),
+          };
 
     const violations = this.collectPlanViolations(
       dto.slots,
@@ -1240,7 +1265,7 @@ export class WeeklyPlansService {
       memberIds,
       allergensByMember,
       undefined,
-      { dietByMember, current: currentAudiences },
+      dietGate,
     );
     if (violations.length > 0) {
       return {
@@ -1647,12 +1672,15 @@ export class WeeklyPlansService {
     };
   }
 
-  /** Audytorium pozycji tygodnia w bazie — „co się zmienia” dla bramki diety. */
+  /**
+   * Jedzący każdej pozycji tygodnia w bazie — „kogo pozycja dokłada” dla
+   * bramki diety. Puste `participants` = cały dom (dzisiejszy skład).
+   */
   private async loadCurrentAudiences(
     householdId: string,
     weekStartDate: Date,
     memberIds: Set<string>,
-  ): Promise<Map<string, string>> {
+  ): Promise<Map<string, ReadonlySet<string>>> {
     const items = await this.prisma.planItem.findMany({
       where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
       select: {
@@ -1665,10 +1693,9 @@ export class WeeklyPlansService {
     return new Map(
       items.map((item) => [
         `${item.dayOfWeek}|${item.mealType}|${item.recipeId}`,
-        audienceKey(
-          item.participants.map((p) => p.userId),
-          memberIds,
-        ),
+        item.participants.length > 0
+          ? new Set(item.participants.map((p) => p.userId))
+          : memberIds,
       ]),
     );
   }
@@ -1731,8 +1758,8 @@ export class WeeklyPlansService {
           ? (slot.participantIds ?? [])
           : Array.from(memberIds);
       // Reguły ze wspólnego silnika (`recipe-constraints`, N8A) — te same co
-      // planer i wyszukiwarka. Dieta tylko z `diet` (zapis asystenta, S5):
-      // ręczny wybór użytkownika jej nie podlega.
+      // planer i wyszukiwarka. Dieta tylko z `diet` (zapis tygodnia, S5):
+      // ręczny zapis pozycji i cofnięcie propozycji jej nie podlegają.
       const audienceAllergens = Array.from(
         new Set(
           audience.flatMap((memberId) => allergensByMember.get(memberId) ?? []),
@@ -1769,20 +1796,21 @@ export class WeeklyPlansService {
         );
       }
 
-      // Dieta — tylko pozycje nowe albo z innym audytorium (`DietGate`).
+      // Dieta — tylko osoby, które pozycja dokłada względem bazy (`DietGate`).
       // Komunikat bez nazwy diety i osoby: idzie do modelu i do szczegółów
       // odmowy, a dieta to dane o zdrowiu.
       if (diet) {
-        const key = `${slot.dayOfWeek}|${slot.mealType}|${slot.recipeId}`;
-        const unchanged =
-          diet.current.get(key) ===
-          audienceKey(slot.participantIds ?? [], memberIds);
-        const breaks =
-          !unchanged &&
-          audience.some((memberId) => {
-            const preference = diet.dietByMember.get(memberId) ?? 'NONE';
-            return !subjectSatisfiesDiet(recipe, preference);
-          });
+        const before = diet.current.get(
+          `${slot.dayOfWeek}|${slot.mealType}|${slot.recipeId}`,
+        );
+        const breaks = audience.some((memberId) => {
+          if (before?.has(memberId)) return false;
+          const preference = diet.dietByMember.get(memberId) ?? 'NONE';
+          return (
+            WRITE_GATE_DIETS.has(preference) &&
+            !subjectSatisfiesDiet(recipe, preference)
+          );
+        });
         if (breaks) {
           at(
             'RECIPE_DIET_CONFLICT',
@@ -1904,7 +1932,7 @@ export class WeeklyPlansService {
     const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
     const currentAudiences =
       options.dietScope === 'all'
-        ? new Map<string, string>()
+        ? new Map<string, ReadonlySet<string>>()
         : await this.loadCurrentAudiences(
             householdId,
             weekStartDate,

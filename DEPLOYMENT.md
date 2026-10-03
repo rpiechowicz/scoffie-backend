@@ -455,8 +455,9 @@ Siedemnaście narzędzi, w czterech grupach:
 Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem albo
 wykluczonym składnikiem domownika nie da się wstawić do posiłku, który ta
 osoba je (`RECIPE_ALLERGEN_CONFLICT`, `RECIPE_EXCLUDED_INGREDIENT`), asystent
-nie wstawi ani nie przesunie dania spoza diety jedzących (`RECIPE_DIET_CONFLICT`;
-pozycji, których nie zmienia, nie sprawdza — ręczny wybór zostaje), przepisu
+nie wstawi dania spoza diety (wegetariańskiej, wegańskiej, pescetariańskiej,
+paleo) osobie, którą dokłada do jedzących (`RECIPE_DIET_CONFLICT`; pozycji, których
+nie zmienia albo tylko zawęża, nie sprawdza — ręczny wybór zostaje), przepisu
 katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`), przepisu
 użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
 naruszeniu zapis tygodnia nie zapisuje NICZEGO. Do modelu NIE idzie sylwetka

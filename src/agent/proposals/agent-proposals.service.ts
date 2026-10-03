@@ -1515,6 +1515,9 @@ export class AgentProposalsService {
           // cofnięcie jest więc intencją chronioną odciskiem, także gdy
           // przywraca pozycję BEZ alokacji (ADR `plan-portions-write-safety`).
           portionsPolicy: 'authoritative',
+          // Migawka to stan, który legalnie był w bazie — także danie spoza
+          // diety dodane ręcznie. Bramka diety odrzuciłaby własne „Cofnij”.
+          dietScope: 'none',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: 'APPLIED', appliedAt },

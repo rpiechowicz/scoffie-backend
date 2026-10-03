@@ -661,6 +661,38 @@ describe('applyWeekPlan E2E', () => {
         'RECIPE_DIET_CONFLICT',
       ]);
     });
+
+    it('cofnięcie propozycji (`dietScope: none` z guardem) przywraca danie spoza diety', async () => {
+      const service = app.get(WeeklyPlansService);
+      // Stan „po propozycji”: schabowego w środę już nie ma.
+      await apply([slot('MON', 'BREAKFAST', breakfast)], {
+        weekStart: DIET_WEEK,
+      });
+      const snapshot = [
+        slot('WED', 'DINNER', mieso),
+        slot('MON', 'BREAKFAST', breakfast),
+      ] as ApplyWeekSlotDto[];
+
+      await expect(
+        service.applyWeekPlan(
+          plannerId,
+          householdId,
+          DIET_WEEK,
+          { slots: snapshot },
+          { dietScope: 'none' },
+        ),
+      ).rejects.toThrow(/dietScope "none" wymaga guarda/);
+
+      const undone = await service.applyWeekPlan(
+        plannerId,
+        householdId,
+        DIET_WEEK,
+        { slots: snapshot },
+        { dietScope: 'none', guard: () => Promise.resolve() },
+      );
+      expect(undone.violations).toEqual([]);
+      expect(undone.applied).toBe(true);
+    });
   });
 
   describe('broadcast', () => {

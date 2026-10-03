@@ -2,9 +2,10 @@ import { DietPreferenceValue, MealType } from '@prisma/client';
 import { ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { PlanViolation, WeeklyPlansService } from './weekly-plans.service';
 
-// Dieta w walidatorze zapisu planu asystenta (S5, 3.10.2026). Bramka dotyczy
-// TYLKO pozycji nowych albo z innym audytorium — danie spoza diety, które
-// ktoś dodał ręcznie i którego asystent nie rusza, nie blokuje zapisu tygodnia.
+// Dieta w walidatorze zapisu tygodnia (S5, 3.10.2026). Bramka dotyczy TYLKO
+// osób, które pozycja dokłada do jedzących względem bazy — danie spoza diety,
+// które ktoś dodał ręcznie, a asystent go nie rusza albo tylko zawęża, nie
+// blokuje zapisu tygodnia.
 
 type Recipe = {
   id: string;
@@ -24,7 +25,7 @@ type Collect = (
   exclusionsByMember?: Map<string, string[]>,
   diet?: {
     dietByMember: Map<string, DietPreferenceValue>;
-    current: Map<string, string>;
+    current: Map<string, ReadonlySet<string>>;
   } | null,
 ) => PlanViolation[];
 
@@ -46,11 +47,13 @@ const RECIPES = new Map([
   ['schabowy', recipe('schabowy', ['MEAT'])],
   ['risotto', recipe('risotto', ['DAIRY'])],
 ]);
-const MEMBERS = new Set(['wege', 'mieso']);
+const MEMBERS = new Set(['wege', 'mieso', 'dziecko']);
 const DIETS = new Map<string, DietPreferenceValue>([
   ['wege', 'VEGETARIAN'],
   ['mieso', 'NONE'],
 ]);
+const ALL: ReadonlySet<string> = MEMBERS;
+const only = (...ids: string[]): ReadonlySet<string> => new Set(ids);
 
 const slot = (
   recipeId: string,
@@ -64,7 +67,8 @@ const slot = (
 
 const codes = (
   slots: ApplyWeekSlotDto[],
-  current: Map<string, string> | null,
+  current: Map<string, ReadonlySet<string>> | null,
+  diets: Map<string, DietPreferenceValue> = DIETS,
 ): string[] =>
   collect(
     slots,
@@ -72,7 +76,7 @@ const codes = (
     MEMBERS,
     new Map(),
     new Map(),
-    current ? { dietByMember: DIETS, current } : null,
+    current ? { dietByMember: diets, current } : null,
   ).map((violation) => violation.code);
 
 describe('WeeklyPlansService — dieta w zapisie planu asystenta (S5)', () => {
@@ -108,25 +112,66 @@ describe('WeeklyPlansService — dieta w zapisie planu asystenta (S5)', () => {
     expect(codes([slot('schabowy', ['mieso'])], new Map())).toEqual([]);
   });
 
-  it('pozycja bez zmian (to samo danie, to samo audytorium) nie jest sprawdzana', () => {
-    const current = new Map([['MON|DINNER|schabowy', '*']]);
+  it('pozycja bez zmian (to samo danie, ci sami jedzący) nie jest sprawdzana', () => {
+    const current = new Map([['MON|DINNER|schabowy', ALL]]);
     expect(codes([slot('schabowy')], current)).toEqual([]);
-    // Pełna lista domowników to też „wszyscy” — jak zapis, który ją zwija.
-    expect(codes([slot('schabowy', ['mieso', 'wege'])], current)).toEqual([]);
+    // Pełna lista domowników to też „wszyscy”.
+    expect(
+      codes([slot('schabowy', ['mieso', 'wege', 'dziecko'])], current),
+    ).toEqual([]);
   });
 
-  it('to samo danie z innym audytorium jest sprawdzane', () => {
-    const current = new Map([['MON|DINNER|schabowy', 'mieso']]);
+  it('zawężenie jedzących nikogo nie dokłada — nie jest sprawdzane (R3)', () => {
+    // „Dziecko nie zje środowej kolacji”: ręczny schabowy dla wszystkich
+    // zawężony do dwóch osób, wśród nich wegetarianin, który już go „jadł”.
+    const current = new Map([['MON|DINNER|schabowy', ALL]]);
+    expect(codes([slot('schabowy', ['wege', 'mieso'])], current)).toEqual([]);
+  });
+
+  it('dołożenie osoby na diecie do istniejącej pozycji jest sprawdzane', () => {
+    const current = new Map([['MON|DINNER|schabowy', only('mieso')]]);
     expect(codes([slot('schabowy')], current)).toEqual([
       'RECIPE_DIET_CONFLICT',
     ]);
     expect(codes([slot('schabowy', ['wege'])], current)).toEqual([
       'RECIPE_DIET_CONFLICT',
     ]);
+    // Dołożenie osoby BEZ diety przechodzi.
+    expect(codes([slot('schabowy', ['mieso', 'dziecko'])], current)).toEqual(
+      [],
+    );
+  });
+
+  it('były domownik w starych wierszach nie zasłania nowego', () => {
+    // W bazie [mieso, ktoś, kto odszedł] — tyle samo osób co dziś w domu,
+    // ale „wszyscy” po zapisie dokłada wegetarianina.
+    const current = new Map([
+      ['MON|DINNER|schabowy', only('mieso', 'dziecko', 'byly')],
+    ]);
+    expect(codes([slot('schabowy')], current)).toEqual([
+      'RECIPE_DIET_CONFLICT',
+    ]);
+  });
+
+  it('diety makro (KETO, HIGH_PROTEIN) nie są bramką zapisu', () => {
+    const diets = new Map<string, DietPreferenceValue>([
+      ['wege', 'KETO'],
+      ['mieso', 'HIGH_PROTEIN'],
+    ]);
+    const recipes = new Map([
+      ['bez-makr', { ...recipe('bez-makr', []), perServing: null }],
+    ]);
+    expect(
+      collect([slot('bez-makr')], recipes, MEMBERS, new Map(), new Map(), {
+        dietByMember: diets,
+        current: new Map(),
+      }),
+    ).toEqual([]);
+    expect(codes([slot('schabowy')], new Map(), diets)).toEqual([]);
   });
 
   it('to samo danie przeniesione na inny dzień jest sprawdzane', () => {
-    const current = new Map([['TUE|DINNER|schabowy', '*']]);
+    const current = new Map([['TUE|DINNER|schabowy', ALL]]);
     expect(codes([slot('schabowy')], current)).toEqual([
       'RECIPE_DIET_CONFLICT',
     ]);
