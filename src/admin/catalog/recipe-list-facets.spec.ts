@@ -41,6 +41,11 @@ describe('filtry listy katalogu', () => {
       diets: ['LACTOSE_FREE', 'GLUTEN_FREE'],
       fiberPerServing: 4.5,
       saltPerServing: 1.3,
+      ingredients: [
+        { name: 'Filet z kurczaka', department: 'Mięso' },
+        { name: 'Ryż basmati', department: 'Sypkie' },
+        { name: 'Jogurt naturalny', department: 'Nabiał' },
+      ],
     });
   });
 

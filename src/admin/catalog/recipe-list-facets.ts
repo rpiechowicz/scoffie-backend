@@ -35,7 +35,10 @@ export const recipeFacetsSelect = {
   dietTags: true,
   nutritionFiber: true,
   nutritionSalt: true,
-  ingredients: { select: { name: true, department: true } },
+  ingredients: {
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { name: true, department: true },
+  },
 } satisfies Prisma.RecipeSelect;
 
 export type RecipeFacetsRow = {
@@ -88,6 +91,11 @@ export function toRecipeListFacets(row: RecipeFacetsRow): RecipeListFacets {
     diets: dietsOf(row, perServing),
     fiberPerServing: gramsPerServing(row.nutritionFiber, row.servings),
     saltPerServing: gramsPerServing(row.nutritionSalt, row.servings),
+    // „Wyklucz składniki” jak w aplikacji: nazwa i dział sklepu.
+    ingredients: row.ingredients.map(({ name, department }) => ({
+      name,
+      department,
+    })),
   };
 }
 
