@@ -49,6 +49,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'recipes:householdState',
   'recipes:findById',
   'recipes:cookScenario',
+  'recipes:cookFeedback',
   'ingredients:search',
   'recipes:create',
   'recipes:update',
@@ -78,6 +79,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'weeklyPlans:upsertWeekSlot',
   'weeklyPlans:removeWeekSlot',
   'weeklyPlans:setMealEaten',
+  'weeklyPlans:logCookedMeal',
   'weeklyPlans:setPortion',
   'weeklyPlans:getSavedPlan',
   'weeklyPlans:clearWeekPlan',
@@ -99,7 +101,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 58;
+const EXPECTED_HANDLER_COUNT = 60;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload

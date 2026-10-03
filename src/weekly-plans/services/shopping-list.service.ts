@@ -123,6 +123,9 @@ export class ShoppingListService {
       },
       include: {
         items: {
+          // Danie ugotowane spoza planu (Gotuj, „Zjedzone”) już zużyło
+          // składniki — na liście byłoby czymś do kupienia po fakcie.
+          where: { cookedOffPlan: false },
           // Jawny `select` zamiast `include`, bo skalowanie potrzebuje dwóch
           // zwykłych pól — `plannedServings` z pozycji planu i `servings`
           // z przepisu — a `include` przyjmuje wyłącznie relacje.
@@ -488,6 +491,7 @@ export class ShoppingListService {
       },
       select: {
         items: {
+          where: { cookedOffPlan: false },
           select: { id: true },
           take: 1,
         },

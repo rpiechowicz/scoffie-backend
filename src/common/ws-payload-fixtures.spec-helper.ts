@@ -123,6 +123,19 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
   },
   'recipes:findById': { id: RECIPE, householdId: HH },
   'recipes:cookScenario': { recipeId: RECIPE, householdId: HH },
+  'recipes:cookFeedback': {
+    householdId: HH,
+    data: {
+      sessionId: RECIPE_2,
+      recipeId: RECIPE,
+      scenarioVersion: 1,
+      rating: 'DOWN',
+      tags: ['Za długo'],
+      comment: 'Kotlety potrzebowały więcej czasu',
+      extensions: { 't-kotlety': 240 },
+      servings: 2,
+    },
+  },
   'catalog:snapshot': { limit: 200 },
   'catalog:changes': {
     sinceRevision: '11111111-1111-4111-8111-111111111111.0',
@@ -240,6 +253,15 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       mealType: 'DINNER',
       recipeId: RECIPE_2,
       isEaten: true,
+    },
+  },
+  'weeklyPlans:logCookedMeal': {
+    ...hhWeek,
+    data: {
+      dayOfWeek: 'MON',
+      mealType: 'DINNER',
+      recipeId: RECIPE_2,
+      servings: 2,
     },
   },
   'weeklyPlans:setPortion': {
@@ -380,6 +402,18 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
       name: 'householdId nie-UUID',
       payload: { id: RECIPE, householdId: NOT_UUID },
       detail: 'householdId must be a UUID',
+    },
+  ],
+  'recipes:cookFeedback': [
+    {
+      name: 'brak householdId',
+      payload: { data: {} },
+      detail: 'householdId must be a UUID',
+    },
+    {
+      name: 'data nie-obiekt',
+      payload: { householdId: HH, data: 'UP' },
+      detail: 'data must be an object',
     },
   ],
   'recipes:cookScenario': [
@@ -574,6 +608,10 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setMealEaten': [
     missingData(hhWeek),
     dataNotObject(hhWeek, null),
+  ],
+  'weeklyPlans:logCookedMeal': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'DINNER'),
   ],
   'weeklyPlans:setPortion': [
     missingData(hhWeek),

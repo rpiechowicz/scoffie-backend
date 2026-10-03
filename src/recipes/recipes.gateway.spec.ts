@@ -6,6 +6,7 @@ import { IngredientsService } from './ingredients.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipeSharingService } from './sharing/recipe-sharing.service';
 import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
+import { CookFeedbackService } from './cook-scenario/cook-feedback.service';
 
 // Gateway ma na własność trzy rzeczy: skąd bierze tożsamość (socket z tokenem
 // ignoruje payload.userId, socket legacy ufa mu jak dawniej, anonim dostaje
@@ -79,6 +80,7 @@ describe('RecipesGateway', () => {
         },
         { provide: RecipeSharingService, useValue: {} },
         { provide: CookScenariosService, useValue: cookScenarios },
+        { provide: CookFeedbackService, useValue: {} },
       ],
     }).compile();
 
