@@ -368,7 +368,8 @@ describe('Panel administratora — katalog (e2e)', () => {
     it('przepis katalogu: kcal i makro na porcję, pozycje przyszłych planów, ulubione', async () => {
       const data = await list();
       expect(data.total).toBe(data.items.length);
-      const item = data.items.find((r) => r.id === ids.active);
+      const { facets, ...item } =
+        data.items.find((r) => r.id === ids.active) ?? ({} as RecipeListItem);
       expect(item).toEqual({
         id: ids.active,
         title: `Owsianka A3 ${stamp}`,
@@ -391,7 +392,22 @@ describe('Panel administratora — katalog (e2e)', () => {
         favorites: 2,
         updatedAt: expect.any(String) as unknown,
       });
-      expect(Number.isNaN(Date.parse(item?.updatedAt ?? ''))).toBe(false);
+      expect(Number.isNaN(Date.parse(item.updatedAt))).toBe(false);
+      // Filtry jak w aplikacji: mleko i płatki — bez mięsa i ryb, wege, ale
+      // nie wegańskie (nabiał z tagów diet).
+      expect(facets).toEqual({
+        cuisine: 'OTHER',
+        dishType: null,
+        seasons: [],
+        occasions: [],
+        equipment: [],
+        features: [],
+        proteins: ['meatless'],
+        taste: expect.stringMatching(/^(sweet|savory)$/) as unknown,
+        diets: ['LACTOSE_FREE', 'VEGETARIAN', 'GLUTEN_FREE'],
+        fiberPerServing: 0,
+        saltPerServing: 0,
+      });
       // Prawdziwe zdjęcie i pory z kolumny w kolejności dnia.
       expect(data.items.find((r) => r.id === ids.editable)).toMatchObject({
         hasImage: true,

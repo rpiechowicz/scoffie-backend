@@ -47,6 +47,7 @@ import {
   comparePolish,
   stepsFromInstructions,
 } from './catalog-math';
+import { recipeFacetsSelect, toRecipeListFacets } from './recipe-list-facets';
 import { recipeListSelect, toRecipeListItem } from './recipe-list-item';
 import type { UpdateCatalogRecipeDto } from './admin-catalog.dto';
 
@@ -82,7 +83,7 @@ export class AdminCatalogService {
           isCatalog: true,
           ...(active === undefined ? {} : { isActive: active }),
         },
-        select: recipeListSelect,
+        select: { ...recipeListSelect, ...recipeFacetsSelect },
       });
       const plansOf = await inPlansByRecipe(tx, now, null);
       const favorites = await tx.recipeFavorite.groupBy({
@@ -94,13 +95,14 @@ export class AdminCatalogService {
         favorites.map((row) => [row.recipeId, row._count._all]),
       );
       const items = rows
-        .map((row) =>
-          toRecipeListItem(
+        .map((row) => ({
+          ...toRecipeListItem(
             row,
             plansOf.get(row.id) ?? 0,
             favoritesOf.get(row.id) ?? 0,
           ),
-        )
+          facets: toRecipeListFacets(row),
+        }))
         .sort((a, b) =>
           comparePolish(
             { text: a.title, id: a.id },

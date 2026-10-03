@@ -188,6 +188,7 @@ const AUDIT_TOPIC_PREFIXES: readonly [string, readonly LiveTopic[]][] = [
   ['report.', ['reports']],
   ['subscription.', ['subscriptions']],
   ['recipe.', []],
+  ['cook.', []],
   ['auth.', ['admin-sessions']],
 ];
 

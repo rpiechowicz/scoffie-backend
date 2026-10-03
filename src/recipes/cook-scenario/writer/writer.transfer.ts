@@ -201,7 +201,11 @@ export type ImportOutcome =
   | 'NOT_FOUND'
   | 'NOT_CATALOG'
   | 'CHANGED'
-  | 'GOLDEN';
+  | 'GOLDEN'
+  /** obowiązuje wersja z panelu — poprawka człowieka, import jej nie nadpisuje */
+  | 'PANEL'
+  /** scenariusz wycofany w panelu dla tej treści przepisu — import go nie przywraca */
+  | 'WITHDRAWN';
 
 /** Wycofuje transakcję próby (`dryRun`) z wynikiem, który by zapadł. */
 export class DryRunRollback extends Error {
@@ -211,10 +215,51 @@ export class DryRunRollback extends Error {
 }
 
 /**
+ * Scenariusz wycofany w panelu dla OBECNEJ treści przepisu — import go nie
+ * przywraca (człowiek zdecydował, że ta treść nie trafia na telefony). Po
+ * zmianie przepisu wycofanie nie wiąże: to już inny przepis. Wycofanie
+ * zmienia wiersz OPUBLIKOWANY, który nie musi być najnowszy (nad nim bywa
+ * wersja robocza systemu pisania) — szukamy ostatniego wycofania i sprawdzamy,
+ * że po nim nic nie trafiło na telefony (recenzja E3c, runda 2).
+ */
+async function withdrawnInPanel(
+  tx: Prisma.TransactionClient,
+  recipeId: string,
+): Promise<boolean> {
+  const rows = await tx.recipeCookScenario.findMany({
+    where: { recipeId },
+    orderBy: { version: 'desc' },
+    select: {
+      version: true,
+      status: true,
+      recipeContentHash: true,
+      validationReport: true,
+      publishedAt: true,
+    },
+  });
+  const withdrawn = rows.find((row) => {
+    const report = row.validationReport as { withdrawn?: unknown } | null;
+    return row.status === 'REJECTED' && Boolean(report?.withdrawn);
+  });
+  if (!withdrawn) return false;
+  const republished = rows.some(
+    (row) =>
+      row.version > withdrawn.version &&
+      row.publishedAt !== null &&
+      row.status !== 'REJECTED',
+  );
+  if (republished) return false;
+  const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
+    SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
+  return signature === withdrawn.recipeContentHash;
+}
+
+/**
  * Jeden scenariusz z pliku — we WŁASNEJ transakcji wołającego. Pod blokadą
  * przepisu: brak przepisu = NOT_FOUND; przepis spoza katalogu albo wycofany = NOT_CATALOG;
  * inny przenośny odcisk wejścia = CHANGED (nic nie zapisuje); opublikowany
- * wzorzec pisany ręcznie = GOLDEN (import go nie zastępuje). Inaczej nazwy
+ * wzorzec pisany ręcznie = GOLDEN, wersja z panelu = PANEL, wycofanie
+ * w panelu = WITHDRAWN (import ich nie zastępuje). Inaczej nazwy
  * składników → id TEJ bazy i `publishCookScenario` (walidacja zgodności
  * z przepisem, nowa wersja, `Recipe.cookScenarioVersion`); ta sama treść =
  * UNCHANGED, podmiana innej opublikowanej wersji = REPLACED. Wersja niesie
@@ -253,7 +298,13 @@ async function importInTx(
     select: { generator: true },
   });
   const source = (published?.generator as { source?: unknown } | null)?.source;
+  // Wersje pisane albo poprawione ręcznie (wzorzec, panel) import zostawia —
+  // nadpisałby poprawkę człowieka treścią z pliku (recenzja E3c, 3.10).
   if (source === 'golden') return 'GOLDEN';
+  if (source === 'panel') return 'PANEL';
+  if (!published && (await withdrawnInPanel(tx, entry.recipeId))) {
+    return 'WITHDRAWN';
+  }
   const byName = new Map(
     recipe.ingredients.map((row) => [row.name, row.ingredientId]),
   );

@@ -543,6 +543,148 @@ export interface CookFeedbackData {
   items: CookFeedbackItem[];
 }
 
+// ——— Gotuj: scenariusze przepisów (E3c) ———
+
+/**
+ * Stan trybu Gotuj przepisu katalogu:
+ * - `PUBLISHED` — telefony mają scenariusz;
+ * - `STALE` — przepis zmienił się po publikacji, Gotuj zniknął z telefonów
+ *   (trigger bazy) — sprawdź i opublikuj ponownie;
+ * - `VALIDATED` — napisany i sprawdzony, nieopublikowany;
+ * - `REJECTED` — odrzucony (walidator, recenzent albo wycofany w panelu);
+ * - `SKIPPED` — przepis trywialny, bez Gotuj (D29);
+ * - `NONE` — nigdy nie pisany.
+ */
+export type CookScenarioState =
+  'PUBLISHED' | 'STALE' | 'VALIDATED' | 'REJECTED' | 'SKIPPED' | 'NONE';
+
+export interface CookScenarioListItem {
+  recipeId: string;
+  title: string;
+  mealType: MealType;
+  /** przepis aktywny w katalogu */
+  isActive: boolean;
+  state: CookScenarioState;
+  publishedVersion: number | null;
+  /** najnowsza wersja w ogóle (także odrzucona albo nieaktualna) */
+  latestVersion: number | null;
+  /** ostatnia zmiana wiersza scenariusza */
+  updatedAt: IsoDate | null;
+  skipReason: string | null;
+}
+
+/** `GET /admin/cook/scenarios` — wszystkie przepisy katalogu. */
+export interface CookScenarioListData {
+  counts: Record<CookScenarioState, number>;
+  items: CookScenarioListItem[];
+}
+
+/** Treść scenariusza — kopia `CookScenarioContent` z domeny (Gotuj §6). */
+export interface CookScenarioTimerView {
+  id: string;
+  label: string;
+  minSeconds: number;
+  maxSeconds: number;
+  trigger: 'NOW' | 'EVENT';
+  startLabel: string;
+  alert: { title: string; body: string };
+}
+export interface CookScenarioStepView {
+  id: string;
+  phase: 'PREP' | 'COOK' | 'FINISH' | 'SERVE';
+  stage: string | null;
+  title: string;
+  body: string;
+  ingredients: {
+    ingredientId: string;
+    amount: number;
+    unit: string;
+    part: 'ALL' | 'HALF' | 'REST' | 'PART';
+  }[];
+  mentions: string[];
+  note: { kind: 'CUE' | 'WARNING' | 'TIP'; text: string } | null;
+  timer: CookScenarioTimerView | null;
+  during: string | null;
+  scaleNote: { fromPortions: number; text: string } | null;
+}
+export interface CookScenarioContentView {
+  schemaVersion: 1;
+  basePortions: number;
+  portionUnit: { id: string; forms: [string, string, string] } | null;
+  totalMinutes: number;
+  tips: string[];
+  nextTimeTip: string | null;
+  steps: CookScenarioStepView[];
+}
+
+export interface CookScenarioVersionRow {
+  id: string;
+  version: number;
+  status:
+    | 'DRAFT'
+    | 'VALIDATED'
+    | 'PUBLISHED'
+    | 'RETIRED'
+    | 'REJECTED'
+    | 'STALE'
+    | 'SKIPPED';
+  rulesVersion: string;
+  /** `writer`, `agent`, `golden`, `panel` — skąd treść */
+  source: string | null;
+  createdAt: IsoDate;
+  publishedAt: IsoDate | null;
+  /** ocena recenzenta 1–5 (system pisania) */
+  reviewScore: number | null;
+  reviewSummary: string | null;
+  /** wersja z odwodu systemu pisania (ocena poniżej progu, bez BLOCKER/MAJOR) */
+  belowThreshold: boolean;
+}
+
+/** `GET /admin/cook/scenarios/:recipeId`. */
+export interface CookScenarioDetail {
+  recipe: {
+    id: string;
+    title: string;
+    servings: number;
+    isActive: boolean;
+    instructions: string[];
+    ingredients: {
+      ingredientId: string;
+      name: string;
+      amount: number;
+      unit: string;
+    }[];
+  };
+  state: CookScenarioState;
+  publishedVersion: number | null;
+  /** najnowsza wersja w ogóle — token `basedOnVersion` publikacji */
+  latestVersion: number | null;
+  /** podpis treści przepisu — token `recipeSignature` publikacji */
+  recipeSignature: string;
+  skipReason: string | null;
+  versions: CookScenarioVersionRow[];
+  /** treść do podglądu i edycji: opublikowana, inaczej najnowsza z treścią */
+  current: {
+    version: number;
+    status: CookScenarioVersionRow['status'];
+    content: CookScenarioContentView;
+  } | null;
+  /**
+   * Walidatory twarde (te same co przy pisaniu) na `current` i BIEŻĄCYM
+   * przepisie — przy `STALE` mówią, czy treść da się opublikować bez zmian.
+   */
+  checks: { errors: string[]; warnings: string[] } | null;
+}
+
+/** `POST /admin/cook/scenarios/:recipeId/publish` (step-up). */
+export interface CookScenarioPublishBody {
+  content: CookScenarioContentView;
+  /** `latestVersion` ze szczegółu — inna najnowsza w bazie = 409 CONFLICT */
+  basedOnVersion: number | null;
+  /** `recipeSignature` ze szczegółu — przepis zmieniony w międzyczasie = 409 */
+  recipeSignature: string;
+}
+
 // ——— Subskrypcje ———
 
 export interface AppleNotification {
@@ -609,6 +751,42 @@ export interface RecipeListItem {
   inPlans: number;
   favorites: number;
   updatedAt: IsoDate;
+  /** filtry jak w aplikacji — tylko lista katalogu (`GET /admin/catalog/recipes`) */
+  facets?: RecipeListFacets;
+}
+
+/** Kafelki „Dieta” z aplikacji; składnikowe tylko na dowodzie (przepis bez składników żadnej nie ma). */
+export type RecipeDietFilter =
+  | 'LACTOSE_FREE'
+  | 'VEGETARIAN'
+  | 'VEGAN'
+  | 'WITH_FISH'
+  | 'GLUTEN_FREE'
+  | 'KETO';
+
+/**
+ * Pola filtrów listy katalogu — jak arkusz filtrów w aplikacji. Id taksonomii
+ * z `src/recipes/recipe-taxonomy.ts`, mięso i smak z `recipe-facets.util.ts`;
+ * nieznaną wartość panel pomija.
+ */
+export interface RecipeListFacets {
+  /** `POLISH`, `ITALIAN`… albo `OTHER` */
+  cuisine: string;
+  /** `SOUP`, `PASTA`…; `null` = redakcja nie przypisała */
+  dishType: string | null;
+  /** pusta = cały rok */
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  /** `LUNCHBOX`, `SIDE`, `OCCASIONAL` */
+  features: string[];
+  /** `poultry`, `pork`, `beef`, `fish` albo `meatless` (ze składników; pusta = brak składników) */
+  proteins: string[];
+  taste: 'sweet' | 'savory';
+  diets: RecipeDietFilter[];
+  /** gramy na porcję, jedno miejsce po przecinku */
+  fiberPerServing: number;
+  saltPerServing: number;
 }
 
 export interface Ingredient {
