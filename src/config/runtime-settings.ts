@@ -53,6 +53,7 @@ export const RUNTIME_SETTING_KEYS = [
   'THROTTLE_AUTH_LIMIT',
   'THROTTLE_AUTH_REFRESH_LIMIT',
   'THROTTLE_AUTH_REFRESH_IP_LIMIT',
+  'THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
   // Minimalna wersja aplikacji — starsze widzą ekran „Zaktualizuj”
@@ -266,6 +267,10 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
   THROTTLE_AUTH_REFRESH_IP_LIMIT: throttle(
     'THROTTLE_AUTH_REFRESH_IP_LIMIT',
     'Odświeżenia sesji na minutę na IP',
+  ),
+  THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT: throttle(
+    'THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT',
+    'Odświeżenia sesji na minutę na konto',
   ),
   THROTTLE_AGENT_MESSAGE_LIMIT: throttle(
     'THROTTLE_AGENT_MESSAGE_LIMIT',

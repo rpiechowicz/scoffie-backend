@@ -207,7 +207,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
   `/auth/refresh` (od 26.09.2026) liczy się per SESJA — hasz przedstawionego refresh tokenu
   (`refreshTokenTracker`, `THROTTLE_AUTH_REFRESH_LIMIT`=10) — z luźną siatką `ip` tylko dla tej trasy
-  (`THROTTLE_AUTH_REFRESH_IP_LIMIT`=600); logowanie zostaje 20/min po IP. Uwaga: domyślny
+  (`THROTTLE_AUTH_REFRESH_IP_LIMIT`=600); logowanie zostaje 20/min po IP. Pętlę UDANYCH rotacji
+  (każda to nowy hasz) łapie limit na konto liczony w bazie pod zamkiem sesji
+  (`rotateRefreshToken`, `THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT`=30, 429 bez rotacji). Uwaga: domyślny
   `generateKey` throttlera ma w kluczu klasę i handler, więc każdy licznik jest PER TRASA.
 - Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
   istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
