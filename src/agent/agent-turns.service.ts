@@ -7,7 +7,10 @@ import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { runSerializable } from '../weekly-plans/utils/transaction-runner.util';
+import {
+  isSerializableConflict,
+  runSerializable,
+} from '../weekly-plans/utils/transaction-runner.util';
 import { AgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
@@ -56,13 +59,35 @@ const TURN_LIVENESS_SELECT_LOCAL = {
 export const TURN_STATUSES = ['RUNNING', 'DONE', 'FAILED', 'LIMITED'] as const;
 
 /**
- * Ile rezerw tury (`AI_TURN_COST_RESERVE_USD`) przed sufitem instalacji
- * sprawdzamy go już W TRANSAKCJI startu, atomowo. Dalej od sufitu wystarcza
- * odczyt przed transakcją: żeby go przelać, trzeba by tylu startów w tym
- * samym oknie odczyt→zapis, a liczenie żywych tur całej instalacji w każdej
- * transakcji SERIALIZABLE zderzałoby ze sobą starty z różnych domów (P2034).
+ * Pas przed sufitem instalacji, w którym sprawdzamy go już W TRANSAKCJI
+ * startu, atomowo — patrz `installationAtomicBandMicroUsd`. Dalej od sufitu
+ * wystarcza odczyt przed transakcją: żeby go przelać, trzeba by tylu
+ * równoczesnych startów, ile rezerw mieści pas (start „daleki” nie czyta tur
+ * w transakcji, więc z „bliskim” SSI go nie zderzy), a liczenie żywych tur
+ * całej instalacji w każdej transakcji SERIALIZABLE zderzałoby starty
+ * z różnych domów (P2034).
  */
-export const INSTALLATION_ATOMIC_HEADROOM_TURNS = 20;
+export const INSTALLATION_ATOMIC_BAND = {
+  /** Udział budżetu — przy domyślnych $5/$0,25 to $1, nie cały dzień. */
+  share: 0.2,
+  /** …ale nie mniej niż tyle rezerw: tylu równoczesnych startów pas pilnuje. */
+  minTurns: 4,
+  /** …i nie więcej. */
+  maxTurns: 20,
+} as const;
+
+/** Szerokość pasu atomowego w mikro-USD; 0 = bez rezerwacji, bez pasu. */
+export function installationAtomicBandMicroUsd(
+  budgetUsd: number,
+  reserveUsd: number,
+): number {
+  const { share, minTurns, maxTurns } = INSTALLATION_ATOMIC_BAND;
+  const band = Math.min(
+    maxTurns * reserveUsd,
+    Math.max(share * budgetUsd, minTurns * reserveUsd),
+  );
+  return band * 1_000_000;
+}
 export type TurnStatus = (typeof TURN_STATUSES)[number];
 
 export type AcceptedTurn = {
@@ -332,7 +357,10 @@ export class AgentTurnsService {
         this.refuseInstallationBudget(env.globalDailyBudgetUsd);
       installationNearCeiling =
         headroom <
-        INSTALLATION_ATOMIC_HEADROOM_TURNS * env.turnCostReserveUsd * 1_000_000;
+        installationAtomicBandMicroUsd(
+          env.globalDailyBudgetUsd,
+          env.turnCostReserveUsd,
+        );
     }
 
     const plan = await this.counters.resolvePlan(conversation.householdId, {
@@ -582,6 +610,18 @@ export class AgentTurnsService {
           data.clientMessageId,
         );
         if (raced) return { ...raced, requestId };
+      }
+      // Ponowienia SERIALIZABLE wyczerpane: kilka startów naraz (ten sam dom
+      // albo instalacja blisko sufitu) wciąż się zderza. To nie błąd serwera,
+      // tylko tłok — 503 z krótkim `retryAfterSeconds`, a nie 500.
+      if (isSerializableConflict(error)) {
+        this.metrics.recordRejected('inProgress');
+        throw new AppException(
+          'AI_UPSTREAM_PAUSED',
+          'Asystent jest teraz zajęty. Spróbuj za chwilę.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+          ['retryAfterSeconds:2'],
+        );
       }
       // Pula wiadomości pusta. Mail MUSI pójść tutaj, a nie przy rzucie:
       // kwota schodzi wewnątrz transakcji, a odmowa ją wycofuje — wiersz
@@ -878,11 +918,6 @@ export class AgentTurnsService {
   }
 
   /**
-   * Sufity kosztu domu (doba, miesiąc) z rezerwacją za jego żywe tury —
-   * w transakcji przyjęcia tury. `householdLive` to tury INNE niż ta, którą
-   * właśnie przyjmujemy (jeszcze jej nie ma).
-   */
-  /**
    * Ile zostało z dobowego budżetu instalacji, w mikro-USD: sufit minus
    * wydane minus rezerwacja za każdą żywą turę. `≤ 0` = odmowa.
    */
@@ -922,6 +957,11 @@ export class AgentTurnsService {
     );
   }
 
+  /**
+   * Sufity kosztu domu (doba, miesiąc) z rezerwacją za jego żywe tury —
+   * w transakcji przyjęcia tury. `householdLive` to tury INNE niż ta, którą
+   * właśnie przyjmujemy (jeszcze jej nie ma).
+   */
   private async assertHouseholdBudget(
     tx: Prisma.TransactionClient,
     env: AgentEnv,

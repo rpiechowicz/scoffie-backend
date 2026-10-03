@@ -8,6 +8,7 @@ import { AgentConversationsService } from './agent-conversations.service';
 import { AgentTurnRunner } from './agent-turn.runner';
 import {
   AgentTurnsService,
+  installationAtomicBandMicroUsd,
   TURN_TIMEOUT_GRACE_MS,
 } from './agent-turns.service';
 import {
@@ -381,6 +382,47 @@ describe('AgentTurnsService', () => {
             isInstallationCount(args as { where?: object }),
           ),
         ).toBe(false);
+      });
+
+      it('pas atomowy: 20 % budżetu, ale od 4 do 20 rezerw', () => {
+        expect(installationAtomicBandMicroUsd(5, 0.25)).toBe(1_000_000);
+        expect(installationAtomicBandMicroUsd(1, 0.25)).toBe(1_000_000);
+        expect(installationAtomicBandMicroUsd(100, 0.25)).toBe(5_000_000);
+        expect(installationAtomicBandMicroUsd(5, 0)).toBe(0);
+      });
+
+      it('pas atomowy to nie cały dzień — domyślne $5/$0,25', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 5,
+          turnCostReserveUsd: 0.25,
+        });
+        // Zostaje $4,50: mniej niż 20 rezerw ($5), ale więcej niż 20 % ($1).
+        counters.read.mockResolvedValue(500_000);
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
+      });
+
+      it('wyczerpane ponowienia SERIALIZABLE to 503 z retryAfter, nie 500', async () => {
+        prisma.$transaction.mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError('could not serialize', {
+            code: 'P2034',
+            clientVersion: 'test',
+          }),
+        );
+        const error = await post().catch((caught: unknown) => caught);
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe('AI_UPSTREAM_PAUSED');
+        expect((error as AppException).getStatus()).toBe(503);
+        expect((error as AppException).details).toEqual([
+          'retryAfterSeconds:2',
+        ]);
+        // Trzy próby: pierwsza i dwa ponowienia `runSerializable`.
+        expect(prisma.$transaction).toHaveBeenCalledTimes(3);
       });
 
       it('bez rezerwacji (0) nie ma czego szeregować', async () => {
