@@ -307,7 +307,7 @@ describe('Gotuj: wpis spoza planu i oceny E2E', () => {
         await logCooked({
           dayOfWeek: 'WED',
           mealType: 'DINNER',
-          recipeId: dinners[3],
+          recipeId: dinners[3].toUpperCase(), // jak iOS (`uuidString`)
           servings: 2,
         }),
       );
@@ -346,7 +346,7 @@ describe('Gotuj: wpis spoza planu i oceny E2E', () => {
         await logCooked({
           dayOfWeek: 'FRI',
           mealType: 'BREAKFAST',
-          recipeId: dinners[4],
+          recipeId: dinners[4].toUpperCase(),
           servings: 1,
         }),
       );

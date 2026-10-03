@@ -2490,7 +2490,10 @@ export class WeeklyPlansService {
     weekStart: string,
     input: LogCookedMealDto,
   ) {
-    const dto = await validateDto(LogCookedMealDto, input);
+    const validated = await validateDto(LogCookedMealDto, input);
+    // iOS wysyła UUID wielkimi literami, baza oddaje małymi — porównania
+    // niżej idą w JS (`===`), nie w zapytaniu.
+    const dto = { ...validated, recipeId: validated.recipeId.toLowerCase() };
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
