@@ -85,6 +85,30 @@ describe('filtry listy katalogu', () => {
     expect(empty.cuisine).toBe('OTHER');
   });
 
+  it('skorupiaki to „Z rybą”, nie wege', () => {
+    const shrimp = toRecipeListFacets(
+      row({
+        dietTags: ['CRUSTACEAN'],
+        allergens: ['crustaceans'],
+        ingredients: [{ name: 'Krewetki', department: 'Ryby' }],
+      }),
+    );
+    expect(shrimp.diets).toContain('WITH_FISH');
+    expect(shrimp.diets).not.toContain('VEGETARIAN');
+  });
+
+  it('same tagi bez składników to też dowód (jak `fromServerTags` w iOS)', () => {
+    const tagsOnly = toRecipeListFacets(
+      row({ ingredients: [], dietTags: ['DAIRY'], allergens: [] }),
+    );
+    expect(tagsOnly.diets).toEqual([
+      'LACTOSE_FREE',
+      'VEGETARIAN',
+      'GLUTEN_FREE',
+    ]);
+    expect(tagsOnly.proteins).toEqual([]);
+  });
+
   it('keto po węglowodanach na porcję', () => {
     expect(toRecipeListFacets(row({ nutritionCarbs: 80 })).diets).toContain(
       'KETO',
