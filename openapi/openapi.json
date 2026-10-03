@@ -9720,6 +9720,51 @@
           "minimumVersion"
         ]
       },
+      "CookFeedbackDto": {
+        "description": "Ocena gotowania (docs iOS Gotuj §13.3, §13.8). Telefon wysyła ją po\nstuknięciu kciuka i drugi raz z uwagami z arkusza „Co byś zmienił?” —\nten sam `sessionId`, więc drugi zapis poprawia pierwszy (ostatni stan\nwygrywa, także pusta podpowiedź).\n\nWalidowane w serwisie przez `validateDto`.",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "description": "Id sesji gotowania z telefonu — klucz idempotencji.",
+            "type": "string"
+          },
+          "recipeId": { "type": "string" },
+          "scenarioVersion": {
+            "description": "`RecipeCookScenario.version`, na której gotowano.",
+            "type": "number"
+          },
+          "rating": { "$ref": "#/components/schemas/CookFeedbackRating" },
+          "tags": {
+            "description": "Powody z pigułek, także podpowiedź sesji („Kotlety +4 min”).",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "comment": { "type": "string" },
+          "extensions": { "type": "object" },
+          "servings": {
+            "description": "Porcje, na które gotowano.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "extensions",
+          "rating",
+          "recipeId",
+          "scenarioVersion",
+          "sessionId",
+          "tags"
+        ]
+      },
+      "CookFeedbackRating": { "enum": ["DOWN", "UP"], "type": "string" },
+      "CookFeedbackSaved": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "rating": { "$ref": "#/components/schemas/CookFeedbackRating" },
+          "updatedAt": { "type": "string" }
+        },
+        "required": ["rating", "sessionId", "updatedAt"]
+      },
       "CookIngredientPart": {
         "enum": ["ALL", "HALF", "PART", "REST"],
         "type": "string"
@@ -10636,12 +10681,41 @@
               },
               "required": ["createdAt", "householdId", "recipeId", "revokedAt"]
             }
+          },
+          "cookFeedback": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "extensions": { "type": "object" },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "updatedAt": { "type": "string", "format": "date-time" },
+                "comment": { "type": "string", "nullable": true },
+                "servings": { "type": "number", "nullable": true },
+                "recipeId": { "type": "string" },
+                "scenarioVersion": { "type": "number" },
+                "rating": { "type": "string" },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": [
+                "comment",
+                "createdAt",
+                "extensions",
+                "rating",
+                "recipeId",
+                "scenarioVersion",
+                "servings",
+                "tags",
+                "updatedAt"
+              ]
+            }
           }
         },
         "required": [
           "activityDays",
           "assistant",
           "consents",
+          "cookFeedback",
           "cookidoo",
           "dailySteps",
           "devices",
@@ -11068,6 +11142,20 @@
         ],
         "type": "string"
       },
+      "LogCookedMealDto": {
+        "description": "„Zjedzone” po gotowaniu w trybie Gotuj (docs iOS Gotuj D21, D28).\n\nPorę wybiera telefon — zna godzinę i strefę osoby, pory domu\n(`mealSlotTimes` albo swoje domyślne) i `suitableMealTypes` przepisu;\nserwer strefy czasowej nie zna. Dzień to DZIŚ u gotującego.\n\nWalidowane w serwisie przez `validateDto` — patrz `UpsertWeekSlotDto`.",
+        "type": "object",
+        "properties": {
+          "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
+          "mealType": { "$ref": "#/components/schemas/MealType" },
+          "recipeId": { "type": "string" },
+          "servings": {
+            "description": "Na ile porcji gotowano (stepper powitania). Tyle co domowników albo\nwięcej = danie dla całego domu, mniej = tylko dla gotującego.",
+            "type": "number"
+          }
+        },
+        "required": ["dayOfWeek", "mealType", "recipeId", "servings"]
+      },
       "MacroKey": {
         "enum": ["CARBS", "FAT", "KCAL", "PROTEIN"],
         "type": "string"
@@ -11438,6 +11526,21 @@
           "suitableMealTypes",
           "title"
         ]
+      },
+      "RecipesCookFeedbackPayload": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": {
+            "description": "Dom gotującego — bramka członkostwa i widoczności przepisu domu.",
+            "type": "string"
+          },
+          "data": { "$ref": "#/components/schemas/CookFeedbackDto" }
+        },
+        "required": ["data", "householdId"]
       },
       "RecipesCookScenarioPayload": {
         "type": "object",
@@ -12264,6 +12367,19 @@
           "householdId": { "type": "string" }
         },
         "required": ["householdId", "weekStart"]
+      },
+      "WeeklyPlansLogCookedMealPayload": {
+        "type": "object",
+        "properties": {
+          "data": { "$ref": "#/components/schemas/LogCookedMealDto" },
+          "weekStart": { "type": "string" },
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" }
+        },
+        "required": ["data", "householdId", "weekStart"]
       },
       "WeeklyPlansRemoveShoppingExtraPayload": {
         "type": "object",
@@ -14389,9 +14505,14 @@
                     "plannedServings": {
                       "description": "Ile porcji przepisu faktycznie gotujemy w tym slocie. To liczba łączna,\nnie „na osobę\". Lista zakupów skaluje składniki przez\n`plannedServings / recipe.servings`.\n\nDomyślnie tyle, ile osób je danie (pusty `participants` = całe\ngospodarstwo), ale użytkownik może to nadpisać stepperem w szczegółach\nposiłku. `@default(1)` jest tylko po to, żeby ALTER TABLE przeszedł na\nistniejących wierszach — prawdziwe wartości wylicza z audytorium ta sama\nmigracja, tuż po dodaniu kolumny. Skrypt\n`scripts/backfill-plan-item-servings.ts` został jako narzędzie naprawcze\ndla baz, które przeszły migrację bez tego kroku.",
                       "type": "number"
+                    },
+                    "cookedOffPlan": {
+                      "description": "Danie dopisane z trybu Gotuj po „Zjedzone” — ugotowane spoza planu\n(`weeklyPlans:logCookedMeal`, docs iOS Gotuj D21). Składniki już zużyte,\nwięc lista zakupów tej pozycji NIE liczy; bilans kcal liczy ją jak każdą.",
+                      "type": "boolean"
                     }
                   },
                   "required": [
+                    "cookedOffPlan",
                     "createdAt",
                     "dayOfWeek",
                     "eatenByUserIds",
@@ -14643,9 +14764,14 @@
                 "plannedServings": {
                   "description": "Ile porcji przepisu faktycznie gotujemy w tym slocie. To liczba łączna,\nnie „na osobę\". Lista zakupów skaluje składniki przez\n`plannedServings / recipe.servings`.\n\nDomyślnie tyle, ile osób je danie (pusty `participants` = całe\ngospodarstwo), ale użytkownik może to nadpisać stepperem w szczegółach\nposiłku. `@default(1)` jest tylko po to, żeby ALTER TABLE przeszedł na\nistniejących wierszach — prawdziwe wartości wylicza z audytorium ta sama\nmigracja, tuż po dodaniu kolumny. Skrypt\n`scripts/backfill-plan-item-servings.ts` został jako narzędzie naprawcze\ndla baz, które przeszły migrację bez tego kroku.",
                   "type": "number"
+                },
+                "cookedOffPlan": {
+                  "description": "Danie dopisane z trybu Gotuj po „Zjedzone” — ugotowane spoza planu\n(`weeklyPlans:logCookedMeal`, docs iOS Gotuj D21). Składniki już zużyte,\nwięc lista zakupów tej pozycji NIE liczy; bilans kcal liczy ją jak każdą.",
+                  "type": "boolean"
                 }
               },
               "required": [
+                "cookedOffPlan",
                 "createdAt",
                 "dayOfWeek",
                 "eatenByUserIds",
@@ -14866,9 +14992,14 @@
           "plannedServings": {
             "description": "Ile porcji przepisu faktycznie gotujemy w tym slocie. To liczba łączna,\nnie „na osobę\". Lista zakupów skaluje składniki przez\n`plannedServings / recipe.servings`.\n\nDomyślnie tyle, ile osób je danie (pusty `participants` = całe\ngospodarstwo), ale użytkownik może to nadpisać stepperem w szczegółach\nposiłku. `@default(1)` jest tylko po to, żeby ALTER TABLE przeszedł na\nistniejących wierszach — prawdziwe wartości wylicza z audytorium ta sama\nmigracja, tuż po dodaniu kolumny. Skrypt\n`scripts/backfill-plan-item-servings.ts` został jako narzędzie naprawcze\ndla baz, które przeszły migrację bez tego kroku.",
             "type": "number"
+          },
+          "cookedOffPlan": {
+            "description": "Danie dopisane z trybu Gotuj po „Zjedzone” — ugotowane spoza planu\n(`weeklyPlans:logCookedMeal`, docs iOS Gotuj D21). Składniki już zużyte,\nwięc lista zakupów tej pozycji NIE liczy; bilans kcal liczy ją jak każdą.",
+            "type": "boolean"
           }
         },
         "required": [
+          "cookedOffPlan",
           "createdAt",
           "dayOfWeek",
           "eatenByUserIds",

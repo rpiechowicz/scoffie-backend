@@ -71,6 +71,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     subscriptions,
     activityDays,
     recipeShares,
+    cookFeedback,
   ] = await Promise.all([
     prisma.consentEvent.findMany({
       where: { userId },
@@ -311,6 +312,22 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
         revokedAt: true,
       },
     }),
+    // Oceny gotowania (Gotuj) — kciuk, powody, zdanie i „+min” z sesji.
+    prisma.cookFeedback.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        recipeId: true,
+        scenarioVersion: true,
+        rating: true,
+        tags: true,
+        comment: true,
+        extensions: true,
+        servings: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
   ]);
 
   // `identityHash` NIE wychodzi w eksporcie: to nasz klucz wewnętrzny, a jego
@@ -395,6 +412,12 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       day.date.toISOString().slice(0, 10),
     ),
     recipeShares,
+    // `extensions` to mapa id timera → sekundy (zapisuje ją `parseExtensions`);
+    // jawny typ zamiast `JsonValue`, który generator OpenAPI rozwija w nieskończoność.
+    cookFeedback: cookFeedback.map((feedback) => ({
+      ...feedback,
+      extensions: feedback.extensions as Record<string, number>,
+    })),
   };
 }
 

@@ -472,6 +472,77 @@ export interface AgentFeedbackData {
   items: AgentFeedbackItem[];
 }
 
+// ——— Gotuj: oceny gotowania ———
+
+/** Timer, przy którym dodano czas („+min”), z nazwą ze scenariusza. */
+export interface CookFeedbackExtension {
+  timerId: string;
+  /** `label` timera w wersji scenariusza, na której gotowano; `null` = nie ma go już w treści */
+  timerLabel: string | null;
+  /** tytuł kroku z tym timerem */
+  stepTitle: string | null;
+  seconds: number;
+}
+
+/** Jedna ocena gotowania (`CookFeedback`). */
+export interface CookFeedbackItem {
+  id: string;
+  userId: string;
+  userName: string;
+  recipeId: string;
+  recipeTitle: string;
+  scenarioVersion: number;
+  rating: FeedbackRating;
+  /** powody z pigułek telefonu — tekst, nie zamknięty słownik */
+  tags: string[];
+  comment: string | null;
+  extensions: CookFeedbackExtension[];
+  servings: number | null;
+  /** ostatnia zmiana oceny */
+  ratedAt: IsoDate;
+}
+
+/**
+ * `GET /admin/cook/feedback?period=7|30|90` (domyślnie 30). Sygnał do
+ * poprawy scenariusza: wiele sesji z „+min” przy tym samym timerze.
+ */
+export interface CookFeedbackData {
+  period: FeedbackPeriod;
+  totals: {
+    up: number;
+    down: number;
+    withNote: number;
+    withExtensions: number;
+  };
+  /** dzień po dniu (UTC, `YYYY-MM-DD`), także dni bez ocen — zera */
+  daily: { date: string; up: number; down: number }[];
+  /** powody, malejąco */
+  byTag: { tag: string; count: number }[];
+  /** przepisy z ocenami w okresie, najpierw te z największą liczbą 👎 */
+  byRecipe: {
+    recipeId: string;
+    recipeTitle: string;
+    up: number;
+    down: number;
+    /** sesje, w których dodano czas do któregoś timera */
+    withExtensions: number;
+  }[];
+  /** timery z „+min”, malejąco po liczbie sesji */
+  timers: {
+    recipeId: string;
+    recipeTitle: string;
+    scenarioVersion: number;
+    timerId: string;
+    timerLabel: string | null;
+    stepTitle: string | null;
+    sessions: number;
+    /** średnio dodane sekundy na sesję */
+    averageSeconds: number;
+  }[];
+  /** najnowsze oceny z okresu (najwyżej 200), od najnowszej */
+  items: CookFeedbackItem[];
+}
+
 // ——— Subskrypcje ———
 
 export interface AppleNotification {

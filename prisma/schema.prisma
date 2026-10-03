@@ -88,6 +88,8 @@ model User {
   /// Wnioski RODO powiązane z kontem (rejestr w panelu). `SetNull`: wniosek
   /// o usunięcie ma przeżyć usunięcie konta — to dowód dotrzymania terminu.
   gdprRequests       GdprRequest[]
+  /// Oceny gotowania (Gotuj) — odchodzą z kontem.
+  cookFeedback       CookFeedback[]
 
   @@index([identityHash])
   @@index([lastLoginAt])
@@ -374,6 +376,7 @@ model Recipe {
   shares             RecipeShare[]
   shareEvents        RecipeShareEvent[]
   cookScenarios      RecipeCookScenario[]
+  cookFeedback       CookFeedback[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -829,6 +832,39 @@ model RecipeCookScenario {
   @@index([status])
 }
 
+/// Ocena gotowania w trybie Gotuj (docs iOS Gotuj §13.3, §13.8): kciuk,
+/// powody z pigułek, zdanie i zdarzenia sesji. Jedna na sesję gotowania
+/// (`sessionId` nadaje telefon) — kciuk zapisuje się od razu, uwagi z arkusza
+/// „Co byś zmienił?” poprawiają ten sam wiersz. Sygnał do panelu: wiele „+min”
+/// przy tym samym timerze = scenariusz do poprawki. `rating` tekstem
+/// (UP | DOWN), jak `AgentMessageFeedback` — wartości pilnuje DTO.
+model CookFeedback {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  sessionId       String   @db.Uuid
+  recipeId        String   @db.Uuid
+  /// Wersja scenariusza, na której gotowano (`RecipeCookScenario.version`).
+  scenarioVersion Int
+  rating          String
+  /// Powody z pigułek — teksty z telefonu (także podpowiedź sesji typu
+  /// „Kotlety +4 min”), nie zamknięty słownik.
+  tags            String[] @default([])
+  comment         String?
+  /// „+min” z sesji: id timera scenariusza → dodane sekundy.
+  extensions      Json     @default("{}")
+  /// Porcje, na które gotowano.
+  servings        Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@index([recipeId])
+  @@index([updatedAt])
+}
+
 model Membership {
   id          String         @id @default(uuid()) @db.Uuid
   userId      String         @db.Uuid
@@ -937,6 +973,11 @@ model PlanItem {
   /// `plan-portions-safe-editing`). Nowa pozycja = nowa, wyższa wartość, więc
   /// stary token nie trafia w pozycję odtworzoną pod tym samym kluczem.
   revision Int @default(0)
+
+  /// Danie dopisane z trybu Gotuj po „Zjedzone” — ugotowane spoza planu
+  /// (`weeklyPlans:logCookedMeal`, docs iOS Gotuj D21). Składniki już zużyte,
+  /// więc lista zakupów tej pozycji NIE liczy; bilans kcal liczy ją jak każdą.
+  cookedOffPlan Boolean @default(false)
 
   weeklyPlan   WeeklyPlan            @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)

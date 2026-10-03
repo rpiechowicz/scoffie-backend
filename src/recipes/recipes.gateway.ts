@@ -38,6 +38,8 @@ import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipeSharingService } from './sharing/recipe-sharing.service';
 import { CookScenariosService } from './cook-scenario/cook-scenarios.service';
+import { CookFeedbackService } from './cook-scenario/cook-feedback.service';
+import { CookFeedbackDto } from './cook-scenario/cook-feedback.dto';
 
 // Koperty zdarzeń: KAŻDE pole ma dekorator, bo `validateWsPayload` działa
 // z whitelistą i wycina pola bez dekoratora. `data`/`filters` tylko
@@ -162,6 +164,20 @@ class RecipesCookScenarioPayload {
   householdId: string;
 }
 
+class RecipesCookFeedbackPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  /** Dom gotującego — bramka członkostwa i widoczności przepisu domu. */
+  @IsUUID()
+  householdId: string;
+
+  @IsObject()
+  data: CookFeedbackDto;
+}
+
 class RecipesCreatePayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
   @IsOptional()
@@ -280,6 +296,7 @@ export class RecipesGateway
     private readonly wsTelemetry: WsTelemetryService,
     private readonly sharing: RecipeSharingService,
     private readonly cookScenarios: CookScenariosService,
+    private readonly cookFeedback: CookFeedbackService,
   ) {}
 
   handleConnection(_client: Socket) {
@@ -424,6 +441,22 @@ export class RecipesGateway
         payload.recipeId,
         payload.householdId,
       );
+    });
+  }
+
+  /**
+   * Ocena gotowania z trybu Gotuj (kciuk, powody, zdanie, „+min” z sesji).
+   * Jedna na sesję — ponowne wysłanie poprawia zapis.
+   */
+  @SubscribeMessage('recipes:cookFeedback')
+  saveCookFeedback(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesCookFeedbackPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesCookFeedbackPayload, payload);
+      return this.cookFeedback.save(userId, payload.householdId, payload.data);
     });
   }
 

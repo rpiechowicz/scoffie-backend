@@ -28,6 +28,7 @@ import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
+import { LogCookedMealDto } from './dto/log-cooked-meal.dto';
 import { SetPortionDto } from './dto/set-portion.dto';
 import { DayOfWeek, MealType, Prisma } from '@prisma/client';
 import { AppErrorCode } from '../common/app-error-code';
@@ -507,6 +508,18 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
     input: UpsertWeekSlotDto,
+    /**
+     * Tylko `logCookedMeal` (Gotuj, „Zjedzone” spoza planu): nowa pozycja
+     * dostaje `cookedOffPlan`, istniejąca zostaje NIETKNIĘTA (to plan
+     * domownika, nie nasz zapis), a `markEaten` biegnie w tej samej
+     * transakcji, po zamku tygodnia — wpis i odhaczenie razem albo wcale.
+     */
+    cookLog?: {
+      markEaten: (
+        tx: Prisma.TransactionClient,
+        planItemId: string,
+      ) => Promise<void>;
+    },
   ) {
     // Walidacja na wejściu, PRZED pierwszym zapytaniem: dekoratory DTO nie
     // działają na WS, a asystent woła tę metodę in-process. Dalej używamy
@@ -682,6 +695,21 @@ export class WeeklyPlansService {
         // Token bez zamiany celuje w TĘ pozycję — nie ma jej (usunięta albo
         // jeszcze nieodtworzona), więc klient pisze do stanu, którego nie ma.
         throw revisionConflict(null);
+      }
+      // Gotuj: przepis zdążył trafić do tego slotu (drugi telefon, ponowienie
+      // po utraconej odpowiedzi) — odhaczamy go tam, nie ruszając audytorium
+      // ani porcji, które ustawił ktoś inny.
+      if (cookLog && existingItem) {
+        await cookLog.markEaten(tx, existingItem.id);
+        const kept = await tx.planItem.findUniqueOrThrow({
+          where: { id: existingItem.id },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        return {
+          ...withPlanItemRelationIds(kept),
+          replacedItemIds: [] as string[],
+          changeKind: 'NOOP' as const,
+        };
       }
       // Porcje z żądania — potrzebne już tu: zamiana dania z alokacją BEZ
       // jawnych porcji usunęłaby ją razem z pozycją, a z jawnymi, ale bez
@@ -1013,6 +1041,7 @@ export class WeeklyPlansService {
             recipeId: dto.recipeId,
             plannedServings,
             revision,
+            cookedOffPlan: cookLog !== undefined,
             participants: {
               create: effectiveParticipantIds.map((id) => ({ userId: id })),
             },
@@ -1049,6 +1078,19 @@ export class WeeklyPlansService {
         weekStartDate,
         tx,
       );
+      if (cookLog) {
+        await cookLog.markEaten(tx, createdItem.id);
+        // Odczyt po odhaczeniu — `consumptions` w odpowiedzi ma je już mieć.
+        const eaten = await tx.planItem.findUniqueOrThrow({
+          where: { id: createdItem.id },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        return {
+          ...withPlanItemRelationIds(eaten),
+          replacedItemIds,
+          changeKind: 'CREATED' as const,
+        };
+      }
 
       return {
         ...withPlanItemRelationIds(createdItem),
@@ -2406,6 +2448,94 @@ export class WeeklyPlansService {
     });
 
     return withPlanItemRelationIds(updated);
+  }
+
+  /**
+   * „Zjedzone” po gotowaniu w trybie Gotuj (docs iOS Gotuj D21, D28).
+   *
+   * - Przepis jest już DZIŚ w planie (w dowolnej porze; najpierw w porze
+   *   z żądania) — odhaczamy go tam, jak `setMealEaten`. Tak kończy się też
+   *   ponowienie po utraconej odpowiedzi.
+   * - Nie ma go — dopisujemy OBOK tego, co stoi w porze (D28 od 3.10.2026:
+   *   nigdy nie zastępujemy, plan jest wspólny dla domu i ktoś mógł chcieć
+   *   zjeść swoje danie później) i odhaczamy gotującego, w JEDNEJ
+   *   transakcji. Pozycja ma `cookedOffPlan`, więc lista zakupów jej nie
+   *   liczy. Audytorium: porcji co najmniej tyle, ilu domowników — cały dom
+   *   („Wspólne”; reszta odhacza się sama w Kalendarzu), mniej — sam
+   *   gotujący. Porcje z reguły auto (1 na osobę): bilans liczy zjedzone,
+   *   nie ugotowane. Alergen domownika przy „Wspólne” = wpis tylko dla
+   *   gotującego, bez odmowy — ugotował i zjadł, plan ma to pokazać.
+   *
+   * Bramki, limity slotów i zamek tygodnia — te same co `upsertWeekSlot`
+   * (przez niego idzie zapis).
+   */
+  async logCookedMeal(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: LogCookedMealDto,
+  ) {
+    const dto = await validateDto(LogCookedMealDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+    await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
+
+    const planned = await this.prisma.planItem.findMany({
+      where: {
+        weeklyPlan: { householdId, weekStart: weekStartDate },
+        dayOfWeek: dto.dayOfWeek,
+        recipeId: dto.recipeId,
+      },
+      select: { mealType: true },
+    });
+    if (planned.length > 0) {
+      const mealType =
+        planned.find((item) => item.mealType === dto.mealType)?.mealType ??
+        planned[0].mealType;
+      const item = await this.setMealEaten(userId, householdId, weekStart, {
+        dayOfWeek: dto.dayOfWeek,
+        mealType,
+        recipeId: dto.recipeId,
+        isEaten: true,
+      });
+      return { ...item, changeKind: 'NOOP' as const };
+    }
+
+    const memberCount = (await this.loadMemberIds(householdId)).size;
+    const cookLog = {
+      markEaten: async (tx: Prisma.TransactionClient, planItemId: string) => {
+        await tx.planItemConsumption.upsert({
+          where: { planItemId_userId: { planItemId, userId } },
+          update: {},
+          create: { planItemId, userId },
+        });
+      },
+    };
+    const write = (participantIds: string[]) =>
+      this.upsertWeekSlot(
+        userId,
+        householdId,
+        weekStart,
+        {
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+          recipeId: dto.recipeId,
+          participantIds,
+        },
+        cookLog,
+      );
+    if (dto.servings < memberCount) return write([userId]);
+    try {
+      return await write([]);
+    } catch (error) {
+      if (
+        error instanceof AppException &&
+        error.code === 'RECIPE_ALLERGEN_CONFLICT'
+      ) {
+        return write([userId]);
+      }
+      throw error;
+    }
   }
 
   /**
