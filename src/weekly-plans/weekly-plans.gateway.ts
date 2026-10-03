@@ -900,6 +900,16 @@ export class WeeklyPlansGateway
         dayOfWeek: result.dayOfWeek,
         mealType: result.mealType,
       });
+      // Gotujący doszedł do audytorium cudzej pozycji — porcji przybyło,
+      // lista zakupów się zmieniła (wpis `cookedOffPlan` jej nie rusza).
+      if (result.changeKind === 'DETAILS_CHANGED') {
+        this.emitShoppingListChanged({
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'UPSERT_SLOT',
+          changedByUserId: userId,
+        });
+      }
 
       return result;
     });

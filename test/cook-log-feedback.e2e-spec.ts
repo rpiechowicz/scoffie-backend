@@ -357,6 +357,33 @@ describe('Gotuj: wpis spoza planu i oceny E2E', () => {
       expect(await slot('FRI', 'BREAKFAST')).toEqual([]);
     });
 
+    it('pozycja domownika z porcjami per osoba — gotujący dochodzi z porcją 1,0, porcje domownika zostają', async () => {
+      await plan({
+        dayOfWeek: 'MON',
+        mealType: 'LUNCH',
+        recipeId: dinners[1],
+        participantIds: [marekId],
+        portions: [{ userId: marekId, servings: 2 }],
+      });
+      const item = okData(
+        await logCooked({
+          dayOfWeek: 'MON',
+          mealType: 'LUNCH',
+          recipeId: dinners[1].toUpperCase(),
+          servings: 1,
+        }),
+      ) as PlanItem & {
+        changeKind: string;
+        portions: { userId: string; servings: number }[];
+      };
+      expect(item.changeKind).toBe('DETAILS_CHANGED');
+      expect(item.eatenByUserIds).toEqual([aniaId]);
+      expect(
+        Object.fromEntries(item.portions.map((p) => [p.userId, p.servings])),
+      ).toEqual({ [marekId]: 2, [aniaId]: 1 });
+      expect(await slot('MON', 'LUNCH')).toHaveLength(1);
+    });
+
     it('gotujący ma w porze własne danie — ugotowane tylko dla niego, choć porcji na cały dom', async () => {
       await plan({
         dayOfWeek: 'SAT',
