@@ -269,8 +269,31 @@ describe('Panel: scenariusze Gotuj E2E', () => {
       .expect(409);
   });
 
+  it('import nie przywraca wycofanego także, gdy nad nim leży nowsza wersja robocza', async () => {
+    const top = await prisma.recipeCookScenario.findFirstOrThrow({
+      where: { recipeId: ID },
+      orderBy: { version: 'desc' },
+      select: { version: true, recipeContentHash: true, rulesVersion: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Recipe" WHERE "id" = ${ID}::uuid FOR UPDATE`;
+      await tx.recipeCookScenario.create({
+        data: {
+          recipeId: ID,
+          version: top.version + 1,
+          status: 'VALIDATED',
+          recipeContentHash: top.recipeContentHash,
+          rulesVersion: top.rulesVersion,
+          content: content as object,
+          generator: { source: 'writer' },
+        },
+      });
+    });
+    expect(await importKotlet()).toBe('WITHDRAWN');
+  });
+
   it('import z pliku nie przywraca scenariusza wycofanego w panelu', async () => {
-    expect(await importKotlet()).toBe('GOLDEN');
+    expect(await importKotlet()).toBe('WITHDRAWN');
     const recipe = await prisma.recipe.findUniqueOrThrow({
       where: { id: ID },
       select: { cookScenarioVersion: true },
@@ -282,7 +305,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
     const res = await publish({ content, ...(await tokens()) });
     expect(res.status).toBe(201);
     const published = (res.body as CookScenarioDetail).publishedVersion;
-    expect(await importKotlet()).toBe('GOLDEN');
+    expect(await importKotlet()).toBe('PANEL');
     expect((await detail()).publishedVersion).toBe(published);
     // Wersja z panelu niesie odcisk wejścia — system pisania uzna ją za aktualną.
     const row = await prisma.recipeCookScenario.findFirstOrThrow({

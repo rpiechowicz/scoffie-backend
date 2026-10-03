@@ -48,7 +48,8 @@ type Row = {
  * `STALE` = był na telefonach i zniknął (opublikowany wiersz przeterminował
  * trigger albo PUBLISHED bez `cookScenarioVersion` — stan niespójny, do
  * ponownej publikacji). Wersja robocza oznaczona STALE przez system pisania
- * nigdy nie była opublikowana — to `VALIDATED` (treść do sprawdzenia).
+ * nigdy nie była opublikowana — `NONE` (szczegół i tak pokaże jej treść
+ * i walidatory, jeśli ją ma).
  */
 export function scenarioState(
   rows: readonly Row[],
@@ -59,7 +60,9 @@ export function scenarioState(
   const latest = rows[0];
   if (!latest) return 'NONE';
   if (latest.status === 'STALE') {
-    return latest.publishedAt !== null ? 'STALE' : 'VALIDATED';
+    // Robocza wersja przeterminowana przez system pisania bywa odrzucona
+    // albo bez treści — nic dla telefonu, nie „czeka” (recenzja E3c, runda 2).
+    return latest.publishedAt !== null ? 'STALE' : 'NONE';
   }
   if (
     latest.status === 'VALIDATED' ||
