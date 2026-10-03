@@ -210,7 +210,7 @@ const toNumber = (raw: string) => Number(raw.replace(',', '.'));
  * jej 3600 s dopisuje osobna reguła, poza grupą „części albo suma”.
  */
 const COMPOUND_DURATION =
-  /(?<!\p{L})(?<![\d.,–—-]\s*)(\d+)\s*(?:godz(?:\.|\p{L}*)|h(?!\p{L}))\s*(?:i\s+)?(\d+)\s*min\p{L}*/giu;
+  /(?<![\p{L}\d])(?<!\d[.,])(?<!\d\s*[–—-]\s*)(\d+)\s*(?:godz(?:\.|\p{L}*)|h(?!\p{L}))\s*(?:i\s+)?(\d+)\s*min\p{L}*/giu;
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */

@@ -1810,6 +1810,9 @@ describe('granice walidatora wyłapane przez agentów (2.10.2026)', () => {
     ).toContainEqual([8100, 8100]);
     expect(ranges('Duś 1 godzinę i 15 minut.')).toContainEqual([4500, 4500]);
     expect(ranges('Piecz 1 h 30 min.')).toContainEqual([5400, 5400]);
+    // Po przecinku czy myślniku bez liczby przed nim — suma jest.
+    expect(ranges('Piecz w 180°C, 1 h 30 min.')).toContainEqual([5400, 5400]);
+    expect(ranges('Duś – 2 godziny 15 minut.')).toContainEqual([8100, 8100]);
     // Suma tylko DOPUSZCZA timer na całość — tekst jej nie „twierdzi”
     // (timer do punktu kontrolnego „Zostało 15 minut duszenia” przechodzi).
     expect(recipeDurationPool(['Duś 2 godziny 15 minut.']).compound).toEqual([
