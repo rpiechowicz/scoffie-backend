@@ -199,6 +199,18 @@ const unitSeconds = (unit: string) => {
   return 60;
 };
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
+/**
+ * Czas złożony „2 godziny 15 minut”, „1 h 30 min”, „1 godzinę i 15 minut”
+ * (agenci 2.10: duszenie 2 h 15 min). `DURATION` widzi w nim dwa osobne
+ * czasy; timer na sumę (8100 s) nie miał pokrycia w przepisie. Liczba godzin
+ * całkowita, tuż przed jednostką, nie koniec zakresu, bez przechodzenia przez
+ * kropkę (recenzja 3.10: „stronach 10 minut” dawało 1 h 10 min, „1,5 godziny
+ * 10 minut” — 5 h, „1–2 godziny 15 minut” — sumę z połowy zakresu, „2 godziny.
+ * 15 minut przed końcem” — sumę przez granicę zdania). Bez samego „godzinę”:
+ * jej 3600 s dopisuje osobna reguła, poza grupą „części albo suma”.
+ */
+const COMPOUND_DURATION =
+  /(?<![\p{L}\d])(?<!\d[.,])(?<!\d\s*[–—-]\s*)(\d+)\s*(?:godz(?:\.|\p{L}*)|h(?!\p{L}))\s*(?:i\s+)?(\d+)\s*min\p{L}*/giu;
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
@@ -225,7 +237,18 @@ const COOKING_TURN = /(piecz|gotuj|smaż|grilluj|opiekaj|gofr|wrząt)/iu;
  * inaczej najwyżej dwie (prompt: najwyżej trzy tury z timerem).
  */
 const extraTurnsIn = (sentence: string): number =>
-  /w\s+(?:dwóch|2)\s+(?:turach|partiach)/iu.test(sentence) ? 1 : 2;
+  /w\s+(?:dwóch|2)\s+(?:turach|partiach)|drug[iąaey]/iu.test(sentence) ? 1 : 2;
+/**
+ * Tura nazwana wprost, bez słów z `BATCH_WORK` (agenci 2.10, katalog:
+ * „piecz każdy gofr 4–5 minut”, „piecz każdą partię 3–4 minuty”, „Tak samo
+ * usmaż drugi omlet” — w omletach ZWYKLE w następnym kroku, bez czasu).
+ * Tylko dopuszcza drugi timer tej samej długości — nie każe go dawać.
+ */
+/** Powtórka w NASTĘPNYM kroku — tylko jawne „tak samo usmaż/upiecz…”. */
+const TURN_REPEAT_NEXT =
+  /tak\s+samo\s+(?:u|przy|za)?(?:smaż|piecz|gotuj|grilluj|opiekaj)/iu;
+const TURN_REPEAT =
+  /tak\s+samo\s+(?:u|przy|za)?(?:smaż|piecz|gotuj|grilluj|opiekaj)|(?:każd\p{L}*|kolejn\p{L}*|następn(?!ie(?!\p{L}))\p{L}*)\s+(?:\p{L}+\s+)?(?:parti|porcj|tur[ęy]|blach|gofr|omlet|plac|naleśnik|tortill|pizz|racuch|blin|pancake|kotlet|burger)/iu;
 const WAITING_WORK =
   /(duś|dus[zi]|gotuj|piecz|zapiekaj|pod\s+przykryciem|odstaw|marynuj|chłodź|mroź)/iu;
 
@@ -258,6 +281,13 @@ export interface DurationPool {
    * ostrzeżeń „nie ma timera” to była właśnie aktywna praca).
    */
   active: Set<number>;
+  /**
+   * Indeksy `ranges` z sumy czasu złożonego („2 godziny 15 minut” → 8100 s).
+   * Dopuszczają timer na całość, ale tekst ich nie „twierdzi” — scenariusz
+   * z timerem do punktu kontrolnego („Zostało 15 minut duszenia”) przechodził
+   * dotąd i ma przechodzić (regresja na 1046 scenariuszach, 3.10.2026).
+   */
+  compound: { parts: number[]; whole: number }[];
 }
 
 export function recipeDurations(instructions: string[]): [number, number][] {
@@ -272,7 +302,8 @@ export function recipeDurations(instructions: string[]): [number, number][] {
 function claimedDurations(text: string): [number, number][] {
   const pool = recipeDurationPool([text]);
   const derived = new Set(pool.perSide.map((group) => group.combined));
-  return pool.ranges.filter((_, i) => !derived.has(i));
+  const wholes = new Set(pool.compound.map((group) => group.whole));
+  return pool.ranges.filter((_, i) => !derived.has(i) && !wholes.has(i));
 }
 
 /** Koniec zdania: [.!?] i spacja przed wielką literą (nie skrót „ok.”). */
@@ -342,7 +373,16 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
   const perSide: DurationPool['perSide'] = [];
   const active = new Set<number>();
   const extraTurns = new Set<number>();
-  for (const line of instructions) {
+  const compound: DurationPool['compound'] = [];
+  instructions.forEach((line, index) => {
+    // Powtórka w następnym kroku bez własnego czasu („Tak samo usmaż drugi
+    // omlet”) dotyczy czasów TEGO kroku.
+    const next = instructions[index + 1] ?? '';
+    const repeatedNext =
+      TURN_REPEAT_NEXT.test(next) &&
+      !new RegExp(DURATION.source, 'iu').test(next);
+    // Gdzie w linii stoi każdy czas — części czasu złożonego.
+    const spans: { start: number; end: number; index: number }[] = [];
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
       const from = toNumber(match[1]) * seconds;
@@ -353,6 +393,7 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
       if (ACTIVE_WORK.test(own) && !WAITING_WORK.test(own)) {
         active.add(found.length);
       }
+      spans.push({ start: at, end: at + match[0].length, index: found.length });
       found.push(range);
       // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
       // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
@@ -377,26 +418,42 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
           perSide.push({ singles: [first, first + 1], combined: first + 2 });
         }
       } else if (
-        BATCH_WORK.test(own) &&
-        !ADDING_GRADUALLY.test(own) &&
-        (!/porcjami/iu.test(own) || COOKING_TURN.test(own))
+        (BATCH_WORK.test(own) &&
+          !ADDING_GRADUALLY.test(own) &&
+          (!/porcjami/iu.test(own) || COOKING_TURN.test(own))) ||
+        TURN_REPEAT.test(own) ||
+        repeatedNext
       ) {
         // Kolejne tury tym samym czasem (najwyżej trzy z timerem, więcej —
         // tekstem). Dopisane PO grupie „z każdej strony” i tylko bez niej —
         // kopia przed grupą przesuwała jej indeksy (przegląd nocny).
-        for (let turn = 0; turn < extraTurnsIn(own); turn += 1) {
+        const context = repeatedNext ? `${own} ${next}` : own;
+        for (let turn = 0; turn < extraTurnsIn(context); turn += 1) {
           extraTurns.add(found.length);
           found.push(range);
         }
       }
+    }
+    for (const match of line.matchAll(COMPOUND_DURATION)) {
+      const seconds = toNumber(match[1]) * 3600 + toNumber(match[2]) * 60;
+      const from = match.index ?? 0;
+      const to = from + match[0].length;
+      compound.push({
+        parts: spans
+          // Po początku: `DURATION` bierze kropkę po „minut.”, suma — nie.
+          .filter((span) => span.start >= from && span.start < to)
+          .map((span) => span.index),
+        whole: found.length,
+      });
+      found.push([seconds, seconds]);
     }
     const lower = line.toLowerCase();
     if (lower.includes('kwadrans')) found.push([900, 900]);
     if (lower.includes('pół godziny')) found.push([1800, 1800]);
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
-  }
-  return { ranges: found, perSide, active, extraTurns };
+  });
+  return { ranges: found, perSide, active, extraTurns, compound };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -509,6 +566,14 @@ const GENITIVE_END = /(a|y|i|u|ego|ej|ów|ich|ych)$/u;
  * słów porównujemy z każdym składnikiem.
  */
 const ADJECTIVE_END = /(ej|ego|ych|ich|ymi|imi|nej|wej|tej|o)$/u;
+/** Końcówki trybu rozkazującego (bez polskich znaków): dodaj, wsyp, gotuj, zmniejsz, wloz. */
+const IMPERATIVE_END = /(aj|ej|ij|uj|yj|sz|cz|oz|uc|ol)$/u;
+/**
+ * Przysłówki o tej samej końcówce („, najlepiej mleka”, „, raczej mleka”) —
+ * nie zaczynają nowej czynności (recenzja 3.10). Stopień wyższy („-iej”)
+ * odcina osobny warunek.
+ */
+const NOT_IMPERATIVE = new Set(['raczej', 'dalej', 'wiecej', 'juz', 'tez']);
 /** Słowa, po których w wyliczeniu zaczyna się NOWA pozycja. */
 const LIST_JOINERS = new Set(['i', 'a', 'oraz', 'lub', 'albo', 'z', 'ze']);
 
@@ -597,6 +662,30 @@ function mentionsIngredient(
   // 100 ml wody” — ilość wody), więc idzie z filtrem wymiaru; tylko przed
   // nawiasem to sama rzecz.
   const lastWord = last && !LIST_JOINERS.has(last) ? [last] : [];
+  // Ilość WODY (nie ma jej na liście składników) kończy się na „, nowa
+  // czynność” — „Zagotuj 1,5 l wody, dodaj ocet”, „zalej 300 ml wody, dodaj
+  // liść laurowy” (agenci 2.10, katalog). Tylko przed czasownikiem, który
+  // nie jest nazwą składnika: „150 ml wody i/lub mleka” dalej dzieli ilość,
+  // a „50 ml czystą miarką, wlej olej” (review Codexa #265) — nie woda.
+  let farWords = tailWords.slice(reach);
+  if (/^(wod|wrz)/.test(tailWords[reach - 1] ?? '')) {
+    const cut = /,\s*(\p{L}+)/u.exec(tail);
+    const verb = cut ? normalizeText(cut[1]) : '';
+    const isIngredient = recipe.ingredients.some((row) =>
+      normalizedWords(row.name).some(
+        (word) => word.length >= 3 && verb.startsWith(word.slice(0, 3)),
+      ),
+    );
+    if (
+      cut &&
+      IMPERATIVE_END.test(verb) &&
+      !/iej$/.test(verb) &&
+      !NOT_IMPERATIVE.has(verb) &&
+      !isIngredient
+    ) {
+      farWords = normalizedWords(tail.slice(0, cut.index)).slice(reach);
+    }
+  }
   const near = [
     ...(bracketed ? lastWord : []),
     ...tailWords.slice(0, reach),
@@ -621,10 +710,7 @@ function mentionsIngredient(
     words.some((word) => stems.some((stem) => word.startsWith(stem)));
   return (
     hits(near, all) ||
-    hits(
-      [...(bracketed ? [] : lastWord), ...tailWords.slice(reach)],
-      sameDimension,
-    )
+    hits([...(bracketed ? [] : lastWord), ...farWords], sameDimension)
   );
 }
 
@@ -1523,7 +1609,10 @@ function checkSafety(
 
 /** Temperatury „po czym poznać” (§5.5) — wolno je pisać bez przepisu. */
 const SAFETY_TEMPERATURES = new Set([63, 71, 74]);
-const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|stopni)/giu;
+// „200C” / „200 C” bez znaku stopnia — tak pisze dwa przepisy katalogu
+// (agenci 2.10: temperatura z przepisu „nie była w przepisie”).
+// „C” wrażliwe na wielkość liter („30 c” to nie temperatura), „Stopni” nie.
+const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|[Ss]topni|STOPNI|C(?![\p{L}]))/gu;
 
 /** Krótkie czynności („mieszaj 1 minutę”) nie zmieniają czasu dania. */
 const SHORT_SECONDS = 120;
@@ -1675,11 +1764,14 @@ function checkTimers(
     const { timer } = timers[timerIndex];
     return fitsRange([timer.minSeconds, timer.maxSeconds], recipeRanges[range]);
   };
-  const inGroup = new Set(
-    pool.perSide.flatMap((g) =>
+  const inGroup = new Set([
+    ...pool.perSide.flatMap((g) =>
       g.combined === null ? g.singles : [...g.singles, g.combined],
     ),
-  );
+    // Czas złożony: części ALBO suma — nigdy oba (recenzja 3.10: timery
+    // 8100 s i 7200 s przy „2 godziny 15 minut” dawały 4 h 15 min duszenia).
+    ...pool.compound.flatMap((g) => [...g.parts, g.whole]),
+  ]);
   const ordinary = recipeRanges
     .map((_, index) => index)
     .filter((index) => !inGroup.has(index));
@@ -1709,7 +1801,7 @@ function checkTimers(
   // timera / dwa po X / jedno 2X. Sprawdzamy wszystkie kombinacje (grup jest
   // 0–2, więc najwyżej 9) i bierzemy tę, w której wszystko się zgadza —
   // zwykły czas o tej samej długości nie zostanie wzięty za „stronę”.
-  type Mode = 'none' | 'singles' | 'combined';
+  type Mode = 'none' | 'singles' | 'combined' | 'parts' | 'whole';
   const combos: Mode[][] = [[]];
   for (let g = 0; g < pool.perSide.length; g += 1) {
     const next: Mode[][] = [];
@@ -1719,6 +1811,16 @@ function checkTimers(
           ? ['none', 'singles']
           : ['none', 'singles', 'combined'];
       for (const mode of modes) next.push([...combo, mode]);
+    }
+    combos.splice(0, combos.length, ...next);
+  }
+  const sides = pool.perSide.length;
+  for (let c = 0; c < pool.compound.length; c += 1) {
+    const next: Mode[][] = [];
+    for (const combo of combos) {
+      for (const mode of ['parts', 'whole'] as const) {
+        next.push([...combo, mode]);
+      }
     }
     combos.splice(0, combos.length, ...next);
   }
@@ -1736,6 +1838,10 @@ function checkTimers(
       if (modes[g] === 'combined' && group.combined !== null) {
         allowed.push(group.combined);
       }
+    });
+    pool.compound.forEach((group, c) => {
+      if (modes[sides + c] === 'parts') allowed.push(...group.parts);
+      else allowed.push(group.whole);
     });
     const { owner, unmatched } = match(allowed);
     const half = pool.perSide
@@ -1762,6 +1868,9 @@ function checkTimers(
   for (const index of result.unmatched) {
     const { step, timer } = timers[index];
     const any = recipeRanges.some((_, range) => fits(index, range));
+    const compound = pool.compound.some((group) =>
+      [...group.parts, group.whole].some((range) => fits(index, range)),
+    );
     const perSide = pool.perSide.some((group) =>
       [
         ...group.singles,
@@ -1780,7 +1889,9 @@ function checkTimers(
           })${other}`
         : perSide
           ? `timery dublują czas „z każdej strony” ${describeRange([timer.minSeconds, timer.maxSeconds])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`
-          : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`,
+          : compound
+            ? `${step}.timer „${timer.label}”: timery dublują czas złożony z przepisu („2 godziny 15 minut”) — albo jeden timer na całość, albo osobne na części, nie oba`
+            : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`,
     );
   }
   for (const g of result.half) {
@@ -1802,6 +1913,23 @@ function checkTimers(
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   }
+  // Czas złożony: bez ostrzeżeń o sumie; części — jak zwykłe czasy, gdy
+  // wybrany wariant to części.
+  pool.compound.forEach((group, c) => {
+    if (result.modes[sides + c] !== 'parts') return;
+    if (result.owner.has(group.whole)) return;
+    for (const index of group.parts) {
+      const range = recipeRanges[index];
+      if (
+        range[1] >= MIN_TIMER_SECONDS &&
+        !result.owner.has(index) &&
+        !pool.active.has(index) &&
+        !pool.extraTurns.has(index)
+      ) {
+        warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
+      }
+    }
+  });
   pool.perSide.forEach((group, g) => {
     // Aktywne smażenie „po X z każdej strony” (bez łącznego wariantu) idzie
     // bez timera — to nie sygnał.

@@ -8,6 +8,7 @@ import {
   shownLength,
   skipGuard,
   splitRecipeVariants,
+  temperaturesIn,
   timelineFloorSeconds,
 } from './writer.checks';
 import {
@@ -1782,5 +1783,165 @@ describe('system pisania — walidatory twarde', () => {
         ),
       );
     });
+  });
+});
+
+describe('granice walidatora wyłapane przez agentów (2.10.2026)', () => {
+  const withRecipe = (
+    ingredients: WriterRecipe['ingredients'],
+    line: string,
+  ): WriterRecipe => ({
+    ...kotlet,
+    ingredients: [...kotlet.ingredients, ...ingredients],
+    instructions: [...kotlet.instructions, line],
+  });
+  const numberErrors = (recipe: WriterRecipe, body: string) => {
+    const content = clone(example.content);
+    content.steps.find((s) => s.id === 's12')!.body = body;
+    return qualityChecks(recipe, content).errors.filter((e) =>
+      e.includes('liczba'),
+    );
+  };
+
+  it('czas złożony „2 godziny 15 minut” to też jeden czas (suma)', () => {
+    const ranges = (line: string) => recipeDurationPool([line]).ranges;
+    expect(
+      ranges('Przykryj i duś na bardzo małym ogniu 2 godziny 15 minut.'),
+    ).toContainEqual([8100, 8100]);
+    expect(ranges('Duś 1 godzinę i 15 minut.')).toContainEqual([4500, 4500]);
+    expect(ranges('Piecz 1 h 30 min.')).toContainEqual([5400, 5400]);
+    // Po przecinku czy myślniku bez liczby przed nim — suma jest.
+    expect(ranges('Piecz w 180°C, 1 h 30 min.')).toContainEqual([5400, 5400]);
+    expect(ranges('Duś – 2 godziny 15 minut.')).toContainEqual([8100, 8100]);
+    // Suma tylko DOPUSZCZA timer na całość — tekst jej nie „twierdzi”
+    // (timer do punktu kontrolnego „Zostało 15 minut duszenia” przechodzi).
+    expect(recipeDurationPool(['Duś 2 godziny 15 minut.']).compound).toEqual([
+      { parts: [0, 1], whole: 2 },
+    ]);
+    // Granice (recenzja 3.10): końcówka „-ch”, ułamek, kropka — bez sumy.
+    for (const line of [
+      'Smaż na obu stronach 10 minut.',
+      'Gotuj w dwóch partiach 3 minuty.',
+      'Duś 1,5 godziny 10 minut.',
+      'Gotuj 2 godziny. 15 minut przed końcem dodaj ziemniaki.',
+      'Duś 1–2 godziny 15 minut.',
+      'Duś godzinę i 15 minut.',
+    ]) {
+      expect(recipeDurationPool([line]).compound).toEqual([]);
+    }
+    // Części zostają — tekst „po 2 godzinach” dalej ma pokrycie.
+    expect(ranges('Duś 2 godziny 15 minut.')).toContainEqual([7200, 7200]);
+  });
+
+  it('tury nazwane wprost: „każdy gofr”, „każdą partię”, „Tak samo usmaż drugi omlet” w następnym kroku', () => {
+    const turns = (lines: string[]) =>
+      [...recipeDurationPool(lines).extraTurns].length;
+    expect(turns(['Piecz każdy gofr 4–5 minut, aż będzie złoty.'])).toBe(2);
+    expect(turns(['Piecz każdą partię 3–4 minuty.'])).toBe(2);
+    expect(
+      turns([
+        'Wlej połowę masy i smaż pod przykryciem 4–5 minut.',
+        'Zsuń omlet na talerz i tak samo usmaż drugi.',
+      ]),
+    ).toBe(1);
+    // Następny krok z WŁASNYM czasem — powtórka dotyczy jego czasu.
+    expect(
+      turns([
+        'Smaż pod przykryciem 4–5 minut.',
+        'Tak samo usmaż drugi omlet, 4 minuty.',
+      ]),
+    ).toBe(1);
+    expect(
+      turns([
+        'Gotuj 10 minut.',
+        'Przed każdym kolejnym naleśnikiem natłuść patelnię.',
+      ]),
+    ).toBe(0);
+    expect(turns(['Gotuj 10 minut.', 'Podawaj od razu.'])).toBe(0);
+    // „Następnie” to nie tura (recenzja 3.10).
+    expect(turns(['Następnie piecz placki 10 minut.'])).toBe(0);
+  });
+
+  it('„200C” bez znaku stopnia to temperatura, „200 g” i „12 cm” — nie', () => {
+    expect(temperaturesIn('Piecz 25–30 minut w 200C, potem w 180 C.')).toEqual([
+      200, 180,
+    ]);
+    expect(temperaturesIn('Dodaj 200 g mąki do formy 12 cm.')).toEqual([]);
+    expect(temperaturesIn('Piecz w 220 Stopni.')).toEqual([220]);
+    expect(temperaturesIn('Odlej 30 c wody.')).toEqual([]);
+  });
+
+  it('„zagotuj 1,5 l wody, dodaj ocet” — ilość wody, nie octu; wspólna ilość i obejście z miarką dalej błędem', () => {
+    const vinegar = withRecipe(
+      [
+        {
+          ingredientId: 'oct',
+          name: 'ocet spirytusowy',
+          amount: 30,
+          unit: 'ml',
+        },
+      ],
+      'W szerokim garnku zagotuj 1,5 l wody, dodaj ocet i zmniejsz ogień.',
+    );
+    expect(numberErrors(vinegar, 'Zagotuj 1,5 l wody, dodaj ocet.')).toEqual(
+      [],
+    );
+    const bay = withRecipe(
+      [{ ingredientId: 'lis', name: 'liść laurowy', amount: 2, unit: 'szt' }],
+      'Kapustę zalej 300 ml wody, dodaj liść laurowy i gotuj 30 minut.',
+    );
+    expect(
+      numberErrors(bay, 'Zalej kapustę 300 ml wody, dodaj liść laurowy.'),
+    ).toEqual([]);
+    // „i / lub” dalej dzieli ilość; przecinek przed SKŁADNIKIEM — też.
+    const coconut = withRecipe(
+      [
+        {
+          ingredientId: 'mlk',
+          name: 'mleko kokosowe',
+          amount: 150,
+          unit: 'ml',
+        },
+      ],
+      'Wymieszaj z mlekiem kokosowym, 150 ml wody i cynamonem.',
+    );
+    expect(
+      numberErrors(coconut, 'Wlej 150 ml wody i mleka kokosowego.'),
+    ).toHaveLength(1);
+    // Przysłówek po przecinku to nie nowa czynność (recenzja 3.10).
+    expect(
+      numberErrors(coconut, 'Wlej 150 ml wody, najlepiej mleka kokosowego.'),
+    ).toHaveLength(1);
+    expect(
+      numberErrors(coconut, 'Wlej 150 ml wody, raczej mleka kokosowego.'),
+    ).toHaveLength(1);
+    const oil = withRecipe(
+      [{ ingredientId: 'ole', name: 'olej rzepakowy', amount: 50, unit: 'ml' }],
+      'Zagotuj 1,5 l wody, dodaj sól.',
+    );
+    expect(numberErrors(oil, 'Zagotuj 1,5 l wody, olej i sól.')).toHaveLength(
+      1,
+    );
+  });
+
+  it('czas złożony: jeden timer na całość ALBO osobne na części — nie oba (recenzja 3.10)', () => {
+    const stew: WriterRecipe = {
+      ...kotlet,
+      instructions: [...kotlet.instructions, 'Duś 2 godziny 17 minut.'],
+    };
+    const withTimers = (seconds: number[]) => {
+      const content = clone(example.content);
+      const timed = content.steps.filter((st) => st.timer);
+      seconds.forEach((value, i) => {
+        timed[i].timer!.minSeconds = value;
+        timed[i].timer!.maxSeconds = value;
+      });
+      return qualityChecks(stew, content).errors.filter((e) =>
+        e.includes('czas złożony'),
+      );
+    };
+    expect(withTimers([8220, 7200])).toHaveLength(1);
+    expect(withTimers([8220, 1020])).toHaveLength(1);
+    expect(withTimers([8220])).toEqual([]);
   });
 });
