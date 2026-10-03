@@ -578,7 +578,14 @@ export class AuthService {
         },
       });
       if (recent >= readThrottleLimit('THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT')) {
-        return 'throttled' as const;
+        // Przegrany wyścig (ponowiony POST tym samym tokenem) NIE dostaje 429:
+        // zwycięzca już zrotował token, klient ma tylko naszą odpowiedź
+        // i ponowiłby po minucie — poza oknem łaski, czyli jako „kradzież”
+        // z kasowaniem rodziny. `null` prowadzi do ratunku, jak bez limitu.
+        const alive = await tx.refreshToken.count({
+          where: { tokenHash, revokedAt: null },
+        });
+        return alive > 0 ? ('throttled' as const) : null;
       }
       // Uniewaznienie warunkowe (`revokedAt: null`): to samo zapytanie
       // sprawdza i zajmuje, wiec z dwoch rownoleglych zadan tym samym tokenem

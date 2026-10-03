@@ -847,6 +847,42 @@ describe('AuthService', () => {
       expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 
+    it('limit rotacji na konto: przegrany wyścig idzie do ratunku, nie 429', async () => {
+      // Zwycięzca równoległego POST-a zrotował token, zanim przegrany wziął
+      // zamek. 429 zostawiłby klienta ze zrotowanym tokenem, a ponowienie po
+      // minucie (poza oknem łaski) skasowałoby rodzinę.
+      prisma.refreshToken.count
+        .mockResolvedValueOnce(30) // tokeny konta w ostatniej minucie
+        .mockResolvedValueOnce(0); // przedstawiony token już nie żyje
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(mockRefreshToken)
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        .mockResolvedValueOnce({ revokedAt: null });
+
+      const result = await service.refreshAccessToken('ponowiony-token');
+
+      expect(result).toHaveProperty('accessToken', 'mock-access-token');
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          tokenHash: mockRefreshToken.tokenHash,
+          revokedReason: { in: ['ROTATED', 'RECOVERED'] },
+        },
+        data: { revokedReason: 'RECOVERED' },
+      });
+    });
+
     it('limit rotacji na konto: poniżej progu rotuje normalnie', async () => {
       prisma.refreshToken.count.mockResolvedValueOnce(29);
 
