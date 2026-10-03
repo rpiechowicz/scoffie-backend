@@ -35,7 +35,12 @@ export const recipeFacetsSelect = {
   dietTags: true,
   nutritionFiber: true,
   nutritionSalt: true,
-  ingredients: { select: { name: true, department: true } },
+  sourceProvider: true,
+  sourceRecipeId: true,
+  ingredients: {
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { name: true, department: true },
+  },
 } satisfies Prisma.RecipeSelect;
 
 export type RecipeFacetsRow = {
@@ -57,6 +62,8 @@ export type RecipeFacetsRow = {
   occasions: string[];
   equipment: string[];
   features: string[];
+  sourceProvider: string | null;
+  sourceRecipeId: string | null;
   ingredients: { name: string; department: string }[];
 };
 
@@ -88,6 +95,14 @@ export function toRecipeListFacets(row: RecipeFacetsRow): RecipeListFacets {
     diets: dietsOf(row, perServing),
     fiberPerServing: gramsPerServing(row.nutritionFiber, row.servings),
     saltPerServing: gramsPerServing(row.nutritionSalt, row.servings),
+    // Jak `Recipe.isThermomix` w iOS: odpowiednik w Cookidoo.
+    thermomix:
+      row.sourceProvider === 'cookidoo' && !!row.sourceRecipeId?.trim(),
+    // „Wyklucz składniki” jak w aplikacji: nazwa i dział sklepu.
+    ingredients: row.ingredients.map(({ name, department }) => ({
+      name,
+      department,
+    })),
   };
 }
 

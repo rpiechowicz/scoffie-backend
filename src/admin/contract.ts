@@ -787,6 +787,10 @@ export interface RecipeListFacets {
   /** gramy na porcję, jedno miejsce po przecinku */
   fiberPerServing: number;
   saltPerServing: number;
+  /** odpowiednik w Cookidoo (cecha „Thermomix”) */
+  thermomix: boolean;
+  /** składniki do „Wyklucz składniki”: nazwa i dział sklepu (`RecipeIngredient.department`) */
+  ingredients: { name: string; department: string }[];
 }
 
 export interface Ingredient {
