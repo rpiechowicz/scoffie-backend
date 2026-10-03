@@ -7,7 +7,10 @@ import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { runSerializable } from '../weekly-plans/utils/transaction-runner.util';
+import {
+  isSerializableConflict,
+  runSerializable,
+} from '../weekly-plans/utils/transaction-runner.util';
 import { AgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
@@ -54,6 +57,37 @@ const TURN_LIVENESS_SELECT_LOCAL = {
 } as const;
 
 export const TURN_STATUSES = ['RUNNING', 'DONE', 'FAILED', 'LIMITED'] as const;
+
+/**
+ * Pas przed sufitem instalacji, w którym sprawdzamy go już W TRANSAKCJI
+ * startu, atomowo — patrz `installationAtomicBandMicroUsd`. Dalej od sufitu
+ * wystarcza odczyt przed transakcją: żeby go przelać, trzeba by tylu
+ * równoczesnych startów, ile rezerw mieści pas (start „daleki” nie czyta tur
+ * w transakcji, więc z „bliskim” SSI go nie zderzy), a liczenie żywych tur
+ * całej instalacji w każdej transakcji SERIALIZABLE zderzałoby starty
+ * z różnych domów (P2034).
+ */
+export const INSTALLATION_ATOMIC_BAND = {
+  /** Udział budżetu — przy domyślnych $5/$0,25 to $1, nie cały dzień. */
+  share: 0.2,
+  /** …ale nie mniej niż tyle rezerw: tylu równoczesnych startów pas pilnuje. */
+  minTurns: 4,
+  /** …i nie więcej. */
+  maxTurns: 20,
+} as const;
+
+/** Szerokość pasu atomowego w mikro-USD; 0 = bez rezerwacji, bez pasu. */
+export function installationAtomicBandMicroUsd(
+  budgetUsd: number,
+  reserveUsd: number,
+): number {
+  const { share, minTurns, maxTurns } = INSTALLATION_ATOMIC_BAND;
+  const band = Math.min(
+    maxTurns * reserveUsd,
+    Math.max(share * budgetUsd, minTurns * reserveUsd),
+  );
+  return band * 1_000_000;
+}
 export type TurnStatus = (typeof TURN_STATUSES)[number];
 
 export type AcceptedTurn = {
@@ -127,10 +161,10 @@ export { TURN_TIMEOUT_GRACE_MS };
  *    409 („moja własna tura jeszcze biegnie") zamiast dostać jej id.
  * 5. bezpiecznik dostawcy i zamykanie procesu (503 `AI_UPSTREAM_PAUSED`),
  *    potem budżet: sufity domu (szybka odmowa z samych wydanych pieniędzy),
- *    a po nich instalacji — z rezerwacją za tury w biegu, NIEATOMOWO (patrz
- *    niżej). Odmowy bez kosztu.
+ *    a po nich instalacji — z rezerwacją za tury w biegu. Odmowy bez kosztu.
  * 6. transakcja: lease rozmowy (409) → semafor domu (409) → sufity domu
- *    z rezerwacją za jego tury w biegu (503) → kwota (429) → wiadomość + tura.
+ *    z rezerwacją za jego tury w biegu (503) → blisko sufitu: instalacja
+ *    jeszcze raz, atomowo (503) → kwota (429) → wiadomość + tura.
  *
  * Kwota schodzi NA STARCIE, nie po odpowiedzi modelu: inaczej wystarczyłoby
  * zrywać połączenie, żeby dostać nielimitowanego asystenta. Nieudana tura
@@ -307,41 +341,26 @@ export class AgentTurnsService {
       }
     }
 
-    // Budżet instalacji: wydane PLUS rezerwacja za każdą żywą turę. NIEATOMOWO
-    // — liczenie tur całej instalacji w transakcji SERIALIZABLE kłóciłoby się
-    // z każdą równoległą turą w każdym domu. Wyścig kosztuje najwyżej tyle
-    // tur ponad sufit, ile startów zmieści się między odczytem a zapisem,
-    // a w trakcie tury i tak pilnuje go werdykt księgi (`budget_ceiling`).
+    // Budżet instalacji: wydane PLUS rezerwacja za każdą żywą turę. Tu szybka
+    // odmowa bez transakcji; blisko sufitu (`installationNearCeiling`) ten sam
+    // rachunek powtarza transakcja startu — SERIALIZABLE szereguje wtedy
+    // równoległe starty z różnych domów jak semafor domu, także między
+    // instancjami. W trakcie tury pilnuje go werdykt księgi (`budget_ceiling`).
+    let installationNearCeiling = false;
     if (env.globalDailyBudgetUsd !== null) {
-      const spentMicroUsd = await this.counters.read(
-        GLOBAL_SCOPE,
-        this.counters.dayKey(),
-        'costMicroUsd',
+      const headroom = await this.installationHeadroomMicroUsd(
+        this.prisma,
+        env,
+        env.globalDailyBudgetUsd,
       );
-      const reservedMicroUsd =
-        env.turnCostReserveUsd > 0
-          ? (await this.prisma.agentTurn.count({
-              where: liveTurnWhere(env.turnTimeoutMs),
-            })) *
-            env.turnCostReserveUsd *
-            1_000_000
-          : 0;
-      if (
-        spentMicroUsd + reservedMicroUsd >=
-        env.globalDailyBudgetUsd * 1_000_000
-      ) {
-        this.metrics.recordRejected('budget');
-        // Operator ma się dowiedzieć PRZED użytkownikami — raz na dobę.
-        void this.alerts.notify(
-          `ai-budget-paused:${this.counters.dayKey()}`,
-          `budżet dobowy asystenta ($${env.globalDailyBudgetUsd}) wyczerpany — /agent odpowiada 503 AI_BUDGET_PAUSED do północy UTC`,
+      if (headroom <= 0)
+        this.refuseInstallationBudget(env.globalDailyBudgetUsd);
+      installationNearCeiling =
+        headroom <
+        installationAtomicBandMicroUsd(
+          env.globalDailyBudgetUsd,
+          env.turnCostReserveUsd,
         );
-        throw new AppException(
-          'AI_BUDGET_PAUSED',
-          'Asystent jest dziś niedostępny. Spróbuj jutro.',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
     }
 
     const plan = await this.counters.resolvePlan(conversation.householdId, {
@@ -477,6 +496,22 @@ export class AgentTurnsService {
           householdLive,
         );
 
+        // Instalacja blisko sufitu: ten sam rachunek co przed transakcją, ale
+        // z jej migawki. Dwa równoległe starty (choćby z dwóch domów i dwóch
+        // instancji) czytają tu te same żywe tury i obie wstawiają nową —
+        // SSI oddaje przegranemu P2034, a po ponowieniu widzi on już turę
+        // zwycięzcy i odmawia uczciwie.
+        if (installationNearCeiling && env.globalDailyBudgetUsd !== null) {
+          const headroom = await this.installationHeadroomMicroUsd(
+            tx,
+            env,
+            env.globalDailyBudgetUsd,
+          );
+          if (headroom <= 0) {
+            this.refuseInstallationBudget(env.globalDailyBudgetUsd);
+          }
+        }
+
         const consumed = await this.counters.tryConsume(
           tx,
           scopeId,
@@ -575,6 +610,18 @@ export class AgentTurnsService {
           data.clientMessageId,
         );
         if (raced) return { ...raced, requestId };
+      }
+      // Ponowienia SERIALIZABLE wyczerpane: kilka startów naraz (ten sam dom
+      // albo instalacja blisko sufitu) wciąż się zderza. To nie błąd serwera,
+      // tylko tłok — 503 z krótkim `retryAfterSeconds`, a nie 500.
+      if (isSerializableConflict(error)) {
+        this.metrics.recordRejected('inProgress');
+        throw new AppException(
+          'AI_UPSTREAM_PAUSED',
+          'Asystent jest teraz zajęty. Spróbuj za chwilę.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+          ['retryAfterSeconds:2'],
+        );
       }
       // Pula wiadomości pusta. Mail MUSI pójść tutaj, a nie przy rzucie:
       // kwota schodzi wewnątrz transakcji, a odmowa ją wycofuje — wiersz
@@ -868,6 +915,46 @@ export class AgentTurnsService {
       where: { id: turn.id },
     });
     return (fresh ?? turn) as T;
+  }
+
+  /**
+   * Ile zostało z dobowego budżetu instalacji, w mikro-USD: sufit minus
+   * wydane minus rezerwacja za każdą żywą turę. `≤ 0` = odmowa.
+   */
+  private async installationHeadroomMicroUsd(
+    client: Prisma.TransactionClient | PrismaService,
+    env: AgentEnv,
+    budgetUsd: number,
+  ): Promise<number> {
+    const spentMicroUsd = await this.counters.read(
+      GLOBAL_SCOPE,
+      this.counters.dayKey(),
+      'costMicroUsd',
+      client,
+    );
+    const reservedMicroUsd =
+      env.turnCostReserveUsd > 0
+        ? (await client.agentTurn.count({
+            where: liveTurnWhere(env.turnTimeoutMs),
+          })) *
+          env.turnCostReserveUsd *
+          1_000_000
+        : 0;
+    return budgetUsd * 1_000_000 - spentMicroUsd - reservedMicroUsd;
+  }
+
+  private refuseInstallationBudget(budgetUsd: number): never {
+    this.metrics.recordRejected('budget');
+    // Operator ma się dowiedzieć PRZED użytkownikami — raz na dobę.
+    void this.alerts.notify(
+      `ai-budget-paused:${this.counters.dayKey()}`,
+      `budżet dobowy asystenta ($${budgetUsd}) wyczerpany — /agent odpowiada 503 AI_BUDGET_PAUSED do północy UTC`,
+    );
+    throw new AppException(
+      'AI_BUDGET_PAUSED',
+      'Asystent jest dziś niedostępny. Spróbuj jutro.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   }
 
   /**
