@@ -751,6 +751,42 @@ export interface RecipeListItem {
   inPlans: number;
   favorites: number;
   updatedAt: IsoDate;
+  /** filtry jak w aplikacji — tylko lista katalogu (`GET /admin/catalog/recipes`) */
+  facets?: RecipeListFacets;
+}
+
+/** Kafelki „Dieta” z aplikacji; składnikowe tylko na dowodzie (przepis bez składników żadnej nie ma). */
+export type RecipeDietFilter =
+  | 'LACTOSE_FREE'
+  | 'VEGETARIAN'
+  | 'VEGAN'
+  | 'WITH_FISH'
+  | 'GLUTEN_FREE'
+  | 'KETO';
+
+/**
+ * Pola filtrów listy katalogu — jak arkusz filtrów w aplikacji. Id taksonomii
+ * z `src/recipes/recipe-taxonomy.ts`, mięso i smak z `recipe-facets.util.ts`;
+ * nieznaną wartość panel pomija.
+ */
+export interface RecipeListFacets {
+  /** `POLISH`, `ITALIAN`… albo `OTHER` */
+  cuisine: string;
+  /** `SOUP`, `PASTA`…; `null` = redakcja nie przypisała */
+  dishType: string | null;
+  /** pusta = cały rok */
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  /** `LUNCHBOX`, `SIDE`, `OCCASIONAL` */
+  features: string[];
+  /** `poultry`, `pork`, `beef`, `fish` albo `meatless` (ze składników; pusta = brak składników) */
+  proteins: string[];
+  taste: 'sweet' | 'savory';
+  diets: RecipeDietFilter[];
+  /** gramy na porcję, jedno miejsce po przecinku */
+  fiberPerServing: number;
+  saltPerServing: number;
 }
 
 export interface Ingredient {
