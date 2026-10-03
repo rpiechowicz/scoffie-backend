@@ -200,15 +200,17 @@ const unitSeconds = (unit: string) => {
 };
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 /**
- * Czas złożony „2 godziny 15 minut”, „1 h 30 min”, „godzinę i 15 minut”
+ * Czas złożony „2 godziny 15 minut”, „1 h 30 min”, „1 godzinę i 15 minut”
  * (agenci 2.10: duszenie 2 h 15 min). `DURATION` widzi w nim dwa osobne
  * czasy; timer na sumę (8100 s) nie miał pokrycia w przepisie. Liczba godzin
- * całkowita i tuż przed jednostką, bez przechodzenia przez kropkę (recenzja
- * 3.10: „stronach 10 minut” dawało 1 h 10 min, „1,5 godziny 10 minut” — 5 h,
- * „2 godziny. 15 minut przed końcem” — sumę przez granicę zdania).
+ * całkowita, tuż przed jednostką, nie koniec zakresu, bez przechodzenia przez
+ * kropkę (recenzja 3.10: „stronach 10 minut” dawało 1 h 10 min, „1,5 godziny
+ * 10 minut” — 5 h, „1–2 godziny 15 minut” — sumę z połowy zakresu, „2 godziny.
+ * 15 minut przed końcem” — sumę przez granicę zdania). Bez samego „godzinę”:
+ * jej 3600 s dopisuje osobna reguła, poza grupą „części albo suma”.
  */
 const COMPOUND_DURATION =
-  /(?<![\p{L}\d.,])(?:(\d+)\s*(?:godz(?:\.|\p{L}*)|h(?!\p{L}))|godzinę)\s*(?:i\s+)?(\d+)\s*min\p{L}*/giu;
+  /(?<!\p{L})(?<![\d.,–—-]\s*)(\d+)\s*(?:godz(?:\.|\p{L}*)|h(?!\p{L}))\s*(?:i\s+)?(\d+)\s*min\p{L}*/giu;
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
@@ -433,8 +435,7 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
       }
     }
     for (const match of line.matchAll(COMPOUND_DURATION)) {
-      const seconds =
-        (match[1] ? toNumber(match[1]) : 1) * 3600 + toNumber(match[2]) * 60;
+      const seconds = toNumber(match[1]) * 3600 + toNumber(match[2]) * 60;
       const from = match.index ?? 0;
       const to = from + match[0].length;
       compound.push({
@@ -1610,7 +1611,8 @@ function checkSafety(
 const SAFETY_TEMPERATURES = new Set([63, 71, 74]);
 // „200C” / „200 C” bez znaku stopnia — tak pisze dwa przepisy katalogu
 // (agenci 2.10: temperatura z przepisu „nie była w przepisie”).
-const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|stopni|C(?![\p{L}]))/giu;
+// „C” wrażliwe na wielkość liter („30 c” to nie temperatura), „Stopni” nie.
+const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|[Ss]topni|STOPNI|C(?![\p{L}]))/gu;
 
 /** Krótkie czynności („mieszaj 1 minutę”) nie zmieniają czasu dania. */
 const SHORT_SECONDS = 120;

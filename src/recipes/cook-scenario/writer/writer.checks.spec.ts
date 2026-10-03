@@ -1808,7 +1808,7 @@ describe('granice walidatora wyłapane przez agentów (2.10.2026)', () => {
     expect(
       ranges('Przykryj i duś na bardzo małym ogniu 2 godziny 15 minut.'),
     ).toContainEqual([8100, 8100]);
-    expect(ranges('Duś godzinę i 15 minut.')).toContainEqual([4500, 4500]);
+    expect(ranges('Duś 1 godzinę i 15 minut.')).toContainEqual([4500, 4500]);
     expect(ranges('Piecz 1 h 30 min.')).toContainEqual([5400, 5400]);
     // Suma tylko DOPUSZCZA timer na całość — tekst jej nie „twierdzi”
     // (timer do punktu kontrolnego „Zostało 15 minut duszenia” przechodzi).
@@ -1821,6 +1821,8 @@ describe('granice walidatora wyłapane przez agentów (2.10.2026)', () => {
       'Gotuj w dwóch partiach 3 minuty.',
       'Duś 1,5 godziny 10 minut.',
       'Gotuj 2 godziny. 15 minut przed końcem dodaj ziemniaki.',
+      'Duś 1–2 godziny 15 minut.',
+      'Duś godzinę i 15 minut.',
     ]) {
       expect(recipeDurationPool([line]).compound).toEqual([]);
     }
@@ -1863,6 +1865,7 @@ describe('granice walidatora wyłapane przez agentów (2.10.2026)', () => {
     ]);
     expect(temperaturesIn('Dodaj 200 g mąki do formy 12 cm.')).toEqual([]);
     expect(temperaturesIn('Piecz w 220 Stopni.')).toEqual([220]);
+    expect(temperaturesIn('Odlej 30 c wody.')).toEqual([]);
   });
 
   it('„zagotuj 1,5 l wody, dodaj ocet” — ilość wody, nie octu; wspólna ilość i obejście z miarką dalej błędem', () => {
