@@ -26,6 +26,7 @@ type Collect = (
   diet?: {
     dietByMember: Map<string, DietPreferenceValue>;
     current: Map<string, ReadonlySet<string>>;
+    allDiets?: boolean;
   } | null,
 ) => PlanViolation[];
 
@@ -168,6 +169,20 @@ describe('WeeklyPlansService — dieta w zapisie planu asystenta (S5)', () => {
       }),
     ).toEqual([]);
     expect(codes([slot('schabowy')], new Map(), diets)).toEqual([]);
+  });
+
+  it('raport (`allDiets`) zgłasza też diety makro — nic nie blokuje', () => {
+    const diets = new Map<string, DietPreferenceValue>([['wege', 'KETO']]);
+    const recipes = new Map([
+      ['bez-makr', { ...recipe('bez-makr', []), perServing: null }],
+    ]);
+    expect(
+      collect([slot('bez-makr')], recipes, MEMBERS, new Map(), new Map(), {
+        dietByMember: diets,
+        current: new Map(),
+        allDiets: true,
+      }).map((violation) => violation.code),
+    ).toEqual(['RECIPE_DIET_CONFLICT']);
   });
 
   it('to samo danie przeniesione na inny dzień jest sprawdzane', () => {

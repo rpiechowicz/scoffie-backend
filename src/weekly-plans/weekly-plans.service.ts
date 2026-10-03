@@ -248,6 +248,8 @@ type DietGate = {
   dietByMember: Map<string, DietPreferenceValue>;
   /** Jedzący pozycji dziś w bazie: klucz `dzień|pora|przepis` → osoby. */
   current: Map<string, ReadonlySet<string>>;
+  /** Raport (`check_plan_conflicts`): każda dieta, też makro — nic nie blokuje. */
+  allDiets?: boolean;
 };
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
@@ -1807,7 +1809,7 @@ export class WeeklyPlansService {
           if (before?.has(memberId)) return false;
           const preference = diet.dietByMember.get(memberId) ?? 'NONE';
           return (
-            WRITE_GATE_DIETS.has(preference) &&
+            (diet.allDiets || WRITE_GATE_DIETS.has(preference)) &&
             !subjectSatisfiesDiet(recipe, preference)
           );
         });
@@ -1949,7 +1951,11 @@ export class WeeklyPlansService {
       memberIds,
       allergensByMember,
       undefined,
-      { dietByMember, current: currentAudiences },
+      {
+        dietByMember,
+        current: currentAudiences,
+        allDiets: options.dietScope === 'all',
+      },
     );
     if (violations.length > 0) {
       return {
