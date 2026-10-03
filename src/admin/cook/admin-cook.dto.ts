@@ -23,6 +23,12 @@ export class PublishCookScenarioDto {
   @Min(1)
   @Max(1_000_000)
   basedOnVersion!: number | null;
+
+  /** `recipeSignature` ze szczegółu — inny podpis = przepis zmienił się, 409. */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  recipeSignature!: string;
 }
 
 /** `POST /admin/cook/scenarios/:recipeId/withdraw` — powód do audytu. */

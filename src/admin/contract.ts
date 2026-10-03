@@ -636,6 +636,8 @@ export interface CookScenarioVersionRow {
   /** ocena recenzenta 1–5 (system pisania) */
   reviewScore: number | null;
   reviewSummary: string | null;
+  /** wersja z odwodu systemu pisania (ocena poniżej progu, bez BLOCKER/MAJOR) */
+  belowThreshold: boolean;
 }
 
 /** `GET /admin/cook/scenarios/:recipeId`. */
@@ -655,6 +657,10 @@ export interface CookScenarioDetail {
   };
   state: CookScenarioState;
   publishedVersion: number | null;
+  /** najnowsza wersja w ogóle — token `basedOnVersion` publikacji */
+  latestVersion: number | null;
+  /** podpis treści przepisu — token `recipeSignature` publikacji */
+  recipeSignature: string;
   skipReason: string | null;
   versions: CookScenarioVersionRow[];
   /** treść do podglądu i edycji: opublikowana, inaczej najnowsza z treścią */
@@ -673,8 +679,10 @@ export interface CookScenarioDetail {
 /** `POST /admin/cook/scenarios/:recipeId/publish` (step-up). */
 export interface CookScenarioPublishBody {
   content: CookScenarioContentView;
-  /** wersja, którą edytowano — inna najnowsza w bazie = 409 CONFLICT */
+  /** `latestVersion` ze szczegółu — inna najnowsza w bazie = 409 CONFLICT */
   basedOnVersion: number | null;
+  /** `recipeSignature` ze szczegółu — przepis zmieniony w międzyczasie = 409 */
+  recipeSignature: string;
 }
 
 // ——— Subskrypcje ———

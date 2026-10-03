@@ -9,7 +9,10 @@ import {
   parseCookScenarioContent,
 } from '../../recipes/cook-scenario/cook-scenario.validate';
 import { qualityChecks } from '../../recipes/cook-scenario/writer/writer.checks';
-import { readWriterRecipe } from '../../recipes/cook-scenario/writer/writer.store';
+import {
+  readWriterRecipe,
+  writerInputHash,
+} from '../../recipes/cook-scenario/writer/writer.store';
 import {
   AdminAuditService,
   type AdminActor,
@@ -35,33 +38,46 @@ const STATES: readonly CookScenarioState[] = [
 type Row = {
   status: CookScenarioVersionRow['status'];
   version: number;
+  publishedAt: Date | null;
 };
 
 /**
  * Stan przepisu z jego wierszy scenariusza (od najnowszej wersji) i
  * `Recipe.cookScenarioVersion`. Opublikowany wygrywa zawsze; inaczej mówi
  * najnowsza wersja (RETIRED/DRAFT bez następcy = nic dla telefonu).
+ * `STALE` = był na telefonach i zniknął (opublikowany wiersz przeterminował
+ * trigger albo PUBLISHED bez `cookScenarioVersion` — stan niespójny, do
+ * ponownej publikacji). Wersja robocza oznaczona STALE przez system pisania
+ * nigdy nie była opublikowana — to `VALIDATED` (treść do sprawdzenia).
  */
 export function scenarioState(
   rows: readonly Row[],
   cookScenarioVersion: number | null,
 ): CookScenarioState {
-  if (
-    cookScenarioVersion !== null &&
-    rows.some((row) => row.status === 'PUBLISHED')
-  ) {
-    return 'PUBLISHED';
+  const published = rows.some((row) => row.status === 'PUBLISHED');
+  if (published) return cookScenarioVersion !== null ? 'PUBLISHED' : 'STALE';
+  const latest = rows[0];
+  if (!latest) return 'NONE';
+  if (latest.status === 'STALE') {
+    return latest.publishedAt !== null ? 'STALE' : 'VALIDATED';
   }
-  const latest = rows[0]?.status;
   if (
-    latest === 'STALE' ||
-    latest === 'VALIDATED' ||
-    latest === 'REJECTED' ||
-    latest === 'SKIPPED'
+    latest.status === 'VALIDATED' ||
+    latest.status === 'REJECTED' ||
+    latest.status === 'SKIPPED'
   ) {
-    return latest;
+    return latest.status;
   }
   return 'NONE';
+}
+
+async function recipeSignature(
+  tx: Prisma.TransactionClient,
+  recipeId: string,
+): Promise<string> {
+  const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
+    SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
+  return signature;
 }
 
 const notFound = () =>
@@ -108,6 +124,7 @@ export class AdminCookScenariosService {
             status: true,
             skipReason: true,
             updatedAt: true,
+            publishedAt: true,
           },
           orderBy: [{ recipeId: 'asc' }, { version: 'desc' }],
         }),
@@ -151,14 +168,22 @@ export class AdminCookScenariosService {
   /**
    * Publikacja treści z panelu — edytowanej albo bez zmian (ponowna po
    * STALE). Walidatory twarde systemu pisania (błędy = 400 z listą, nic się
-   * nie zapisuje); `basedOnVersion` ≠ najnowsza wersja = 409 (ktoś
-   * opublikował w międzyczasie albo przepis zmienił się i treść dostała
-   * STALE — panel pokazuje świeży stan).
+   * nie zapisuje). Dwa tokeny ze szczegółu, sprawdzane pod blokadą przepisu
+   * (409, panel odświeża): `basedOnVersion` = `latestVersion` (ktoś
+   * opublikował albo system pisania dopisał wersję) i `recipeSignature` =
+   * podpis przepisu (przepis zmienił się w międzyczasie — trigger STALE
+   * numeru wersji nie podbija, recenzja 3.10). Wersja niesie `inputHash`
+   * przepisu — system pisania uzna ją za aktualny wynik i nie napisze
+   * przepisu drugi raz.
    */
   async publish(
     actor: AdminActor,
     recipeId: string,
-    input: { content: unknown; basedOnVersion: number | null },
+    input: {
+      content: unknown;
+      basedOnVersion: number | null;
+      recipeSignature: string;
+    },
   ): Promise<CookScenarioDetail> {
     await this.audit.run(
       actor,
@@ -176,10 +201,14 @@ export class AdminCookScenariosService {
             orderBy: { version: 'desc' },
             select: { version: true },
           });
-          if ((latest?.version ?? null) !== input.basedOnVersion) {
+          const signature = await recipeSignature(tx, recipeId);
+          if (
+            (latest?.version ?? null) !== input.basedOnVersion ||
+            signature !== input.recipeSignature
+          ) {
             throw new AppException(
               'CONFLICT',
-              'Scenariusz zmienił się w międzyczasie — odśwież i nanieś zmiany jeszcze raz.',
+              'Scenariusz albo przepis zmienił się w międzyczasie — odśwież i nanieś zmiany jeszcze raz.',
               HttpStatus.CONFLICT,
               [`najnowsza wersja: ${latest?.version ?? 'brak'}`],
             );
@@ -208,7 +237,7 @@ export class AdminCookScenariosService {
               errors,
             );
           }
-          await publishCookScenario(tx, {
+          return publishCookScenario(tx, {
             recipeId,
             content: parsed.content,
             rulesVersion: COOK_SCENARIO_RULES_VERSION,
@@ -218,6 +247,8 @@ export class AdminCookScenariosService {
               by: actor.adminEmail,
             },
             validationReport: {
+              outcome: 'VALIDATED',
+              inputHash: writerInputHash(recipe),
               panel: {
                 at: new Date().toISOString(),
                 warnings: quality.warnings,
@@ -225,6 +256,8 @@ export class AdminCookScenariosService {
             },
           });
         }),
+      // Audyt mówi, co zapisano: nowa wersja albo nic (ta sama treść).
+      (result) => ({ version: result.version, changed: result.changed }),
     );
     return this.detail(recipeId);
   }
@@ -329,6 +362,7 @@ export class AdminCookScenariosService {
       },
     });
     const state = scenarioState(rows, head.cookScenarioVersion);
+    const signature = await recipeSignature(tx, recipeId);
     const source =
       rows.find((row) => row.status === 'PUBLISHED' && state === 'PUBLISHED') ??
       rows.find((row) => row.content !== null);
@@ -362,12 +396,19 @@ export class AdminCookScenariosService {
       },
       state,
       publishedVersion: state === 'PUBLISHED' ? head.cookScenarioVersion : null,
+      latestVersion: rows[0]?.version ?? null,
+      recipeSignature: signature,
       skipReason: rows[0]?.status === 'SKIPPED' ? rows[0].skipReason : null,
       versions: rows.map((row) => {
+        // System pisania i import trzymają ocenę w `review`; starsze — wyżej.
         const report = (row.validationReport ?? {}) as {
           score?: unknown;
           summary?: unknown;
+          belowThreshold?: unknown;
+          review?: { score?: unknown; summary?: unknown } | null;
         };
+        const score = report.review?.score ?? report.score;
+        const summary = report.review?.summary ?? report.summary;
         const generator = (row.generator ?? {}) as { source?: unknown };
         return {
           id: row.id,
@@ -378,9 +419,9 @@ export class AdminCookScenariosService {
             typeof generator.source === 'string' ? generator.source : null,
           createdAt: row.createdAt.toISOString(),
           publishedAt: row.publishedAt?.toISOString() ?? null,
-          reviewScore: typeof report.score === 'number' ? report.score : null,
-          reviewSummary:
-            typeof report.summary === 'string' ? report.summary : null,
+          reviewScore: typeof score === 'number' ? score : null,
+          reviewSummary: typeof summary === 'string' ? summary : null,
+          belowThreshold: report.belowThreshold === true,
         };
       }),
       current:

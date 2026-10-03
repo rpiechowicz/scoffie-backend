@@ -222,6 +222,28 @@ export class DryRunRollback extends Error {
  * `dryRun`: wszystko to samo, a na końcu wyjątek `DryRunRollback` wycofuje
  * transakcję — liczby próby są te same, co prawdziwego importu.
  */
+/**
+ * Scenariusz wycofany w panelu dla OBECNEJ treści przepisu — import go nie
+ * przywraca (człowiek zdecydował, że ta treść nie trafia na telefony). Po
+ * zmianie przepisu wycofanie nie wiąże: to już inny przepis.
+ */
+async function withdrawnInPanel(
+  tx: Prisma.TransactionClient,
+  recipeId: string,
+): Promise<boolean> {
+  const latest = await tx.recipeCookScenario.findFirst({
+    where: { recipeId },
+    orderBy: { version: 'desc' },
+    select: { status: true, recipeContentHash: true, validationReport: true },
+  });
+  if (latest?.status !== 'REJECTED') return false;
+  const report = latest.validationReport as { withdrawn?: unknown } | null;
+  if (!report?.withdrawn) return false;
+  const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
+    SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
+  return signature === latest.recipeContentHash;
+}
+
 export async function importScenario(
   tx: Prisma.TransactionClient,
   entry: CookScenarioExportEntry,
@@ -253,7 +275,12 @@ async function importInTx(
     select: { generator: true },
   });
   const source = (published?.generator as { source?: unknown } | null)?.source;
-  if (source === 'golden') return 'GOLDEN';
+  // Wersje pisane albo poprawione ręcznie (wzorzec, panel) import zostawia —
+  // nadpisałby poprawkę człowieka treścią z pliku (recenzja E3c, 3.10).
+  if (source === 'golden' || source === 'panel') return 'GOLDEN';
+  if (!published && (await withdrawnInPanel(tx, entry.recipeId))) {
+    return 'GOLDEN';
+  }
   const byName = new Map(
     recipe.ingredients.map((row) => [row.name, row.ingredientId]),
   );

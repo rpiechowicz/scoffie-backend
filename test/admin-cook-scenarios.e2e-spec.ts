@@ -14,6 +14,12 @@ import type {
   CookScenarioDetail,
   CookScenarioListData,
 } from '../src/admin/contract';
+import { loadWriterRecipe } from '../src/recipes/cook-scenario/writer/writer.store';
+import {
+  importScenario,
+  portableInputHash,
+  type CookScenarioExportEntry,
+} from '../src/recipes/cook-scenario/writer/writer.transfer';
 import {
   AdminE2ESession,
   createAdminSession,
@@ -61,6 +67,36 @@ describe('Panel: scenariusze Gotuj E2E', () => {
       .post(`/admin/cook/scenarios/${ID}/publish`)
       .set('Cookie', session.cookie)
       .send(body);
+  /** Tokeny publikacji ze szczegółu — tak jak wysyła je panel. */
+  const tokens = async () => {
+    const d = await detail();
+    return {
+      basedOnVersion: d.latestVersion,
+      recipeSignature: d.recipeSignature,
+    };
+  };
+  /** Import z pliku eksportu — wpis z wzorca kotleta, jak z systemu pisania. */
+  const importKotlet = async () => {
+    const loaded = (await loadWriterRecipe(prisma, ID))!;
+    const entry: CookScenarioExportEntry = {
+      recipeId: ID,
+      title: loaded.recipe.title,
+      portableHash: portableInputHash(loaded.recipe),
+      content: KOTLET.content,
+      generator: { source: 'writer' },
+      review: { score: 4, summary: 'e2e' },
+      source: {
+        scenarioId: '00000000-0000-4000-8000-000000000001',
+        version: 1,
+      },
+    };
+    return prisma.$transaction((tx) =>
+      importScenario(tx, entry, {
+        exportedAt: '2026-10-03T00:00:00Z',
+        dryRun: false,
+      }),
+    );
+  };
   const latestVersion = async () =>
     (
       await prisma.recipeCookScenario.aggregate({
@@ -130,7 +166,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
   it('publikacja z panelu: walidatory twarde, nowa wersja, stan PUBLISHED na liście', async () => {
     const res = await publish({
       content,
-      basedOnVersion: await latestVersion(),
+      ...(await tokens()),
     });
     expect(res.status).toBe(201);
     const body = res.body as CookScenarioDetail;
@@ -157,7 +193,11 @@ describe('Panel: scenariusze Gotuj E2E', () => {
   it('nieaktualna wersja w `basedOnVersion` — 409, nic nie zapisane', async () => {
     const version = await latestVersion();
     // Wersje są, a klient twierdzi, że nie ma żadnej.
-    const res = await publish({ content, basedOnVersion: null });
+    const res = await publish({
+      content,
+      ...(await tokens()),
+      basedOnVersion: null,
+    });
     expect(res.status).toBe(409);
     expect(await latestVersion()).toBe(version);
   });
@@ -168,7 +208,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
       steps: { title: string }[];
     };
     broken.steps[0].title = 'Rozbij 4 kotlety';
-    const res = await publish({ content: broken, basedOnVersion: version });
+    const res = await publish({ content: broken, ...(await tokens()) });
     expect(res.status).toBe(400);
     expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
     expect(
@@ -196,7 +236,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
 
       const res = await publish({
         content,
-        basedOnVersion: await latestVersion(),
+        ...(await tokens()),
       });
       expect(res.status).toBe(201);
       expect((res.body as CookScenarioDetail).state).toBe('PUBLISHED');
@@ -210,9 +250,7 @@ describe('Panel: scenariusze Gotuj E2E', () => {
 
   it('wycofanie: REJECTED, Gotuj znika; drugie wycofanie — 409', async () => {
     // Przywrócenie przepisu dało STALE — publikujemy jeszcze raz.
-    await publish({ content, basedOnVersion: await latestVersion() }).expect(
-      201,
-    );
+    await publish({ content, ...(await tokens()) }).expect(201);
     const res = await request(server())
       .post(`/admin/cook/scenarios/${ID}/withdraw`)
       .set('Cookie', admin.cookie)
@@ -231,11 +269,40 @@ describe('Panel: scenariusze Gotuj E2E', () => {
       .expect(409);
   });
 
-  it('bez step-upu publikacja i wycofanie są zamknięte', async () => {
-    const res = await publish(
-      { content, basedOnVersion: await latestVersion() },
-      plain,
+  it('import z pliku nie przywraca scenariusza wycofanego w panelu', async () => {
+    expect(await importKotlet()).toBe('GOLDEN');
+    const recipe = await prisma.recipe.findUniqueOrThrow({
+      where: { id: ID },
+      select: { cookScenarioVersion: true },
+    });
+    expect(recipe.cookScenarioVersion).toBeNull();
+  });
+
+  it('import z pliku nie nadpisuje wersji z panelu; zmieniony przepis w międzyczasie = 409', async () => {
+    const res = await publish({ content, ...(await tokens()) });
+    expect(res.status).toBe(201);
+    const published = (res.body as CookScenarioDetail).publishedVersion;
+    expect(await importKotlet()).toBe('GOLDEN');
+    expect((await detail()).publishedVersion).toBe(published);
+    // Wersja z panelu niesie odcisk wejścia — system pisania uzna ją za aktualną.
+    const row = await prisma.recipeCookScenario.findFirstOrThrow({
+      where: { recipeId: ID, status: 'PUBLISHED' },
+      select: { validationReport: true },
+    });
+    expect((row.validationReport as { inputHash?: string }).inputHash).toMatch(
+      /^sha256:/,
     );
+
+    const stale = await publish({
+      content,
+      ...(await tokens()),
+      recipeSignature: 'inny-podpis',
+    });
+    expect(stale.status).toBe(409);
+  });
+
+  it('bez step-upu publikacja i wycofanie są zamknięte', async () => {
+    const res = await publish({ content, ...(await tokens()) }, plain);
     expect(res.status).toBe(403);
     await request(server())
       .post(`/admin/cook/scenarios/${ID}/withdraw`)
