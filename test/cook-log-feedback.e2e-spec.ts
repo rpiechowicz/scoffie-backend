@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
 import type { CookFeedbackData } from '../src/admin/contract';
 import {
   AdminE2ESession,
@@ -170,10 +171,10 @@ describe('Gotuj: wpis spoza planu i oceny E2E', () => {
         where: { ...dinnerWhere, allergens: { isEmpty: true } },
         select: { id: true },
         orderBy: { id: 'asc' },
-        take: 4,
+        take: 8,
       })
     ).map((recipe) => recipe.id);
-    if (dinners.length < 4) throw new Error('katalog dev: za mało kolacji');
+    if (dinners.length < 8) throw new Error('katalog dev: za mało kolacji');
     const withAllergen = await prisma.recipe.findFirst({
       where: { ...dinnerWhere, NOT: { allergens: { isEmpty: true } } },
       select: { id: true, allergens: true },
@@ -332,6 +333,104 @@ describe('Gotuj: wpis spoza planu i oceny E2E', () => {
       );
       expect(item.participantIds).toEqual([aniaId]);
       expect(item.eatenByUserIds).toEqual([aniaId]);
+    });
+
+    it('przepis dziś tylko dla domownika — gotujący dochodzi do audytorium, bez nowej pozycji', async () => {
+      await plan({
+        dayOfWeek: 'FRI',
+        mealType: 'LUNCH',
+        recipeId: dinners[4],
+        participantIds: [marekId],
+      });
+      const item = okData(
+        await logCooked({
+          dayOfWeek: 'FRI',
+          mealType: 'BREAKFAST',
+          recipeId: dinners[4],
+          servings: 1,
+        }),
+      );
+      // Marek + Ania = cały dom → „Wspólne”; odhaczona tylko Ania.
+      expect(item.mealType).toBe('LUNCH');
+      expect(item.participantIds).toEqual([]);
+      expect(item.eatenByUserIds).toEqual([aniaId]);
+      expect(await slot('FRI', 'BREAKFAST')).toEqual([]);
+    });
+
+    it('gotujący ma w porze własne danie — ugotowane tylko dla niego, choć porcji na cały dom', async () => {
+      await plan({
+        dayOfWeek: 'SAT',
+        mealType: 'DINNER',
+        recipeId: dinners[5],
+        participantIds: [aniaId],
+      });
+      const item = okData(
+        await logCooked({
+          dayOfWeek: 'SAT',
+          mealType: 'DINNER',
+          recipeId: dinners[6],
+          servings: 2,
+        }),
+      );
+      // „Wspólne” zasłoniłoby jej własne danie — w Kalendarzu by go nie było.
+      expect(item.participantIds).toEqual([aniaId]);
+      expect(item.eatenByUserIds).toEqual([aniaId]);
+    });
+
+    it('wyścig: przepis wpadł do porcji w międzyczasie — odhaczenie bez zmiany cudzej pozycji', async () => {
+      const planned = await plan({
+        dayOfWeek: 'SUN',
+        mealType: 'DINNER',
+        recipeId: dinners[7],
+        participantIds: [marekId],
+        plannedServings: 3,
+      });
+      const service = app.get(WeeklyPlansService);
+      const result = await service.upsertWeekSlot(
+        aniaId,
+        householdId,
+        WEEK_START,
+        {
+          dayOfWeek: 'SUN',
+          mealType: 'DINNER',
+          recipeId: dinners[7],
+          participantIds: [],
+        },
+        {
+          markEaten: async (tx, planItemId) => {
+            await tx.planItemConsumption.create({
+              data: { planItemId, userId: aniaId },
+            });
+          },
+        },
+      );
+      expect(result.changeKind).toBe('NOOP');
+      expect(result.id).toBe(planned.id);
+      expect(result.participantIds).toEqual([marekId]);
+      expect(result.plannedServings).toBe(3);
+      expect(result.eatenByUserIds).toEqual([aniaId]);
+    });
+
+    it('wpis po gotowaniu nie odsłania listy schowanej po wyczyszczeniu historii', async () => {
+      const weekStart = new Date(`${WEEK_START}T00:00:00.000Z`);
+      await prisma.shoppingListArchiveState.upsert({
+        where: { householdId_weekStart: { householdId, weekStart } },
+        update: { currentArchiveId: null },
+        create: { householdId, weekStart, currentArchiveId: null },
+      });
+      okData(
+        await logCooked({
+          dayOfWeek: 'SUN',
+          mealType: 'LUNCH',
+          recipeId: dinners[0],
+          servings: 1,
+        }),
+      );
+      expect(
+        await prisma.shoppingListArchiveState.count({
+          where: { householdId, weekStart, currentArchiveId: null },
+        }),
+      ).toBe(1);
     });
 
     it('zła porcja — VALIDATION_ERROR, nic nie zapisane', async () => {

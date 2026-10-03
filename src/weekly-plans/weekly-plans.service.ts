@@ -57,6 +57,7 @@ import {
 } from './utils/week-write-lock.util';
 import {
   servingsPerPerson,
+  visibleToMember,
   weeklyBalanceForMember,
 } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
@@ -605,13 +606,18 @@ export class WeeklyPlansService {
         return stamp;
       };
 
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
+      // Wpis po gotowaniu (`cookLog`) listy zakupów nie zmienia
+      // (`cookedOffPlan`), więc nie odsłania listy schowanej po wyczyszczeniu
+      // historii i nie każe jej przeliczać.
+      if (!cookLog) {
+        await tx.shoppingListArchiveState.deleteMany({
+          where: {
+            householdId,
+            weekStart: weekStartDate,
+            currentArchiveId: null,
+          },
+        });
+      }
 
       // „Zmień danie": stary wariant znika w tej samej transakcji, w której
       // wchodzi nowy. Dwa skutki, oba celowe: slot nigdy nie stoi pusty
@@ -1073,11 +1079,6 @@ export class WeeklyPlansService {
           throw error;
         });
 
-      await this.shoppingListService.markShoppingListStale(
-        householdId,
-        weekStartDate,
-        tx,
-      );
       if (cookLog) {
         await cookLog.markEaten(tx, createdItem.id);
         // Odczyt po odhaczeniu — `consumptions` w odpowiedzi ma je już mieć.
@@ -1091,6 +1092,12 @@ export class WeeklyPlansService {
           changeKind: 'CREATED' as const,
         };
       }
+
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
 
       return {
         ...withPlanItemRelationIds(createdItem),
@@ -2451,20 +2458,28 @@ export class WeeklyPlansService {
   }
 
   /**
-   * „Zjedzone” po gotowaniu w trybie Gotuj (docs iOS Gotuj D21, D28).
+   * „Zjedzone” po gotowaniu w trybie Gotuj (docs iOS Gotuj D21, D56).
    *
-   * - Przepis jest już DZIŚ w planie (w dowolnej porze; najpierw w porze
-   *   z żądania) — odhaczamy go tam, jak `setMealEaten`. Tak kończy się też
-   *   ponowienie po utraconej odpowiedzi.
-   * - Nie ma go — dopisujemy OBOK tego, co stoi w porze (D28 od 3.10.2026:
-   *   nigdy nie zastępujemy, plan jest wspólny dla domu i ktoś mógł chcieć
-   *   zjeść swoje danie później) i odhaczamy gotującego, w JEDNEJ
-   *   transakcji. Pozycja ma `cookedOffPlan`, więc lista zakupów jej nie
-   *   liczy. Audytorium: porcji co najmniej tyle, ilu domowników — cały dom
-   *   („Wspólne”; reszta odhacza się sama w Kalendarzu), mniej — sam
-   *   gotujący. Porcje z reguły auto (1 na osobę): bilans liczy zjedzone,
-   *   nie ugotowane. Alergen domownika przy „Wspólne” = wpis tylko dla
-   *   gotującego, bez odmowy — ugotował i zjadł, plan ma to pokazać.
+   * Wszystko według tego, co gotujący WIDZI w Kalendarzu i bilansie
+   * (`visibleToMember`: własne danie w porze wygrywa ze wspólnym, cudzych
+   * imiennych nie widzi) — odhaczenie pozycji, której nie widać, nie
+   * zostawiłoby śladu ani w planie, ani w kcal.
+   *
+   * 1. Przepis stoi DZIŚ w planie i gotujący go widzi (najpierw w porze
+   *    z żądania) — odhaczamy go tam, jak `setMealEaten`. Tak kończy się też
+   *    ponowienie po utraconej odpowiedzi.
+   * 2. Stoi, ale tylko dla innych — gotujący dochodzi do audytorium tej
+   *    pozycji (ta sama „suma audytoriów”, co ręczne dodanie przepisu dla
+   *    drugiej osoby; porcje osób zostają, `PRESERVE`) i jest odhaczony.
+   * 3. Nie stoi — dopisujemy OBOK tego, co jest w porze (D56: nigdy nie
+   *    zastępujemy, plan jest wspólny) i odhaczamy gotującego w JEDNEJ
+   *    transakcji. Pozycja ma `cookedOffPlan`, więc lista zakupów jej nie
+   *    liczy. Audytorium: „Wspólne”, gdy porcji co najmniej tyle, ilu
+   *    domowników, a gotujący nie ma w tej porze własnego dania (inaczej
+   *    nie zobaczyłby wspólnego); w pozostałych przypadkach sam gotujący. Porcje z reguły auto
+   *    (1 na osobę): bilans liczy zjedzone, nie ugotowane. Alergen
+   *    domownika przy „Wspólne” = wpis tylko dla gotującego; alergen samego
+   *    gotującego = odmowa bramki, jak przy każdym zapisie planu.
    *
    * Bramki, limity slotów i zamek tygodnia — te same co `upsertWeekSlot`
    * (przez niego idzie zapis).
@@ -2480,25 +2495,73 @@ export class WeeklyPlansService {
     const weekStartDate = parseWeekStart(weekStart);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
 
-    const planned = await this.prisma.planItem.findMany({
+    const dayItems = await this.prisma.planItem.findMany({
       where: {
         weeklyPlan: { householdId, weekStart: weekStartDate },
         dayOfWeek: dto.dayOfWeek,
-        recipeId: dto.recipeId,
       },
-      select: { mealType: true },
+      select: {
+        mealType: true,
+        recipeId: true,
+        participants: { select: { userId: true } },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
-    if (planned.length > 0) {
-      const mealType =
-        planned.find((item) => item.mealType === dto.mealType)?.mealType ??
-        planned[0].mealType;
-      const item = await this.setMealEaten(userId, householdId, weekStart, {
+    const items = dayItems.map((item) => ({
+      mealType: item.mealType,
+      recipeId: item.recipeId,
+      participantIds: item.participants.map((p) => p.userId),
+    }));
+    const inSlot = (mealType: MealType) =>
+      items.filter((item) => item.mealType === mealType);
+    // Pora z żądania pierwsza, potem kolejność dnia.
+    const slotOrder = [
+      dto.mealType,
+      ...MEAL_TYPES_IN_DAY_ORDER.filter((type) => type !== dto.mealType),
+    ];
+    const eat = (mealType: MealType) =>
+      this.setMealEaten(userId, householdId, weekStart, {
         dayOfWeek: dto.dayOfWeek,
         mealType,
         recipeId: dto.recipeId,
         isEaten: true,
-      });
-      return { ...item, changeKind: 'NOOP' as const };
+      }).then((item) => ({ ...item, changeKind: 'NOOP' as const }));
+    // Pozycja zniknęła między odczytem a zapisem — piszemy dalej, jakby jej
+    // nie było, zamiast oddawać gotującemu 404.
+    const gone = (error: unknown) =>
+      error instanceof AppException && error.code === 'PLAN_ITEM_NOT_FOUND';
+
+    for (const mealType of slotOrder) {
+      const visible = visibleToMember(inSlot(mealType), userId);
+      if (!visible.some((item) => item.recipeId === dto.recipeId)) continue;
+      try {
+        return await eat(mealType);
+      } catch (error) {
+        if (!gone(error)) throw error;
+      }
+    }
+
+    const forOthers = slotOrder
+      .flatMap((mealType) => inSlot(mealType))
+      .find((item) => item.recipeId === dto.recipeId);
+    if (forOthers) {
+      // Imienna pozycja innych — gotujący dochodzi do audytorium. „Wspólne”
+      // (zasłonięte własnym daniem gotującego) już go obejmuje: zostaje
+      // samo odhaczenie.
+      if (forOthers.participantIds.length > 0) {
+        await this.upsertWeekSlot(userId, householdId, weekStart, {
+          dayOfWeek: dto.dayOfWeek,
+          mealType: forOthers.mealType,
+          recipeId: dto.recipeId,
+          participantIds: [...forOthers.participantIds, userId],
+          portionPolicy: 'PRESERVE',
+        });
+      }
+      try {
+        return await eat(forOthers.mealType);
+      } catch (error) {
+        if (!gone(error)) throw error;
+      }
     }
 
     const memberCount = (await this.loadMemberIds(householdId)).size;
@@ -2524,7 +2587,10 @@ export class WeeklyPlansService {
         },
         cookLog,
       );
-    if (dto.servings < memberCount) return write([userId]);
+    const hasOwnInSlot = inSlot(dto.mealType).some((item) =>
+      item.participantIds.includes(userId),
+    );
+    if (dto.servings < memberCount || hasOwnInSlot) return write([userId]);
     try {
       return await write([]);
     } catch (error) {
