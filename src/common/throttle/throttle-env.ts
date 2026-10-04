@@ -24,6 +24,7 @@ export const THROTTLE_KEYS = [
   'THROTTLE_AUTH_LIMIT',
   'THROTTLE_AUTH_REFRESH_LIMIT',
   'THROTTLE_AUTH_REFRESH_IP_LIMIT',
+  'THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
   'THROTTLE_ADMIN_LIMIT',
@@ -54,6 +55,13 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
   // się w tej samej minucie (np. po awarii). Chroni bazę przed zalewem
   // losowych tokenów z jednego adresu (każdy to nowy klucz sesji).
   THROTTLE_AUTH_REFRESH_IP_LIMIT: 600,
+  // …i limit na KONTO: rotacje refresh tokenów jednej osoby na minutę,
+  // liczone w bazie pod zamkiem sesji (`AuthService.rotateRefreshToken`).
+  // Limit per hasz tokenu nie łapie pętli UDANYCH rotacji — każda daje nowy
+  // token, czyli nowy klucz. Poprawny telefon rotuje raz na godzinę, kilka
+  // urządzeń z ponowieniami mieści się z dużym zapasem; 429 telefon traktuje
+  // jak „spróbuj później”, nie jak wylogowanie (iOS i Android: tylko 401).
+  THROTTLE_AUTH_REFRESH_ACCOUNT_LIMIT: 30,
   // Asystent: wysyłka wiadomości jest droga (tura woła model), polling tani.
   THROTTLE_AGENT_MESSAGE_LIMIT: 20,
   THROTTLE_AGENT_POLL_LIMIT: 120,

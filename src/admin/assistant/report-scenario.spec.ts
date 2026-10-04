@@ -30,7 +30,9 @@ type PastedScenario = {
  * użytkownika wyszedł z literału, test dostałby wyjątek, a nie skutek.
  */
 function evaluateSource(source: string): PastedScenario {
-  const program = `const SOLO = [];\nscenario = ${source.trim().replace(/,$/, '')};\n`;
+  // `globalThis.` — od TS 6 transpilacja dokleja "use strict", a w nim
+  // przypisanie do niezadeklarowanej zmiennej rzuca wyjątek.
+  const program = `const SOLO = [];\nglobalThis.scenario = ${source.trim().replace(/,$/, '')};\n`;
   const output = ts.transpileModule(program, {
     reportDiagnostics: true,
     compilerOptions: { target: ts.ScriptTarget.ES2022 },

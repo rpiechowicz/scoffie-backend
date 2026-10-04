@@ -5,7 +5,10 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { AiUsageCountersService } from '../src/agent/ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  GLOBAL_SCOPE,
+} from '../src/agent/ai-usage-counters.service';
 import { AgentUsageLedger } from '../src/agent/agent-usage-ledger.service';
 
 /**
@@ -467,6 +470,53 @@ describe('Asystent: księgowanie kosztu E2E', () => {
     const accepted = responses.find((res) => res.status === 202);
     await waitClosed((accepted?.body as { turnId: string }).turnId);
     const conversation = accepted === responses[0] ? second : first;
-    await postMessage(session.accessToken, conversation, 'trzecia').expect(202);
+    const third = await postMessage(
+      session.accessToken,
+      conversation,
+      'trzecia',
+    ).expect(202);
+    // Tura w biegu zjadałaby rezerwę następnemu przypadkowi.
+    await waitClosed((third.body as { turnId: string }).turnId);
+  });
+
+  // Budżet INSTALACJI blisko sufitu: dwa domy (a w produkcji też dwie
+  // instancje) startują naraz. Odczyt przed transakcją widzi u obu zero tur
+  // w biegu; dopiero rachunek w transakcji SERIALIZABLE je szereguje.
+  it('dwa równoległe starty z RÓŻNYCH domów nie przechodzą przez sufit instalacji', async () => {
+    const a = await freshHousehold('InstalacjaA');
+    const b = await freshHousehold('InstalacjaB');
+    const [conversationA, conversationB] = await Promise.all([
+      createConversation(a.session.accessToken, a.householdId),
+      createConversation(b.session.accessToken, b.householdId),
+    ]);
+    // Rachunek zakłada zero tur w biegu w całej instalacji.
+    expect(await prisma.agentTurn.count({ where: { status: 'RUNNING' } })).toBe(
+      0,
+    );
+    try {
+      const spent = await counters.read(
+        GLOBAL_SCOPE,
+        counters.dayKey(),
+        'costMicroUsd',
+      );
+      // Zostaje 0,25 $; rezerwacja tury w biegu 0,30 $ — mieści się jedna.
+      process.env.AI_GLOBAL_DAILY_BUDGET_USD = String(spent / 1_000_000 + 0.25);
+      process.env.AI_TURN_COST_RESERVE_USD = '0.3';
+      process.env.AI_STUB_DELAY_MS = '1500';
+
+      const responses = await Promise.all([
+        postMessage(a.session.accessToken, conversationA, 'pierwsza'),
+        postMessage(b.session.accessToken, conversationB, 'druga'),
+      ]);
+      const statuses = responses.map((res) => res.status).sort();
+      expect(statuses).toEqual([202, 503]);
+      const refused = responses.find((res) => res.status === 503);
+      expect(refused?.body).toMatchObject({ code: 'AI_BUDGET_PAUSED' });
+
+      const accepted = responses.find((res) => res.status === 202);
+      await waitClosed((accepted?.body as { turnId: string }).turnId);
+    } finally {
+      process.env.AI_GLOBAL_DAILY_BUDGET_USD = 'off';
+    }
   });
 });

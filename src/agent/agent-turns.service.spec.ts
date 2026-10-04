@@ -8,9 +8,13 @@ import { AgentConversationsService } from './agent-conversations.service';
 import { AgentTurnRunner } from './agent-turn.runner';
 import {
   AgentTurnsService,
+  installationAtomicBandMicroUsd,
   TURN_TIMEOUT_GRACE_MS,
 } from './agent-turns.service';
-import { AiUsageCountersService } from './ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  GLOBAL_SCOPE,
+} from './ai-usage-counters.service';
 import { AgentUsageLedger } from './agent-usage-ledger.service';
 import { PostMessageDto } from './dto/post-message.dto';
 import { UpstreamBreaker } from './upstream-breaker';
@@ -330,6 +334,112 @@ describe('AgentTurnsService', () => {
       // Bez żywych tur te same pieniądze mieszczą się pod sufitem.
       prisma.agentTurn.count.mockResolvedValue(0);
       await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+    });
+
+    // Atomowość budżetu instalacji (backlog workstreamu, raport 01 A2): blisko
+    // sufitu rachunek powtarza transakcja startu — z jej migawki, więc
+    // równoległe starty z różnych domów i instancji szereguje SSI.
+    describe('budżet instalacji blisko sufitu — w transakcji', () => {
+      /** Żywe tury CAŁEJ instalacji: `where` bez rozmowy i bez domu. */
+      const isInstallationCount = (args: { where?: object }) =>
+        !!args.where &&
+        !('conversationId' in args.where) &&
+        !('conversation' in args.where);
+
+      it('odmawia, gdy tury z migawki transakcji zjadają resztę budżetu', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 1,
+          turnCostReserveUsd: 0.25,
+        });
+        // Wydane $0,50; przed transakcją żadnej żywej tury — przechodzi.
+        counters.read.mockResolvedValue(500_000);
+        prisma.agentTurn.count.mockResolvedValue(0);
+        // W transakcji widać już dwie tury innych domów: 0,50 + 2 × 0,25.
+        tx.agentTurn.count.mockImplementation((args: { where?: object }) =>
+          Promise.resolve(isInstallationCount(args) ? 2 : 0),
+        );
+
+        expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+        expect(tx.agentTurn.create).not.toHaveBeenCalled();
+        expect(counters.read).toHaveBeenCalledWith(
+          GLOBAL_SCOPE,
+          '2026-08-31',
+          'costMicroUsd',
+          tx,
+        );
+      });
+
+      it('daleko od sufitu nie liczy tur instalacji w transakcji', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 100,
+          turnCostReserveUsd: 0.25,
+        });
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
+      });
+
+      it('pas atomowy: 20 % budżetu, ale od 4 do 20 rezerw', () => {
+        expect(installationAtomicBandMicroUsd(5, 0.25)).toBe(1_000_000);
+        expect(installationAtomicBandMicroUsd(1, 0.25)).toBe(1_000_000);
+        expect(installationAtomicBandMicroUsd(100, 0.25)).toBe(5_000_000);
+        expect(installationAtomicBandMicroUsd(5, 0)).toBe(0);
+      });
+
+      it('pas atomowy to nie cały dzień — domyślne $5/$0,25', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 5,
+          turnCostReserveUsd: 0.25,
+        });
+        // Zostaje $4,50: mniej niż 20 rezerw ($5), ale więcej niż 20 % ($1).
+        counters.read.mockResolvedValue(500_000);
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
+      });
+
+      it('wyczerpane ponowienia SERIALIZABLE to 503 z retryAfter, nie 500', async () => {
+        prisma.$transaction.mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError('could not serialize', {
+            code: 'P2034',
+            clientVersion: 'test',
+          }),
+        );
+        const error = await post().catch((caught: unknown) => caught);
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe('AI_UPSTREAM_PAUSED');
+        expect((error as AppException).getStatus()).toBe(503);
+        expect((error as AppException).details).toEqual([
+          'retryAfterSeconds:2',
+        ]);
+        // Trzy próby: pierwsza i dwa ponowienia `runSerializable`.
+        expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+      });
+
+      it('bez rezerwacji (0) nie ma czego szeregować', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 1,
+          turnCostReserveUsd: 0,
+        });
+        counters.read.mockResolvedValue(999_000);
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(counters.read).not.toHaveBeenCalledWith(
+          GLOBAL_SCOPE,
+          '2026-08-31',
+          'costMicroUsd',
+          tx,
+        );
+      });
     });
 
     it('budżet niewyczerpany przepuszcza turę', async () => {

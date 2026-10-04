@@ -544,6 +544,157 @@ describe('applyWeekPlan E2E', () => {
     });
   });
 
+  // Dieta (S5, 3.10.2026): zapis asystenta nie wstawia ani nie przesuwa dania
+  // spoza diety jedzących, ale pozycji, której nie zmienia, nie sprawdza —
+  // ręcznie dodany schabowy nie może zablokować zapisu reszty tygodnia.
+  describe('bramka diety', () => {
+    const DIET_WEEK = '2026-11-09';
+    let mieso: string;
+    let ownerId: string;
+
+    beforeAll(async () => {
+      const zMiesem = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          isActive: true,
+          dietTags: { has: 'MEAT' },
+          ingredients: { some: {} },
+          OR: [
+            { suitableMealTypes: { has: 'DINNER' } },
+            { mealType: 'DINNER', suitableMealTypes: { isEmpty: true } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!zMiesem) throw new Error('katalog dev nie ma kolacji z mięsem');
+      mieso = zMiesem.id;
+
+      const membership = await prisma.membership.findFirst({
+        where: { householdId },
+        select: { userId: true },
+      });
+      ownerId = membership!.userId;
+      await prisma.userPreference.upsert({
+        where: { userId: ownerId },
+        create: { userId: ownerId, dietPreference: 'VEGETARIAN' },
+        update: { dietPreference: 'VEGETARIAN' },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.userPreference.updateMany({
+        where: { userId: ownerId },
+        data: { dietPreference: 'NONE' },
+      });
+      await prisma.weeklyPlan.deleteMany({
+        where: { householdId, weekStart: new Date(`${DIET_WEEK}T00:00:00Z`) },
+      });
+    });
+
+    it('nowe danie spoza diety → RECIPE_DIET_CONFLICT i nic nie wchodzi', async () => {
+      const result = await apply([slot('MON', 'DINNER', mieso)], {
+        weekStart: DIET_WEEK,
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.violations).toEqual([
+        expect.objectContaining({
+          code: 'RECIPE_DIET_CONFLICT',
+          recipeId: mieso,
+        }),
+      ]);
+      expect((await readWeek(DIET_WEEK)).items).toEqual([]);
+    });
+
+    it('ręcznie dodane danie spoza diety nie blokuje zapisu reszty tygodnia', async () => {
+      const accepted = await ack<{ id: string }>(
+        socket,
+        'weeklyPlans:upsertWeekSlot',
+        {
+          householdId,
+          weekStart: DIET_WEEK,
+          data: { dayOfWeek: 'WED', mealType: 'DINNER', recipeId: mieso },
+        },
+      );
+      expect(accepted.ok).toBe(true);
+
+      const result = await apply(
+        [slot('WED', 'DINNER', mieso), slot('MON', 'BREAKFAST', breakfast)],
+        { weekStart: DIET_WEEK },
+      );
+
+      expect(result.violations).toEqual([]);
+      expect(result.applied).toBe(true);
+    });
+
+    it('to samo danie przeniesione na inny dzień jest sprawdzane', async () => {
+      const result = await apply([slot('THU', 'DINNER', mieso)], {
+        weekStart: DIET_WEEK,
+        dryRun: true,
+      });
+
+      expect(result.violations.map((v) => v.code)).toEqual([
+        'RECIPE_DIET_CONFLICT',
+      ]);
+    });
+
+    it('raport konfliktów (`dietScope: all`) widzi też pozycję sprzed zmian', async () => {
+      const service = app.get(WeeklyPlansService);
+      const slots = [slot('WED', 'DINNER', mieso)] as ApplyWeekSlotDto[];
+
+      const changed = await service.previewWeekPlan(
+        plannerId,
+        householdId,
+        DIET_WEEK,
+        { slots },
+      );
+      const all = await service.previewWeekPlan(
+        plannerId,
+        householdId,
+        DIET_WEEK,
+        { slots },
+        { dietScope: 'all' },
+      );
+
+      expect(changed.violations).toEqual([]);
+      expect(all.violations.map((v) => v.code)).toEqual([
+        'RECIPE_DIET_CONFLICT',
+      ]);
+    });
+
+    it('cofnięcie propozycji (`dietScope: none` z guardem) przywraca danie spoza diety', async () => {
+      const service = app.get(WeeklyPlansService);
+      // Stan „po propozycji”: schabowego w środę już nie ma.
+      await apply([slot('MON', 'BREAKFAST', breakfast)], {
+        weekStart: DIET_WEEK,
+      });
+      const snapshot = [
+        slot('WED', 'DINNER', mieso),
+        slot('MON', 'BREAKFAST', breakfast),
+      ] as ApplyWeekSlotDto[];
+
+      await expect(
+        service.applyWeekPlan(
+          plannerId,
+          householdId,
+          DIET_WEEK,
+          { slots: snapshot },
+          { dietScope: 'none' },
+        ),
+      ).rejects.toThrow(/dietScope "none" wymaga guarda/);
+
+      const undone = await service.applyWeekPlan(
+        plannerId,
+        householdId,
+        DIET_WEEK,
+        { slots: snapshot },
+        { dietScope: 'none', guard: () => Promise.resolve() },
+      );
+      expect(undone.violations).toEqual([]);
+      expect(undone.applied).toBe(true);
+    });
+  });
+
   describe('broadcast', () => {
     it('cały tydzień to JEDEN weekChanged, nie jeden na slot', async () => {
       // `broadcastToHousehold` nadaje do pokoju gospodarstwa, a socket
