@@ -68,3 +68,21 @@ regexes = [
   '''d3b07384d113edec49eaa6238ad5ff00\.\.\.''',
   '''8f14e45fceea167a5a36dedd4bea2543\.\.\.''',
 ]
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Atrapa klucza szyfrowania Cookidoo z CI, przepisana do raportu"
+
+regexes = [
+  # `COOKIDOO_ENCRYPTION_KEY` z `backend-ci.yml` = base64 z „0123456789abcdef”
+  # dwa razy. Raport Etapu 4 (docs/workstreams/…/04-catalog-db-api-scale.md,
+  # f9ccf59) przepisał komendę pomiaru razem z wartościami CI i cotygodniowy
+  # pełny skan historii (`skan-sekretow-pelny.yml`) świecił od 28.09.2026
+  # na czerwono. Wyjątek na DOKŁADNIE tę wartość, nie na ścieżkę — prawdziwy
+  # klucz wklejony do dokumentacji dalej się złapie.
+  # Bez kotwic i końcowego „=”: liczy się sama atrapa, niezależnie od tego,
+  # ile wokół niej reguła złapie. Gitleaks 8.30 dekoduje też base64 i zgłasza
+  # wartość PO dekodowaniu — stąd druga postać.
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY''',
+  '''^0123456789abcdef0123456789abcdef$''',
+]
