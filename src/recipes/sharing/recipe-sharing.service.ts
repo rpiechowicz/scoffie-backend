@@ -10,6 +10,7 @@ import { assertUuid, isUuid } from '../../common/uuid';
 import { RecipesService } from '../recipes.service';
 import { RecipesCacheService } from '../recipes-cache.service';
 import { stepsFromInstructions } from '../recipe-steps.util';
+import { isCookidooIntegrationEnabled } from '../../integrations/cookidoo-flag';
 import {
   catalogRecipeUrl,
   generateRecipeShareToken,
@@ -556,8 +557,13 @@ export class RecipeSharingService {
         unit: ingredient.unit,
       })),
       stepCount: stepsFromInstructions(row.sourceInstructions).length,
+      // Pole zostaje w kontrakcie strony, ale bez zgody Vorwerka plakietka
+      // „Thermomix” nie może wyjść na publiczną stronę przepisu — prawda
+      // tylko przy włączonej integracji (6.10.2026).
       thermomix:
-        row.sourceProvider === 'cookidoo' && Boolean(row.sourceRecipeId),
+        isCookidooIntegrationEnabled() &&
+        row.sourceProvider === 'cookidoo' &&
+        Boolean(row.sourceRecipeId),
     };
   }
 

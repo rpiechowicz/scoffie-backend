@@ -20,7 +20,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
 
   beforeEach(() => {
     process.env.COOKIDOO_SERVICE_URL = 'http://cookidoo.internal:8000';
-    delete process.env.COOKIDOO_INTEGRATION_ENABLED;
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     alerts = { notify: jest.fn().mockResolvedValue(undefined) };
     client = new CookidooServiceClient(alerts as unknown as OpsAlertService);
     logs = {
@@ -83,8 +83,8 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
     expect(String(logs.error.mock.calls[0]?.[0] ?? '')).toContain('502');
   });
 
-  it('integracja wyłączona flagą → nie pukamy nigdzie', async () => {
-    process.env.COOKIDOO_INTEGRATION_ENABLED = 'false';
+  it('brak zmiennej = integracja wyłączona → nie pukamy nigdzie', async () => {
+    delete process.env.COOKIDOO_INTEGRATION_ENABLED;
     global.fetch = jest.fn();
 
     await client.onApplicationBootstrap();

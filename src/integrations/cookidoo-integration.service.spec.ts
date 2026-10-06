@@ -55,7 +55,15 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     else process.env.COOKIDOO_ENCRYPTION_KEY = original.key;
   });
 
-  it('brak zmiennej = włączona, jak dotąd; status niesie enabled', async () => {
+  it('brak zmiennej = wyłączona (schowana do zgody Vorwerka)', async () => {
+    await expect(service.status(USER)).resolves.toEqual({
+      connected: false,
+      enabled: false,
+    });
+  });
+
+  it('literalne true włącza; status niesie enabled', async () => {
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     await expect(service.status(USER)).resolves.toEqual({
       connected: false,
       enabled: true,
@@ -112,10 +120,10 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     });
   });
 
-  it('tylko literalne false wyłącza', async () => {
-    process.env.COOKIDOO_INTEGRATION_ENABLED = 'no';
+  it('tylko literalne true włącza', async () => {
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'yes';
     await expect(service.status(USER)).resolves.toMatchObject({
-      enabled: true,
+      enabled: false,
     });
   });
 });

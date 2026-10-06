@@ -49,12 +49,16 @@ export const LEGAL_DOCUMENT_VERSIONS: Record<ConsentKind, string> = {
   // (wersja z przyszłości = odmowa zapisu zgody). Minimum bez zmian: Resend
   // wysyła pocztę od 11.09 w ramach umowy (bez nowej zgody), a starszy build
   // dalej wysyła 2026-09-23 i nie może dostać odmowy.
-  TERMS: '2026-10-02',
-  PRIVACY: '2026-10-02',
-  AI_ASSISTANT: '2026-10-02',
-  COOKIDOO: '2026-10-02',
-  AGE_16: '2026-10-02',
-  HEALTH_DATA: '2026-10-02',
+  //
+  // Wersja 1.3 z 6.10.2026: z regulaminu i polityki zniknęła integracja
+  // Cookidoo (Thermomix) — schowana do zgody Vorwerka. Zakres przetwarzania
+  // się ZWĘŻA (bez Vorwerka jako odbiorcy), więc minimum bez zmian.
+  TERMS: '2026-10-06',
+  PRIVACY: '2026-10-06',
+  AI_ASSISTANT: '2026-10-06',
+  COOKIDOO: '2026-10-06',
+  AGE_16: '2026-10-06',
+  HEALTH_DATA: '2026-10-06',
 };
 
 /**
