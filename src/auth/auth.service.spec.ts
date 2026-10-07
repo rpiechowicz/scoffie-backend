@@ -6,7 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthProvider, Prisma } from '@prisma/client';
-import { AuthService } from './auth.service';
+import {
+  AuthService,
+  isRefreshSessionExpired,
+  REFRESH_ABSOLUTE_DAYS,
+} from './auth.service';
 import {
   AppleIdentityService,
   VerifiedAppleIdentity,
@@ -59,6 +63,8 @@ const mockRefreshToken = {
   tokenHash: 'hashed-token',
   userId: 'user-123',
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // 30 days
+  // Sesja sprzed doby — daleko od absolutnego kresu (`REFRESH_ABSOLUTE_DAYS`).
+  sessionStartedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
   revokedAt: null,
 };
 
@@ -810,8 +816,105 @@ describe('AuthService', () => {
           tokenHash: expect.any(String),
           userId: mockRefreshToken.userId,
           expiresAt: expect.any(Date),
+          // Początek sesji przechodzi na następcę — rotacja nie zeruje kresu.
+          sessionStartedAt: mockRefreshToken.sessionStartedAt,
         },
       });
+    });
+
+    // ─── absolutny kres sesji (audyt 5.09.2026, 2.3.1) ──────────────────
+
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    it('sesja starsza niż REFRESH_ABSOLUTE_DAYS: 401 jak wygasły token, bez rotacji i bez kasowania rodziny', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValueOnce({
+        ...mockRefreshToken,
+        sessionStartedAt: daysAgo(REFRESH_ABSOLUTE_DAYS),
+      });
+
+      await expect(
+        service.refreshAccessToken('stara-sesja'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('sesja tuż przed kresem rotuje normalnie', async () => {
+      const started = new Date(
+        daysAgo(REFRESH_ABSOLUTE_DAYS).getTime() + 60_000,
+      );
+      prisma.refreshToken.findUnique.mockResolvedValueOnce({
+        ...mockRefreshToken,
+        sessionStartedAt: started,
+      });
+
+      await expect(
+        service.refreshAccessToken('prawie-stara-sesja'),
+      ).resolves.toHaveProperty('accessToken', 'mock-access-token');
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ sessionStartedAt: started }),
+      });
+    });
+
+    it('ratunek zgubionej rotacji kopiuje początek sesji', async () => {
+      const started = daysAgo(100);
+      const rotated = {
+        ...mockRefreshToken,
+        sessionStartedAt: started,
+        revokedAt: new Date(Date.now() - 5_000),
+        revokedReason: 'ROTATED',
+        replacedByHash: 'hash-nastepcy',
+      };
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(rotated)
+        .mockResolvedValueOnce(rotated)
+        .mockResolvedValueOnce({ revokedAt: null });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await expect(
+        service.refreshAccessToken('stary-token'),
+      ).resolves.toHaveProperty('refreshToken');
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ sessionStartedAt: started }),
+      });
+    });
+
+    it('ratunek po absolutnym kresie: 401 bez nowej pary i bez kasowania rodziny', async () => {
+      const rotated = {
+        ...mockRefreshToken,
+        sessionStartedAt: daysAgo(REFRESH_ABSOLUTE_DAYS + 1),
+        revokedAt: new Date(Date.now() - 5_000),
+        revokedReason: 'ROTATED',
+        replacedByHash: 'hash-nastepcy',
+      };
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(rotated)
+        .mockResolvedValueOnce(rotated)
+        .mockResolvedValueOnce({ revokedAt: null });
+
+      await expect(
+        service.refreshAccessToken('stary-token'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('granica kresu: 179 dni działa, 180 dni już nie', () => {
+      // Oba znaczniki od TEGO SAMEGO `now` — `daysAgo` czyta zegar osobno
+      // i o kilka ms później, a granica jest ostra.
+      const now = new Date();
+      const before = (days: number) =>
+        new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      expect(isRefreshSessionExpired(now, now)).toBe(false);
+      expect(isRefreshSessionExpired(before(179), now)).toBe(false);
+      expect(
+        isRefreshSessionExpired(new Date(before(180).getTime() + 1), now),
+      ).toBe(false);
+      expect(isRefreshSessionExpired(before(180), now)).toBe(true);
     });
 
     // ─── limit rotacji na konto ──────────────────────────────────────────

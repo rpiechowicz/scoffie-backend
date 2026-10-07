@@ -49,6 +49,25 @@ export interface AuthResult {
   household: { id: string; name: string } | null;
 }
 
+/**
+ * Absolutny kres sesji refresh (audyt 5.09.2026, 2.3.1): 180 dni od
+ * LOGOWANIA (`RefreshToken.sessionStartedAt`, kopiowane przy rotacji
+ * i ratunku), niezależnie od okna przesuwnego `REFRESH_TOKEN_DAYS`. Bez tego
+ * rodzina tokenów odświeżana choć raz na 60 dni żyła bez końca, a skradziony
+ * token — razem z nią. Stała, nie zmienna środowiskowa: to granica
+ * bezpieczeństwa, nie strojenie.
+ */
+export const REFRESH_ABSOLUTE_DAYS = 180;
+const REFRESH_ABSOLUTE_MS = REFRESH_ABSOLUTE_DAYS * 24 * 60 * 60 * 1000;
+
+/** Czy sesja (rodzina tokenów) przekroczyła absolutny kres. */
+export function isRefreshSessionExpired(
+  sessionStartedAt: Date,
+  now: Date,
+): boolean {
+  return now.getTime() - sessionStartedAt.getTime() >= REFRESH_ABSOLUTE_MS;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -469,9 +488,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    if (isRefreshSessionExpired(storedToken.sessionStartedAt, now)) {
+      // Absolutny kres sesji: ta sama odmowa co wygasły token (klient już ją
+      // obsługuje — logowanie od nowa), bez kasowania rodziny i bez podbijania
+      // `tokenVersion`: to nie jest dowód kradzieży, tylko koniec sesji.
+      this.logger.warn(
+        `refresh refused: session started ${storedToken.sessionStartedAt.toISOString()} for user ${storedToken.userId} — absolutny kres ${REFRESH_ABSOLUTE_DAYS} d`,
+      );
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
     const successor = await this.rotateRefreshToken(
       storedToken.userId,
       tokenHash,
+      storedToken.sessionStartedAt,
       now,
     );
     if (successor === 'throttled') {
@@ -548,6 +578,7 @@ export class AuthService {
   private async rotateRefreshToken(
     userId: string,
     tokenHash: string,
+    sessionStartedAt: Date,
     now: Date,
   ): Promise<
     | {
@@ -600,8 +631,10 @@ export class AuthService {
       });
       if (rotated.count === 0) return null;
 
+      // Następca dziedziczy początek sesji — inaczej rotacja zerowałaby
+      // absolutny kres (`REFRESH_ABSOLUTE_DAYS`).
       await tx.refreshToken.create({
-        data: { tokenHash: successorHash, userId, expiresAt },
+        data: { tokenHash: successorHash, userId, expiresAt, sessionStartedAt },
       });
       const tokenVersion = await this.readTokenVersion(tx, userId);
       return { rawToken, tokenHash: successorHash, tokenVersion };
@@ -769,6 +802,7 @@ export class AuthService {
       revokedReason: string | null;
       replacedByHash: string | null;
       expiresAt: Date;
+      sessionStartedAt: Date;
     },
     now: Date,
   ): Promise<
@@ -831,6 +865,14 @@ export class AuthService {
       if (current.expiresAt <= now) {
         this.logger.warn(
           `rotation recovery refused for user ${storedToken.userId}: token expired`,
+        );
+        return { kind: 'stale' } as const;
+      }
+      // Absolutny kres sesji — jak wygaśnięcie: 401 bez kasowania rodziny.
+      // Ratunek nie może wydać pary sesji, której `/auth/refresh` by odmówił.
+      if (isRefreshSessionExpired(current.sessionStartedAt, now)) {
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: session past absolute limit ${REFRESH_ABSOLUTE_DAYS} d`,
         );
         return { kind: 'stale' } as const;
       }
@@ -935,7 +977,11 @@ export class AuthService {
         },
         data: { revokedReason: 'RECOVERED' },
       });
-      const successor = await this.createRefreshToken(tx, storedToken.userId);
+      const successor = await this.createRefreshToken(
+        tx,
+        storedToken.userId,
+        current.sessionStartedAt,
+      );
       const tokenVersion = await this.readTokenVersion(tx, storedToken.userId);
       return { kind: 'recovered', successor, tokenVersion } as const;
     });
@@ -1107,13 +1153,19 @@ export class AuthService {
     return this.createRefreshToken(this.prisma, userId);
   }
 
+  /**
+   * `sessionStartedAt`: przy logowaniu brak = nowa sesja (teraz); ratunek
+   * zgubionej rotacji podaje początek sesji ratowanego tokenu.
+   */
   private async createRefreshToken(
     client: Prisma.TransactionClient,
     userId: string,
+    sessionStartedAt?: Date,
   ) {
     const rawToken = randomBytes(64).toString('hex');
     const tokenHash = this.hashRefreshToken(rawToken);
-    const expiresAt = new Date();
+    const now = new Date();
+    const expiresAt = new Date(now);
     expiresAt.setDate(expiresAt.getDate() + this.refreshTokenDays);
 
     await client.refreshToken.create({
@@ -1121,6 +1173,7 @@ export class AuthService {
         tokenHash,
         userId,
         expiresAt,
+        sessionStartedAt: sessionStartedAt ?? now,
       },
     });
 

@@ -230,22 +230,27 @@ model UserPreference {
 }
 
 model RefreshToken {
-  id             String    @id @default(uuid()) @db.Uuid
-  tokenHash      String    @unique
-  userId         String    @db.Uuid
-  expiresAt      DateTime
-  createdAt      DateTime  @default(now())
-  revokedAt      DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  tokenHash        String    @unique
+  userId           String    @db.Uuid
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  /// Początek SESJI (logowanie), kopiowany przy rotacji i ratunku. Okno
+  /// przesuwne `REFRESH_TOKEN_DAYS` odnawia się z każdą rotacją; ten znacznik
+  /// nie — po `REFRESH_ABSOLUTE_DAYS` (180 d) od niego odświeżenie jest
+  /// odmawiane i trzeba zalogować się od nowa (audyt 5.09.2026, 2.3.1).
+  sessionStartedAt DateTime  @default(now())
+  revokedAt        DateTime?
   /// Dlaczego token przestał być ważny: ROTATED | LOGOUT | REUSE | RECOVERED.
   /// Bez tego każde ponowne użycie wygląda tak samo, a to dwie różne
   /// sytuacje: klient, ktory zgubil odpowiedz z rotacji, i cudza kopia
   /// starego tokenu.
-  revokedReason  String?
+  revokedReason    String?
   /// Hash nastepcy wydanego przy rotacji tego tokenu. Pozwala rozpoznac
   /// telefon, do ktorego nowa para nigdy nie dojechala (iOS uspil proces
   /// w polowie zadania), i oddac mu swieza pare zamiast kasowac cala
   /// rodzine tokenow.
-  replacedByHash String?
+  replacedByHash   String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
