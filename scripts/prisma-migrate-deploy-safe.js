@@ -642,14 +642,18 @@ async function main() {
         '[safe-migrate] Verifying database schema against current Prisma schema...',
       );
 
+      // Adres bazy NIE w argv: argumenty procesu widać w `ps`/`/proc`,
+      // a na Windows `shell: true` skleja je w linię `cmd.exe`. Prisma
+      // bierze URL z bloku `datasource` schematu, czyli z env("DATABASE_URL")
+      // dziecka — tego samego, które sprawdziliśmy wyżej (audyt 2.3.11).
       const diffStatus = run(
         PNPM_BIN,
         [
           'prisma',
           'migrate',
           'diff',
-          '--from-url',
-          process.env.DATABASE_URL,
+          '--from-schema-datasource',
+          'prisma/schema.prisma',
           '--to-schema-datamodel',
           'prisma/schema.prisma',
           '--exit-code',
