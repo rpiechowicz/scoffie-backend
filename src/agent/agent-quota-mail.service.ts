@@ -66,10 +66,11 @@ export class AgentQuotaMailService {
     if (plan.tier === 'TRIAL') {
       await this.mail?.enqueue(this.prisma, {
         template: 'AI_TRIAL_EXHAUSTED',
-        // Pula próbna jest JEDNA NA ŻYCIE osoby, więc klucz nie potrzebuje
-        // okresu — ale potrzebuje licznika: skończone wiadomości i skończony
-        // zapis planu to dwa różne zdarzenia i dwa różne maile.
-        dedupeKey: `trial-quota:${plan.quotaScopeId}:${exhausted}`,
+        // Jeden mail na osobę, CYKL darmowej puli i licznik: od 7.10.2026
+        // pula wraca co `AI_TRIAL_RENEW_DAYS` dni, więc koniec kolejnego
+        // cyklu to nowe zdarzenie. Skończone wiadomości i skończony zapis
+        // planu to dwa różne zdarzenia i dwa różne maile.
+        dedupeKey: `trial-quota:${plan.quotaScopeId}:${plan.periodKey}:${exhausted}`,
         to: person.email,
         userId,
         payload: {
@@ -78,6 +79,7 @@ export class AgentQuotaMailService {
           messagesLimit: plan.messagesLimit,
           plansUsed,
           plansLimit: plan.plansLimit,
+          renewsAtIso: plan.resetsAt,
         },
       });
       return;

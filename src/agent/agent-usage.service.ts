@@ -15,13 +15,20 @@ export type QuotaView = {
 
 export type AgentUsageView = {
   householdId: string;
-  /** `YYYY-MM` UTC (PRO) albo `trial` — okres, którego dotyczą liczby. */
+  /**
+   * Okres, którego dotyczą liczby: `okres:<data>` / `YYYY-MM` (PRO) albo
+   * `trial` / `free:<YYYY-MM-DD>` (cykle darmowej puli).
+   */
   period: string;
-  /** ISO — kiedy kwota wraca; `null` na próbie (pula się nie odnawia). */
+  /**
+   * ISO — kiedy kwota wraca. Na darmowej puli od 7.10.2026 też (co
+   * `AI_TRIAL_RENEW_DAYS` dni od pierwszego użycia); `null` przed pierwszym
+   * użyciem i przy odnawianiu wyłączonym.
+   */
   resetsAt: string | null;
-  /** Czy pula wraca co miesiąc. */
+  /** Czy pula wraca (PRO — zawsze; darmowa — gdy `AI_TRIAL_RENEW_DAYS` > 0). */
   renews: boolean;
-  /** `TRIAL` = jednorazowa pula na próbę, `PRO` = pula miesięczna. */
+  /** `TRIAL` = darmowa pula osoby, `PRO` = pula miesięczna domu. */
   tier: HouseholdPlanTier;
   /** Skąd PRO — telefon pokazuje „Zarządzaj subskrypcją" tylko przy SUBSCRIPTION. */
   source: HouseholdPlanSource;

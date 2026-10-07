@@ -40,6 +40,7 @@ export const RUNTIME_SETTING_KEYS = [
   'AI_LIMIT_PLANS_PER_MONTH',
   'AI_TRIAL_MESSAGES',
   'AI_TRIAL_PLANS',
+  'AI_TRIAL_RENEW_DAYS',
   'AI_ALLOWED_USERS',
   'AI_CARDS_MODE',
   // Wyszukiwarka dań vs cały katalog w prompcie — powrót bez deployu.
@@ -179,6 +180,12 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
     kind: 'number',
     normalize: count('AI_TRIAL_PLANS'),
     effective: (agent) => String(agent.trialPlans),
+  },
+  AI_TRIAL_RENEW_DAYS: {
+    label: 'Darmowa pula wraca co … dni (0 = jednorazowa)',
+    kind: 'number',
+    normalize: count('AI_TRIAL_RENEW_DAYS'),
+    effective: (agent) => String(agent.trialRenewDays),
   },
   AI_ALLOWED_USERS: {
     label: 'Dozwolone osoby (pusta = wszyscy)',

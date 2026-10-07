@@ -102,12 +102,18 @@ export type AgentEnv = {
   messagesPerMonth: number;
   plansPerMonth: number;
   /**
-   * Pula na próbę (plan TRIAL): jednorazowa, bez odnowienia — licznik żyje
-   * pod kluczem okresu `trial`. Projekt „Limity asystenta" (3.09.2026):
-   * 5 wiadomości i 1 zapis planu.
+   * Darmowa pula (plan TRIAL): 5 wiadomości i 1 zapis planu — projekt
+   * „Limity asystenta" (3.09.2026). Od 7.10.2026 odnawia się co
+   * `trialRenewDays` dni od pierwszego użycia (`freeCycle`).
    */
   trialMessages: number;
   trialPlans: number;
+  /**
+   * Co ile dni wraca darmowa pula (`AI_TRIAL_RENEW_DAYS`, domyślnie 30).
+   * 0 = jednorazowa, jak przed 7.10.2026 — wyłącznik bez deployu (panel →
+   * Sterowanie), gdyby darmowe tury zaczęły za dużo kosztować.
+   */
+  trialRenewDays: number;
   /**
    * `AI_TIER_OVERRIDE=PRO` — każde gospodarstwo liczone jak PRO, niezależnie
    * od subskrypcji. DOMYŚLNIE `PRO`: do czasu wdrożenia subskrypcji w App
@@ -316,6 +322,7 @@ export const AGENT_ENV_DEFAULTS = {
   plansPerMonth: SUBSCRIPTION_PRODUCTS[SMALLEST_PAID_PRODUCT].plansPerMonth,
   trialMessages: 5,
   trialPlans: 1,
+  trialRenewDays: 30,
   tierOverride: null as 'PRO' | null,
   maxConcurrentTurnsPerHousehold: 2,
   /**
@@ -406,6 +413,7 @@ type NumericKey =
   | 'AI_LIMIT_PLANS_PER_MONTH'
   | 'AI_TRIAL_MESSAGES'
   | 'AI_TRIAL_PLANS'
+  | 'AI_TRIAL_RENEW_DAYS'
   | 'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
@@ -563,6 +571,11 @@ export function readAgentEnv(
       env,
       'AI_TRIAL_PLANS',
       AGENT_ENV_DEFAULTS.trialPlans,
+    ),
+    trialRenewDays: readNumber(
+      env,
+      'AI_TRIAL_RENEW_DAYS',
+      AGENT_ENV_DEFAULTS.trialRenewDays,
     ),
     tierOverride: readTierOverride(env),
     maxConcurrentTurnsPerHousehold: readNumber(

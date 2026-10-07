@@ -1,4 +1,4 @@
-import { TRIAL_PERIOD_KEY } from '../../agent/ai-usage-counters.service';
+import { freeCycle } from '../../agent/ai-usage-counters.service';
 import type { AgentEnv } from '../../config/agent-env';
 import {
   purchaseIdentityHashForUser,
@@ -54,6 +54,7 @@ export type PlanEnv = Pick<
   | 'plansPerMonth'
   | 'trialMessages'
   | 'trialPlans'
+  | 'trialRenewDays'
 >;
 
 /**
@@ -63,7 +64,12 @@ export type PlanEnv = Pick<
  */
 export type PlanCalendar = { monthKey: string; monthResetsAt: string };
 
-export type PoolScope = { scopeId: string; periodKey: string };
+export type PoolScope = {
+  scopeId: string;
+  periodKey: string;
+  /** Tylko darmowa pula: koniec cyklu TEGO domownika (każdy ma swój). */
+  resetsAt?: string | null;
+};
 
 export type PlanResolution = {
   plan: HouseholdPlan;
@@ -100,6 +106,8 @@ export function resolveHouseholdPlan(
   env: PlanEnv,
   calendar: PlanCalendar,
   now: Date,
+  /** Kotwice cykli darmowej puli po zakresie (`AiFreeQuotaCycle`). */
+  freeAnchors: ReadonlyMap<string, Date> = new Map(),
 ): PlanResolution {
   const fallback = {
     messagesPerMonth: env.messagesPerMonth,
@@ -161,10 +169,18 @@ export function resolveHouseholdPlan(
   const ordered = [...household.members].sort(byMemberPreference);
   return {
     plan: { kind: 'trial' },
-    scopes: ordered.map((member) => ({
-      scopeId: trialScopeId(memberIdentityHash(member), member.userId),
-      periodKey: TRIAL_PERIOD_KEY,
-    })),
+    scopes: ordered.map((member) => {
+      const scopeId = trialScopeId(memberIdentityHash(member), member.userId);
+      // Ta sama arytmetyka cyklu co `resolvePlan` — ale bez wbijania kotwicy:
+      // panel tylko czyta. Kotwicę wbija pierwsze żądanie osoby po pierwszym
+      // użyciu, więc między nimi panel pokazuje jeszcze cykl `trial`.
+      const cycle = freeCycle(
+        freeAnchors.get(scopeId) ?? null,
+        now,
+        env.trialRenewDays,
+      );
+      return { scopeId, periodKey: cycle.periodKey, resetsAt: cycle.resetsAt };
+    }),
     limits: { messages: env.trialMessages, plans: env.trialPlans },
     resetsAt: null,
   };
@@ -209,7 +225,7 @@ export function poolOf(resolution: PlanResolution, used: UsageLookup): Pool {
     scopeId: best.scopeId,
     messages: { used: bestMessages, limit: resolution.limits.messages },
     plans: { used: bestPlans, limit: resolution.limits.plans },
-    resetsAt: resolution.resetsAt,
+    resetsAt: best.resetsAt === undefined ? resolution.resetsAt : best.resetsAt,
   };
 }
 

@@ -179,8 +179,8 @@ describe('resolveHouseholdPlan / poolOf', () => {
     });
     expect(plan.plan).toEqual({ kind: 'trial' });
     expect(plan.scopes).toEqual([
-      { scopeId: `trial:${OWNER_HASH}`, periodKey: 'trial' },
-      { scopeId: `trial:user:${MEMBER}`, periodKey: 'trial' },
+      { scopeId: `trial:${OWNER_HASH}`, periodKey: 'trial', resetsAt: null },
+      { scopeId: `trial:user:${MEMBER}`, periodKey: 'trial', resetsAt: null },
     ]);
     expect(plan.limits).toEqual({ messages: 5, plans: 1 });
     expect(plan.resetsAt).toBeNull();
@@ -376,6 +376,11 @@ describe('resolveHouseholdPlan / poolOf', () => {
               })),
             }),
           },
+          aiFreeQuotaCycle: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            createMany: jest.fn(),
+          },
+          aiUsageCounter: { findFirst: jest.fn().mockResolvedValue(null) },
           subscription: {
             findMany: jest.fn(
               ({
@@ -428,15 +433,15 @@ describe('resolveHouseholdPlan / poolOf', () => {
           );
           const scope =
             panel.plan.kind === 'trial' ? panel.scopes[index] : panel.scopes[0];
-          expect(scope).toEqual({
+          expect(scope).toMatchObject({
             scopeId: plan.quotaScopeId,
             periodKey: plan.periodKey,
           });
+          expect(scope.resetsAt ?? panel.resetsAt).toBe(plan.resetsAt);
           expect(panel.limits).toEqual({
             messages: plan.messagesLimit,
             plans: plan.plansLimit,
           });
-          expect(panel.resetsAt).toBe(plan.resetsAt);
           expect(panel.plan.kind).toBe(
             plan.source === 'TRIAL'
               ? 'trial'

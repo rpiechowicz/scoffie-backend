@@ -1,10 +1,14 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AiUsageCountersService } from '../../agent/ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  TRIAL_PERIOD_KEY,
+} from '../../agent/ai-usage-counters.service';
 import { AppException } from '../../common/app-exception';
 import { effectiveAvatarColor } from '../../common/avatar-color.util';
 import { catalogHouseholdId } from '../../common/catalog-owner';
 import { readAgentEnv } from '../../config/agent-env';
+import { trialScopeId } from '../../config/purchase-identity';
 import type { SubscriptionCandidate } from '../../config/subscription-lifetime';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
@@ -402,6 +406,47 @@ export class AdminHouseholdsService {
       byHash.set(subscription.identityHash, list);
     }
 
+    // Kotwice cykli darmowej puli — jedno zapytanie o zakresy wszystkich
+    // domowników (zbędne przy PRO, ale to garstka kluczy głównych).
+    const trialScopes = new Set<string>();
+    for (const household of households) {
+      for (const membership of household.memberships) {
+        const member = planMember(membership);
+        trialScopes.add(
+          trialScopeId(memberIdentityHash(member), member.userId),
+        );
+      }
+    }
+    const freeAnchors = new Map(
+      (trialScopes.size
+        ? await tx.aiFreeQuotaCycle.findMany({
+            where: { scopeId: { in: [...trialScopes] } },
+            select: { scopeId: true, anchoredAt: true },
+          })
+        : []
+      ).map((row) => [row.scopeId, row.anchoredAt]),
+    );
+    // Zakres z licznikiem `trial`, a bez kotwicy: osoba już użyła puli, ale
+    // jeszcze nie wróciła z żądaniem, które kotwicę wbija. `resolvePlan`
+    // wbije ją z najstarszego zapisu licznika — panel liczy z tej samej daty,
+    // tylko bez zapisu, więc oba pokazują ten sam cykl.
+    const unanchored = [...trialScopes].filter((id) => !freeAnchors.has(id));
+    if (unanchored.length > 0) {
+      const firstUses = await tx.aiUsageCounter.groupBy({
+        by: ['scopeId'],
+        where: {
+          scopeId: { in: unanchored },
+          periodKey: TRIAL_PERIOD_KEY,
+          kind: { in: ['messages', 'plans'] },
+        },
+        _min: { updatedAt: true },
+      });
+      for (const row of firstUses) {
+        if (row._min.updatedAt)
+          freeAnchors.set(row.scopeId, row._min.updatedAt);
+      }
+    }
+
     const resolutions = households.map((household) => ({
       id: household.id,
       resolution: resolveHouseholdPlan(
@@ -414,6 +459,7 @@ export class AdminHouseholdsService {
         env,
         calendar,
         now,
+        freeAnchors,
       ),
     }));
 

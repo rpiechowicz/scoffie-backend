@@ -236,6 +236,14 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   nie kosztowała — `retryable` decyduje już tylko o bezpieczniku (`AgentTurnRunner.classify`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
   warunkowo (`updateMany` po `status: 'RUNNING'`). W logach asystenta nie ma treści wiadomości —
   tylko `turnId`, `requestId` i kod.
+- Darmowa pula asystenta (od 7.10.2026) wraca co `AI_TRIAL_RENEW_DAYS` (30; 0 = jednorazowa, panel → Sterowanie)
+  dni od PIERWSZEGO UŻYCIA osoby. Kotwica `AiFreeQuotaCycle(scopeId = trial:<hasz>, anchoredAt)` — przy tożsamości,
+  nie koncie, więc nowe konto nie przesuwa cyklu. Okres: cykl 0 = stary klucz `trial`, kolejne `free:<YYYY-MM-DD
+początku>` (`freeCycle`, czysta funkcja wspólna z panelem). Kotwicę wbija `resolvePlan` (poza transakcją) przy
+  pierwszym odczycie po pierwszym użyciu: licznik `trial` jest, kotwicy nie ma → data = najstarszy `updatedAt`
+  licznika; panel liczy z tej samej daty bez zapisu. NIE w transakcji `tryConsume` — odmowa by ją wycofała.
+  Migracja `20261007150000` dała wszystkim, którzy już używali próby, kotwicę „30 dni temu” (świeża pula od razu).
+  `tier` zostaje `TRIAL` (kontrakt z klientami), zmieniają się `renews`/`resetsAt`; zdania 429 — `freeQuotaRefusal`.
 - Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
   dostawcy, zapisany zaraz po nim przez `onUsage` → `AgentUsageLedger.record` (klucz idempotencji
   `AiUsage.callKey` = `turn:<turnId>:<callIndex>`, NOT NULL UNIQUE i niezależny od FK — działa też po

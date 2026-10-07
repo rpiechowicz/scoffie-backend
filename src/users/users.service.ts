@@ -282,6 +282,7 @@ export class UsersService {
           displayName: user.displayName,
           trialMessages: trial.trialMessages,
           trialPlans: trial.trialPlans,
+          trialRenewDays: trial.trialRenewDays,
         },
       });
     }

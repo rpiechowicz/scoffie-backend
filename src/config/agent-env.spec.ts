@@ -24,6 +24,7 @@ describe('readAgentEnv', () => {
       plansPerMonth: AGENT_ENV_DEFAULTS.plansPerMonth,
       trialMessages: AGENT_ENV_DEFAULTS.trialMessages,
       trialPlans: AGENT_ENV_DEFAULTS.trialPlans,
+      trialRenewDays: AGENT_ENV_DEFAULTS.trialRenewDays,
       // Domyślnie PRO dla wszystkich — do czasu subskrypcji zachowanie jak dotąd.
       // BRAK ZMIENNEJ NIE ZNACZY „PRO DLA WSZYSTKICH". Do 4.09.2026 znaczyło:
       // skasowanie `AI_TIER_OVERRIDE` w Railway (czyli to, co człowiek robi,

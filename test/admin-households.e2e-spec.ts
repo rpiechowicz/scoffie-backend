@@ -227,6 +227,7 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     process.env.AI_TIER_OVERRIDE = 'off';
     process.env.AI_TRIAL_MESSAGES = '5';
     process.env.AI_TRIAL_PLANS = '1';
+    process.env.AI_TRIAL_RENEW_DAYS = '30';
     process.env.AI_HOUSEHOLD_MONTHLY_COST_USD = '14';
     delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
     delete process.env.AI_LIMIT_PLANS_PER_MONTH;
@@ -456,6 +457,9 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     await prisma.aiUsageCounter.deleteMany({
       where: { scopeId: { in: createdScopeIds } },
     });
+    await prisma.aiFreeQuotaCycle.deleteMany({
+      where: { scopeId: { in: createdScopeIds } },
+    });
     await prisma.subscription.deleteMany({
       where: { id: { in: createdSubscriptionIds } },
     });
@@ -542,11 +546,20 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     it('próba: pula domownika, który zużył najwięcej — ta sama, co u asystenta', async () => {
       const item = await listItem(ids.trial);
       expect(item.plan).toEqual({ kind: 'trial' });
+      // Darmowa pula wraca 30 dni po pierwszym użyciu (najstarszy zapis
+      // licznika) — panel liczy to samo, co asystent, zanim ten wbije kotwicę.
+      const firstUse = await prisma.aiUsageCounter.findFirst({
+        where: { scopeId: `trial:user:${users.Bartek.id}`, periodKey: 'trial' },
+        orderBy: { updatedAt: 'asc' },
+        select: { updatedAt: true },
+      });
       expect(item.pool).toEqual({
         scopeId: `trial:user:${users.Bartek.id}`,
         messages: { used: 4, limit: 5 },
         plans: { used: 1, limit: 1 },
-        resetsAt: null,
+        resetsAt: new Date(
+          firstUse!.updatedAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       });
       await expectSameAsAssistant(item.pool, ids.trial, 'Bartek');
       // Właściciel pierwszy, rola i kolor, którym osoba świeci w aplikacji.

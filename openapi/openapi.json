@@ -9026,16 +9026,16 @@
         "properties": {
           "householdId": { "type": "string" },
           "period": {
-            "description": "`YYYY-MM` UTC (PRO) albo `trial` — okres, którego dotyczą liczby.",
+            "description": "Okres, którego dotyczą liczby: `okres:<data>` / `YYYY-MM` (PRO) albo\n`trial` / `free:<YYYY-MM-DD>` (cykle darmowej puli).",
             "type": "string"
           },
           "resetsAt": {
-            "description": "ISO — kiedy kwota wraca; `null` na próbie (pula się nie odnawia).",
+            "description": "ISO — kiedy kwota wraca. Na darmowej puli od 7.10.2026 też (co\n`AI_TRIAL_RENEW_DAYS` dni od pierwszego użycia); `null` przed pierwszym\nużyciem i przy odnawianiu wyłączonym.",
             "type": "string",
             "nullable": true
           },
           "renews": {
-            "description": "Czy pula wraca co miesiąc.",
+            "description": "Czy pula wraca (PRO — zawsze; darmowa — gdy `AI_TRIAL_RENEW_DAYS` > 0).",
             "type": "boolean"
           },
           "tier": { "$ref": "#/components/schemas/HouseholdPlanTier" },

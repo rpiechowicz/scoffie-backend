@@ -40,7 +40,10 @@ import {
   HouseholdSplitPortion,
   SwapCardSide,
 } from '../cards/agent-cards';
-import { AiUsageCountersService } from '../ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  freeQuotaRefusal,
+} from '../ai-usage-counters.service';
 import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
@@ -1384,7 +1387,7 @@ export class AgentProposalsService {
         throw new AppException(
           'AI_PLAN_QUOTA_EXCEEDED',
           plan.tier === 'TRIAL'
-            ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
+            ? freeQuotaRefusal('plans', plan)
             : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany.`,
           HttpStatus.TOO_MANY_REQUESTS,
           this.counters.quotaDetailsFor('plans', plan),

@@ -30,6 +30,10 @@ export function renderWelcome(c: MailCtx, d: WelcomePayload): RenderedMail {
 
   const wiadomosci = `${d.trialMessages} ${plural(d.trialMessages, 'wiadomość', 'wiadomości', 'wiadomości')}`;
   const zapisy = `${d.trialPlans} ${plural(d.trialPlans, 'zapis', 'zapisy', 'zapisów')} planu tygodnia`;
+  const odnowienie =
+    d.trialRenewDays && d.trialRenewDays > 0
+      ? `Wraca co ${d.trialRenewDays} ${plural(d.trialRenewDays, 'dzień', 'dni', 'dni')}, licząc od pierwszej wiadomości.`
+      : 'Przysługuje raz i nie odnawia się.';
 
   const body =
     head(c) +
@@ -66,8 +70,8 @@ export function renderWelcome(c: MailCtx, d: WelcomePayload): RenderedMail {
     panel(c, {
       pt: 22,
       html:
-        `<div class="ink" style="font:700 15px/23px ${c.ff};color:${c.p.ink};">Dostęp próbny do asystenta</div>` +
-        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">${esc(wiadomosci)} i ${esc(zapisy)}. Przysługuje raz i nie odnawia się.</div>`,
+        `<div class="ink" style="font:700 15px/23px ${c.ff};color:${c.p.ink};">Darmowa pula asystenta</div>` +
+        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">${esc(wiadomosci)} i ${esc(zapisy)}. ${esc(odnowienie)}</div>`,
     }) +
     p(
       c,
@@ -93,7 +97,7 @@ OD CZEGO ZACZĄĆ
 
 Lista zakupów układa się sama z planu. Zmienisz obiad — lista przeliczy się razem z nim.
 
-Dostęp próbny do asystenta: ${wiadomosci} i ${zapisy}. Przysługuje raz i nie odnawia się.
+Darmowa pula asystenta: ${wiadomosci} i ${zapisy}. ${odnowienie}
 
 Pytania? ${c.site}/support/
 

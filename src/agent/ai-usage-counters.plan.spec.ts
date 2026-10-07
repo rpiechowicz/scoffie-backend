@@ -159,6 +159,8 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
   let prisma: {
     household: { findUnique: jest.Mock };
     subscription: { findMany: jest.Mock };
+    aiFreeQuotaCycle: { findUnique: jest.Mock; createMany: jest.Mock };
+    aiUsageCounter: { findFirst: jest.Mock };
   };
   let counters: AiUsageCountersService;
 
@@ -189,6 +191,11 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
     prisma = {
       household: { findUnique: jest.fn() },
       subscription: { findMany: jest.fn().mockResolvedValue([]) },
+      aiFreeQuotaCycle: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      aiUsageCounter: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     counters = new AiUsageCountersService(prisma as unknown as PrismaService);
   });
@@ -263,7 +270,8 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
     expect(inOldHome.quotaScopeId).toBe(`trial:${MEMBER_HASH}`);
     expect(inNewHome.quotaScopeId).toBe(inOldHome.quotaScopeId);
     expect(inNewHome.messagesLimit).toBe(5);
-    expect(inNewHome.renews).toBe(false);
+    // Ta sama pula i ten sam cykl — nowy dom go nie zeruje.
+    expect(inNewHome.periodKey).toBe(inOldHome.periodKey);
   });
 
   it('nadanie operatora bije subskrypcję i liczy się w zakresie domu', async () => {

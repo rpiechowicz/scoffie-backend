@@ -12,6 +12,7 @@ import {
   pickBestSubscription,
   type SubscriptionCandidate,
 } from '../config/subscription-lifetime';
+import { formatDay } from '../mail/templates/mail-format';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type HouseholdPlanTier = 'TRIAL' | 'PRO';
@@ -32,8 +33,9 @@ export type HouseholdPlan = {
    *   • `sub:<id>`     — subskrypcja. Pula wisi na UMOWIE, więc przeprowadzka
    *                      do innego domu jej nie odnawia (jedna opłata = jedna
    *                      pula miesięcznie, gdziekolwiek płatnik akurat jest).
-   *   • `trial:<hasz>` — pula próbna osoby, jedna na życie. Nie na domu, bo
-   *                      „wyjdź z domu → załóż nowy" dawało świeżą próbę.
+   *   • `trial:<hasz>` — darmowa pula osoby (odnawiana w JEJ cyklu). Nie na
+   *                      domu, bo „wyjdź z domu → załóż nowy" dawało świeżą
+   *                      pulę.
    *   • `<householdId>`— nadanie operatora i `AI_TIER_OVERRIDE`; te nigdzie
    *                      nie wędrują, bo `tierOverride` jest kolumną domu.
    */
@@ -46,11 +48,15 @@ export type HouseholdPlan = {
    *     odnawia się 15.10, a nie 1.10.
    *   • `YYYY-MM`            — nadanie operatora i `AI_TIER_OVERRIDE`; te nie
    *     mają okresu rozliczeniowego, więc zostają przy miesiącu kalendarzowym.
-   *   • `trial`              — jedna pula bez odnowienia.
+   *   • `trial` / `free:<YYYY-MM-DD>` — darmowa pula: pierwszy cykl
+   *     i kolejne, co `AI_TRIAL_RENEW_DAYS` dni od pierwszego użycia.
    */
   periodKey: string;
   renews: boolean;
-  /** ISO albo `null` (próba się nie odnawia). */
+  /**
+   * ISO albo `null` — darmowa pula przed pierwszym użyciem (cykl jeszcze nie
+   * ruszył) albo przy `AI_TRIAL_RENEW_DAYS=0` (pula jednorazowa).
+   */
   resetsAt: string | null;
   messagesLimit: number;
   plansLimit: number;
@@ -67,8 +73,85 @@ export type HouseholdPlan = {
  */
 export type PlanActor = { userId: string; identityHash?: string | null };
 
-/** Klucz okresu puli próbnej — jedna na całe życie OSOBY (patrz `trialScopeId`). */
+/**
+ * Klucz PIERWSZEGO cyklu darmowej puli (patrz `trialScopeId`). Do 7.10.2026
+ * jedyny — pula była jednorazowa; zostaje, żeby zużycie sprzed odnawiania
+ * liczyło się dalej bez przepisywania liczników.
+ */
 export const TRIAL_PERIOD_KEY = 'trial';
+
+/** Prefiks kluczy kolejnych cykli darmowej puli: `free:<YYYY-MM-DD>`. */
+export const FREE_CYCLE_PREFIX = 'free:';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Okres darmowej puli: klucz licznika i chwila, w której wraca pula. */
+export type FreeCycle = { periodKey: string; resetsAt: string | null };
+
+/**
+ * Bieżący cykl darmowej puli — czysta arytmetyka, wspólna dla asystenta
+ * i panelu.
+ *
+ * Cykle liczą się od KOTWICY osoby (`AiFreeQuotaCycle.anchoredAt`, pierwsze
+ * użycie), a nie od 1. dnia miesiąca: kto zaczął 28-go, nie dostaje nowej puli
+ * po trzech dniach. Klucz cyklu to data jego POCZĄTKU, nie numer — zmiana
+ * `AI_TRIAL_RENEW_DAYS` w panelu nie trafia wtedy w licznik innego okna.
+ *
+ *   • brak kotwicy (nikt nic jeszcze nie zużył) → `trial`, bez daty odnowienia,
+ *   • `renewDays <= 0` → `trial` na zawsze (pula jednorazowa jak dawniej),
+ *   • cykl 0 → `trial` (zużycie sprzed odnawiania liczy się dalej),
+ *   • cykl n → `free:<YYYY-MM-DD początku>`.
+ */
+export function freeCycle(
+  anchoredAt: Date | null,
+  now: Date,
+  renewDays: number,
+): FreeCycle {
+  if (!anchoredAt || renewDays <= 0) {
+    return { periodKey: TRIAL_PERIOD_KEY, resetsAt: null };
+  }
+  const length = renewDays * DAY_MS;
+  const index = Math.max(
+    0,
+    Math.floor((now.getTime() - anchoredAt.getTime()) / length),
+  );
+  const start = new Date(anchoredAt.getTime() + index * length);
+  return {
+    periodKey:
+      index === 0
+        ? TRIAL_PERIOD_KEY
+        : `${FREE_CYCLE_PREFIX}${start.toISOString().slice(0, 10)}`,
+    resetsAt: new Date(start.getTime() + length).toISOString(),
+  };
+}
+
+/**
+ * „6 listopada" — kiedy wraca darmowa pula, do zdań odmowy 429. `null` poza
+ * darmową pulą i gdy nie wraca (odnawianie wyłączone). Data jak w mailach:
+ * strefa Warszawy, jedna dla wszystkich (`mail-format.ts`).
+ */
+export function freePoolBackOn(plan: HouseholdPlan): string | null {
+  return plan.tier === 'TRIAL' ? formatDay(plan.resetsAt) : null;
+}
+
+/**
+ * Zdanie odmowy 429 na darmowej puli — jedno dla wiadomości (start tury)
+ * i zapisu planu (propozycja), żeby oba mówiły to samo o odnowieniu.
+ */
+export function freeQuotaRefusal(
+  kind: 'messages' | 'plans',
+  plan: HouseholdPlan,
+): string {
+  const back = freePoolBackOn(plan);
+  const used =
+    kind === 'messages'
+      ? `Darmowe wiadomości (${plan.messagesLimit}) są wykorzystane.`
+      : `Darmowy zapis planu (${plan.plansLimit}) jest wykorzystany.`;
+  if (!back) {
+    return `${used} Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`;
+  }
+  return `${used} ${kind === 'messages' ? 'Wrócą' : 'Wróci'} ${back} — albo wybierz plan, żeby mieć większą pulę dla całego domu.`;
+}
 
 /**
  * Klient Prismy albo klient transakcji — liczniki muszą dać się naliczyć
@@ -299,18 +382,71 @@ export class AiUsageCountersService {
     );
     const actorHash =
       actor.identityHash ?? (actorMember ? hashOf(actorMember.user) : null);
+    const quotaScopeId = trialScopeId(actorHash, actor.userId);
+    const cycle = await this.freeCycleOf(quotaScopeId, env.trialRenewDays, now);
     return {
       tier: 'TRIAL',
       source: 'TRIAL',
-      quotaScopeId: trialScopeId(actorHash, actor.userId),
-      periodKey: TRIAL_PERIOD_KEY,
-      renews: false,
-      resetsAt: null,
+      quotaScopeId,
+      periodKey: cycle.periodKey,
+      renews: env.trialRenewDays > 0,
+      resetsAt: cycle.resetsAt,
       messagesLimit: env.trialMessages,
       plansLimit: env.trialPlans,
       product: null,
       subscriptionId: null,
     };
+  }
+
+  /**
+   * Cykl darmowej puli osoby. Kotwica powstaje TUTAJ, przy pierwszym
+   * odczycie planu po pierwszym użyciu (jest już licznik `trial`, a kotwicy
+   * nie ma) — każde zdjęcie kwoty idzie po `resolvePlan`, więc następne
+   * żądanie po pierwszej wiadomości ją wbija. Data = najstarszy zapis
+   * licznika, czyli w praktyce chwila pierwszego użycia.
+   *
+   * Dlaczego nie w transakcji `tryConsume`: odmowa (pusta pula) wycofuje
+   * transakcję razem z kotwicą, więc ktoś, kto zużył pulę w oknie wdrożenia
+   * na starej instancji, nie dostałby kotwicy nigdy — i nowej puli też.
+   * `skipDuplicates` = `ON CONFLICT DO NOTHING`: dwa równoległe żądania
+   * wbijają jedną kotwicę, a po zapisie czytamy ją z bazy.
+   */
+  private async freeCycleOf(
+    scopeId: string,
+    renewDays: number,
+    now: Date,
+  ): Promise<FreeCycle> {
+    if (renewDays <= 0) return freeCycle(null, now, renewDays);
+    const existing = await this.prisma.aiFreeQuotaCycle.findUnique({
+      where: { scopeId },
+      select: { anchoredAt: true },
+    });
+    if (existing) return freeCycle(existing.anchoredAt, now, renewDays);
+
+    const firstUse = await this.prisma.aiUsageCounter.findFirst({
+      where: {
+        scopeId,
+        periodKey: TRIAL_PERIOD_KEY,
+        kind: { in: ['messages', 'plans'] },
+      },
+      orderBy: { updatedAt: 'asc' },
+      select: { updatedAt: true },
+    });
+    if (!firstUse) return freeCycle(null, now, renewDays);
+
+    await this.prisma.aiFreeQuotaCycle.createMany({
+      data: [{ scopeId, anchoredAt: firstUse.updatedAt }],
+      skipDuplicates: true,
+    });
+    const anchored = await this.prisma.aiFreeQuotaCycle.findUnique({
+      where: { scopeId },
+      select: { anchoredAt: true },
+    });
+    return freeCycle(
+      anchored?.anchoredAt ?? firstUse.updatedAt,
+      now,
+      renewDays,
+    );
   }
 
   private proPlan(

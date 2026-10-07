@@ -27,7 +27,12 @@ export const MAIL_FIXTURES: MailFixture[] = [
     key: 'welcome',
     label: 'A · Witaj w Scoffie',
     template: 'WELCOME',
-    payload: { displayName: 'Marta', trialMessages: 5, trialPlans: 1 },
+    payload: {
+      displayName: 'Marta',
+      trialMessages: 5,
+      trialPlans: 1,
+      trialRenewDays: 30,
+    },
   },
   {
     key: 'welcome-emoji',
@@ -77,6 +82,7 @@ export const MAIL_FIXTURES: MailFixture[] = [
       messagesLimit: 5,
       plansUsed: 0,
       plansLimit: 1,
+      renewsAtIso: '2026-11-06T09:30:00.000Z',
     },
   },
   {
@@ -89,6 +95,7 @@ export const MAIL_FIXTURES: MailFixture[] = [
       messagesLimit: 5,
       plansUsed: 1,
       plansLimit: 1,
+      renewsAtIso: '2026-11-06T09:30:00.000Z',
     },
   },
   {

@@ -26,6 +26,7 @@ import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentQuotaMailService } from './agent-quota-mail.service';
 import {
   AiUsageCountersService,
+  freeQuotaRefusal,
   GLOBAL_SCOPE,
 } from './ai-usage-counters.service';
 import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
@@ -524,7 +525,7 @@ export class AgentTurnsService {
           throw new AppException(
             'AI_QUOTA_EXCEEDED',
             plan.tier === 'TRIAL'
-              ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
+              ? freeQuotaRefusal('messages', plan)
               : // „W tym miesiącu" byłoby nieprawdą: od 4.09.2026 pula wraca
                 // w dniu odnowienia subskrypcji, a nie pierwszego. Datę niesie
                 // `resetsAt` w `details` — telefon pokazuje ją wprost.

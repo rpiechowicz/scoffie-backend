@@ -70,7 +70,7 @@ export function renderAccountDeleted(
     p(c, wspolne, { pt: 26 }) +
     p(
       c,
-      `${b('Dostęp próbny nie wraca.')} Przy nowym koncie na tym samym Apple ID asystent nie da drugiej próby. Opłacona subskrypcja odnajdzie się sama.`,
+      `${b('Darmowa pula nie zaczyna się od nowa.')} Przy nowym koncie na tym samym Apple ID liczy się dalej w tym samym cyklu. Opłacona subskrypcja odnajdzie się sama.`,
       { pt: 14 },
     ) +
     p(
@@ -100,7 +100,7 @@ ${subskrypcja}
 }
 ${wspolneText}
 
-Dostęp próbny nie wraca. Przy nowym koncie na tym samym Apple ID asystent nie da drugiej próby. Opłacona subskrypcja odnajdzie się sama.
+Darmowa pula nie zaczyna się od nowa. Przy nowym koncie na tym samym Apple ID liczy się dalej w tym samym cyklu. Opłacona subskrypcja odnajdzie się sama.
 
 To ostatnia wiadomość od nas. Dziękujemy za czas spędzony w Scoffie.
 
