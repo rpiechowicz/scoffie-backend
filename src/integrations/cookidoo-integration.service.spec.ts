@@ -8,6 +8,32 @@ import {
 } from './cookidoo-integration.service';
 import { CookidooServiceClient } from './cookidoo-service.client';
 
+/**
+ * Stan bazy widziany przez zapytania surowe serwisu — rozróżniane po SQL:
+ * rola pod `FOR SHARE` na `Membership`, autor połączenia pod `FOR UPDATE`
+ * (tylko właściciel), sonda `FOR SHARE NOWAIT` przed `create` (domownik).
+ */
+type RawState = {
+  role: 'OWNER' | 'MEMBER' | null;
+  connector: string | null;
+  foreign: boolean;
+};
+const rawBySql =
+  (state: RawState) =>
+  (strings: TemplateStringsArray): Promise<unknown[]> => {
+    const sql = strings.join('?');
+    if (sql.includes('"Membership"')) {
+      return Promise.resolve(state.role ? [{ role: state.role }] : []);
+    }
+    if (sql.includes('NOWAIT')) {
+      return Promise.resolve(state.foreign ? [{ one: 1 }] : []);
+    }
+    return Promise.resolve(
+      state.connector ? [{ connectedById: state.connector }] : [],
+    );
+  };
+const sqlOf = (call: unknown[]) => (call[0] as TemplateStringsArray).join('?');
+
 const USER = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 const OTHER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const HOUSEHOLD = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -23,6 +49,7 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     membership: { findFirst: jest.Mock };
     $transaction: jest.Mock;
     $queryRaw: jest.Mock;
+    consentEvent: { create: jest.Mock };
     cookidooIntegration: {
       findUnique: jest.Mock;
       upsert: jest.Mock;
@@ -43,7 +70,12 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
       },
       // Transakcja zapisu dostaje ten sam obiekt; rola czytana pod blokadą.
       $transaction: jest.fn(),
-      $queryRaw: jest.fn().mockResolvedValue([{ role: 'OWNER' }]),
+      $queryRaw: jest
+        .fn()
+        .mockImplementation(
+          rawBySql({ role: 'OWNER', connector: null, foreign: false }),
+        ),
+      consentEvent: { create: jest.fn().mockResolvedValue({}) },
       cookidooIntegration: {
         findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
@@ -143,6 +175,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     membership: { findFirst: jest.Mock };
     $transaction: jest.Mock;
     $queryRaw: jest.Mock;
+    consentEvent: { create: jest.Mock };
     cookidooIntegration: {
       findUnique: jest.Mock;
       upsert: jest.Mock;
@@ -154,6 +187,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
   };
   let client: { validateCredentials: jest.Mock; addToWeek: jest.Mock };
   let service: CookidooIntegrationService;
+  let raw: RawState;
 
   const asRole = (role: 'OWNER' | 'MEMBER') => {
     prisma.membership.findFirst.mockResolvedValue({
@@ -161,7 +195,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       role,
     });
     // Ta sama rola przy ponownym odczycie W transakcji zapisu.
-    prisma.$queryRaw.mockResolvedValue([{ role }]);
+    raw.role = role;
   };
   const storedBy = (connectedById: string | null) => ({
     householdId: HOUSEHOLD,
@@ -179,6 +213,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       membership: { findFirst: jest.fn() },
       $transaction: jest.fn(),
       $queryRaw: jest.fn(),
+      consentEvent: { create: jest.fn().mockResolvedValue({}) },
       cookidooIntegration: {
         findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
@@ -199,6 +234,8 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       prisma as unknown as PrismaService,
       client as unknown as CookidooServiceClient,
     );
+    raw = { role: 'MEMBER', connector: null, foreign: false };
+    prisma.$queryRaw.mockImplementation(rawBySql(raw));
     asRole('MEMBER');
   });
 
@@ -340,14 +377,10 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       connectedById: OTHER,
     });
     client.validateCredentials.mockImplementation(() => {
-      // Inny właściciel degraduje pytającego, zanim Vorwerk odpowie.
-      prisma.$queryRaw.mockResolvedValue([{ role: 'MEMBER' }]);
-      prisma.cookidooIntegration.create.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError('unique', {
-          code: 'P2002',
-          clientVersion: 'test',
-        }),
-      );
+      // Inny właściciel degraduje pytającego, zanim Vorwerk odpowie;
+      // wiersz należy do OTHER.
+      raw.role = 'MEMBER';
+      raw.foreign = true;
       return Promise.resolve({ subscription: null });
     });
 
@@ -355,16 +388,19 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       service.connect(USER, 'a@b.pl', 'tajne'),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(prisma.cookidooIntegration.upsert).not.toHaveBeenCalled();
+    expect(prisma.cookidooIntegration.create).not.toHaveBeenCalled();
     expect(prisma.cookidooIntegration.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { householdId: HOUSEHOLD, connectedById: USER },
       }),
     );
+    // Odmowa = nic w dzienniku zgód.
+    expect(prisma.consentEvent.create).not.toHaveBeenCalled();
   });
 
   it('usunięty z domu W TRAKCIE walidacji niczego nie zapisuje', async () => {
     client.validateCredentials.mockImplementation(() => {
-      prisma.$queryRaw.mockResolvedValue([]);
+      raw.role = null;
       return Promise.resolve({ subscription: null });
     });
 
@@ -381,7 +417,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       householdId: HOUSEHOLD,
       role: 'OWNER',
     });
-    prisma.$queryRaw.mockResolvedValue([{ role: 'MEMBER' }]);
+    raw.role = 'MEMBER';
     prisma.cookidooIntegration.count.mockResolvedValue(1);
 
     await expect(service.disconnect(USER)).rejects.toMatchObject({
@@ -392,18 +428,32 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     });
   });
 
-  it('rola czytana W transakcji zapytaniem z blokadą FOR SHARE na Membership', async () => {
+  it('domownik: rola pod FOR SHARE, na cudzy wiersz poświadczeń NIE czeka (sonda NOWAIT, bez FOR UPDATE)', async () => {
     await service.connect(USER, 'a@b.pl', 'tajne');
     await service.disconnect(USER);
-    const sqls = prisma.$queryRaw.mock.calls.map(([strings]: unknown[]) =>
-      (strings as TemplateStringsArray).join('?'),
-    );
+    const sqls = prisma.$queryRaw.mock.calls.map(sqlOf);
     const membership = sqls.filter((sql) => /FROM "Membership"/.test(sql));
     expect(membership).toHaveLength(2);
     for (const sql of membership) {
       expect(sql).toMatch(/FOR SHARE\s*$/);
     }
-    // Poprzedni autor połączenia (do dziennika zgód) — pod `FOR UPDATE`.
+    // Review 7.10.2026 (`40P01`): domownik nie bierze FOR UPDATE na wierszu
+    // poświadczeń — sprzątanie po wyjściu autora trzyma go i czeka na
+    // `Membership` domownika (awans następcy).
+    expect(sqls.filter((sql) => /FOR UPDATE/.test(sql))).toHaveLength(0);
+    const probes = sqls.filter((sql) => /FROM "CookidooIntegration"/.test(sql));
+    expect(probes).toHaveLength(1);
+    expect(probes[0]).toMatch(/FOR SHARE NOWAIT\s*$/);
+    // Zapytania biegną W transakcjach zapisu, nie przed nimi.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('właściciel: autor połączenia pod FOR UPDATE (awansu właściciela nie ma, więc bez cyklu)', async () => {
+    asRole('OWNER');
+    raw.connector = OTHER;
+    await service.connect(USER, 'a@b.pl', 'tajne');
+    await service.disconnect(USER);
+    const sqls = prisma.$queryRaw.mock.calls.map(sqlOf);
     const integration = sqls.filter((sql) =>
       /FROM "CookidooIntegration"/.test(sql),
     );
@@ -411,12 +461,38 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     for (const sql of integration) {
       expect(sql).toMatch(/FOR UPDATE\s*$/);
     }
-    // Zapytanie biegnie W transakcji zapisu, nie przed nią.
+  });
+
+  it('konflikt blokad (40P01 / NOWAIT): jedno ponowienie, potem czytelne 409 CONFLICT', async () => {
+    const deadlock = new Prisma.PrismaClientKnownRequestError(
+      'Raw query failed. Code: `40P01`. Message: `deadlock detected`',
+      { code: 'P2010', clientVersion: 'test', meta: { code: '40P01' } },
+    );
+    prisma.$transaction.mockRejectedValue(deadlock);
+    await expect(service.disconnect(USER)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      status: 409,
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+
+    prisma.$transaction.mockReset();
+    prisma.$transaction
+      .mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('could not obtain lock', {
+          code: 'P2010',
+          clientVersion: 'test',
+          meta: { code: '55P03' },
+        }),
+      )
+      .mockImplementation((run: (tx: unknown) => unknown) => run(prisma));
+    await expect(
+      service.connect(USER, 'a@b.pl', 'tajne'),
+    ).resolves.toMatchObject({ connected: true });
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it('rozłączenie po usunięciu z domu: odmowa bez kasowania', async () => {
-    prisma.$queryRaw.mockResolvedValue([]);
+    raw.role = null;
     await expect(service.disconnect(USER)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
@@ -441,7 +517,6 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
 describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozłączeniu (review 7.10.2026)', () => {
   const originalKey = process.env.COOKIDOO_ENCRYPTION_KEY;
   let prisma: Record<string, any>;
-  let consents: { recordSystem: jest.Mock };
   let service: CookidooIntegrationService;
 
   /** Rola pytającego i autor istniejącego połączenia — po treści zapytania. */
@@ -470,6 +545,7 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
       membership: { findFirst: jest.fn() },
       $queryRaw: jest.fn(),
       $transaction: jest.fn(),
+      consentEvent: { create: jest.fn().mockResolvedValue({}) },
       cookidooIntegration: {
         findUnique: jest.fn(),
         upsert: jest.fn().mockResolvedValue({}),
@@ -482,7 +558,6 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
     prisma.$transaction.mockImplementation((run: (tx: unknown) => unknown) =>
       run(prisma),
     );
-    consents = { recordSystem: jest.fn().mockResolvedValue(undefined) };
     service = new CookidooIntegrationService(
       prisma as unknown as PrismaService,
       {
@@ -491,7 +566,6 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
           .mockResolvedValue({ subscription: null }),
         addToWeek: jest.fn(),
       } as unknown as CookidooServiceClient,
-      consents as never,
     );
   });
 
@@ -500,12 +574,15 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
     else process.env.COOKIDOO_ENCRYPTION_KEY = originalKey;
   });
 
+  // Wpisy W TRANSAKCJI zapisu (`tx.consentEvent.create`), nie po niej.
   const calls = () =>
-    consents.recordSystem.mock.calls.map(([who, , action, source]) => [
-      who,
-      action,
-      source,
-    ]);
+    prisma.consentEvent.create.mock.calls.map(
+      ([{ data }]: [{ data: Record<string, string> }]) => [
+        data.userId,
+        data.action,
+        data.source,
+      ],
+    );
 
   it('właściciel nadpisuje połączenie innej osoby: REVOKED dla NIEJ, GRANTED dla właściciela', async () => {
     given('OWNER', OTHER);
@@ -540,6 +617,6 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
       connectedById: null,
     });
     await service.disconnect(USER);
-    expect(consents.recordSystem).not.toHaveBeenCalled();
+    expect(prisma.consentEvent.create).not.toHaveBeenCalled();
   });
 });

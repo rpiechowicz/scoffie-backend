@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Optional } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { MembershipRole, Prisma } from '@prisma/client';
 import { ensureRecipeForHousehold } from '../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../common/app-exception';
@@ -13,7 +13,7 @@ import {
   CookidooSubscriptionInfo,
 } from './cookidoo-service.client';
 import { isCookidooIntegrationEnabled } from './cookidoo-flag';
-import { ConsentsService } from '../consents/consents.service';
+import { recordConsentInTx } from '../consents/consent-event.util';
 
 const STATUS_CONNECTED = 'CONNECTED';
 const STATUS_AUTH_FAILED = 'AUTH_FAILED';
@@ -89,8 +89,6 @@ export class CookidooIntegrationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cookidooClient: CookidooServiceClient,
-    // Opcjonalnie: testy jednostkowe budują serwis bez dziennika zgód.
-    @Optional() private readonly consents?: ConsentsService,
   ) {}
 
   async connect(
@@ -133,31 +131,10 @@ export class CookidooIntegrationService {
       lastVerifiedAt: now,
       lastErrorCode: null,
     };
-    const replaced = await this.writeCredentials(
-      userId,
-      householdId,
-      encrypted,
-    );
-    // Właściciel nadpisał cudze połączenie: hasło tamtej osoby zniknęło, więc
-    // w dzienniku ma JEJ REVOKED (review 7.10.2026 — zostawało GRANTED).
-    if (replaced && replaced !== userId) {
-      await this.consents?.recordSystem(
-        replaced,
-        'COOKIDOO',
-        'REVOKED',
-        'COOKIDOO_REPLACED',
-        householdId,
-      );
-    }
     // Podanie hasła JEST zgodą na przekazanie go usłudze trzeciej (polityka
-    // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić.
-    await this.consents?.recordSystem(
-      userId,
-      'COOKIDOO',
-      'GRANTED',
-      'COOKIDOO_CONNECT',
-      householdId,
-    );
+    // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić; wpis powstaje
+    // W transakcji zapisu (`writeCredentials`).
+    await this.writeCredentials(userId, householdId, encrypted);
 
     return {
       connected: true,
@@ -175,55 +152,112 @@ export class CookidooIntegrationService {
    * Zapis poświadczeń z bramką „autor albo właściciel" W TRANSAKCJI ZAPISU.
    *
    * Rola z `resolveMembership` jest sprzed walidacji u Vorwerka (sekundy) —
-   * w tym czasie pytający mógł zostać zdegradowany albo usunięty z domu
-   * (Codex, review 7.10.2026). Dlatego członkostwo i rola są czytane od nowa,
-   * z blokadą wiersza (`lockMembership`), i dopiero na nich opiera się zapis.
+   * w tym czasie pytający mógł zostać zdegradowany albo usunięty z domu.
+   * Dlatego członkostwo i rola są czytane od nowa, z blokadą wiersza
+   * (`lockMembership`), i dopiero na nich opiera się zapis. W tej samej
+   * transakcji powstają wpisy dziennika zgód: GRANTED pytającego i — gdy
+   * właściciel nadpisał cudze hasło — REVOKED jego autora.
    *
-   * Właściciel nadpisuje zawsze (`upsert`). Domownik: aktualizacja tylko
-   * wiersza, który sam podłączył; brak takiego wiersza = pierwsze podłączenie
-   * domu (`create`). Gdy w międzyczasie podłączył ktoś inny, `create` trafia
-   * w unikalny `householdId` (P2002) i kończy się tą samą odmową, co odczyt
-   * wyżej — bez okna, w którym dwa telefony nadpisują się nawzajem.
-   *
-   * Zwraca `connectedById` nadpisanego wiersza (`null` = nie było wiersza albo
-   * autor skasował konto) — do dziennika zgód.
+   * KOLEJNOŚĆ BLOKAD (review 7.10.2026, `40P01`). Zapis: `Membership`
+   * pytającego (FOR SHARE) → wiersz `CookidooIntegration`. Sprzątanie
+   * (`leave`, `removeMember`, przeprowadzka): `Membership` odchodzącego
+   * (DELETE) → `CookidooIntegration` jego autorstwa (DELETE) → `Household`
+   * → `Membership` następcy (UPDATE roli, gdy nie został żaden właściciel).
+   * Kasowanie konta: `Membership` → `Household` → następca → na końcu
+   * `CookidooIntegration`. Cykl powstałby, gdyby zapis czekał na wiersz
+   * poświadczeń, który trzyma sprzątanie czekające na `Membership`
+   * pytającego. Dlatego:
+   * - DOMOWNIK nie czeka na cudzy wiersz poświadczeń: `updateMany` i
+   *   `deleteMany` z `connectedById = pytający` pomijają cudzy wiersz bez
+   *   czekania (warunek liczony na migawce), a sonda przed `create` bierze
+   *   `FOR SHARE NOWAIT` — wiersz zmieniany przez inną transakcję = od razu
+   *   konflikt, ponowiony raz (`runLocked`), zamiast czekania;
+   * - WŁAŚCICIEL czeka (`FOR UPDATE`) — ale sprzątanie czeka na jego
+   *   `Membership` tylko przy awansie następcy, a awansu nie ma, dopóki
+   *   w domu jest właściciel; degradacja (`updateMemberRole`) i usunięcie
+   *   (`removeMember`) wiersza poświadczeń przed nim nie trzymają.
    */
   private async writeCredentials(
     userId: string,
     householdId: string,
     data: Omit<Prisma.CookidooIntegrationUncheckedCreateInput, 'householdId'>,
-  ): Promise<string | null> {
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const role = await this.lockMembership(tx, userId, householdId);
-        if (!role) throw this.notConnectorError();
+  ): Promise<void> {
+    await this.runLocked(async (tx) => {
+      const role = await this.lockMembership(tx, userId, householdId);
+      if (!role) throw this.notConnectorError();
+      if (role === 'OWNER') {
         const previous = await this.lockIntegration(tx, householdId);
-        if (role === 'OWNER') {
-          await tx.cookidooIntegration.upsert({
-            where: { householdId },
-            create: { householdId, ...data },
-            update: data,
+        await tx.cookidooIntegration.upsert({
+          where: { householdId },
+          create: { householdId, ...data },
+          update: data,
+        });
+        // Właściciel nadpisał cudze połączenie: hasło tamtej osoby zniknęło,
+        // więc w dzienniku ma JEJ REVOKED (dotąd zostawało GRANTED).
+        if (previous && previous !== userId) {
+          await recordConsentInTx(tx, {
+            userId: previous,
+            kind: 'COOKIDOO',
+            action: 'REVOKED',
+            source: 'COOKIDOO_REPLACED',
+            householdId,
           });
-          return previous;
         }
+      } else {
         const own = await tx.cookidooIntegration.updateMany({
           where: { householdId, connectedById: userId },
           data,
         });
-        if (own.count > 0) return userId;
-        await tx.cookidooIntegration.create({
-          data: { householdId, ...data },
-        });
-        return null;
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw this.notConnectorError();
+        if (own.count === 0) {
+          // Cudzy wiersz = odmowa; wiersz zmieniany właśnie przez inną
+          // transakcję = `55P03` od razu, bez czekania (patrz wyżej).
+          const foreign = await tx.$queryRaw<{ one: number }[]>`
+            SELECT 1 AS one FROM "CookidooIntegration"
+            WHERE "householdId" = ${householdId}::uuid
+            FOR SHARE NOWAIT`;
+          if (foreign.length > 0) throw this.notConnectorError();
+          await tx.cookidooIntegration.create({
+            data: { householdId, ...data },
+          });
+        }
       }
-      throw error;
+      await recordConsentInTx(tx, {
+        userId,
+        kind: 'COOKIDOO',
+        action: 'GRANTED',
+        source: 'COOKIDOO_CONNECT',
+        householdId,
+      });
+    });
+  }
+
+  /**
+   * Transakcja zapisu poświadczeń z jednym ponowieniem przy konflikcie blokad
+   * (`40P01` deadlock, `55P03` NOWAIT, `P2034`). Drugi konflikt = czytelne
+   * 409 `CONFLICT` zamiast surowego błędu Prismy (500). P2002 przy `create`
+   * (ktoś podłączył dom w międzyczasie) = ta sama odmowa co w odczycie.
+   */
+  private async runLocked<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(operation);
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw this.notConnectorError();
+        }
+        if (!isLockConflict(error)) throw error;
+        if (attempt < 2) continue;
+        throw new AppException(
+          'CONFLICT',
+          'Połączenie z Cookidoo właśnie się zmienia. Spróbuj ponownie za chwilę.',
+          HttpStatus.CONFLICT,
+        );
+      }
     }
   }
 
@@ -251,10 +285,10 @@ export class CookidooIntegrationService {
   }
 
   /**
-   * `connectedById` połączenia domu z blokadą `FOR UPDATE` (po `lockMembership`
-   * — ta sama kolejność blokad co sprzątanie: członkostwo, potem poświadczenia).
-   * Dziennik zgód ma wpisać REVOKED osobie, której hasło TEN zapis usuwa,
-   * a nie komuś, kto podłączył się w międzyczasie.
+   * Autor połączenia domu pod `FOR UPDATE` — TYLKO dla właściciela (patrz
+   * kolejność blokad przy `writeCredentials`): dziennik zgód ma wpisać
+   * REVOKED osobie, której hasło TEN zapis usuwa, a nie komuś, kto
+   * podłączył się w międzyczasie.
    */
   private async lockIntegration(
     tx: Prisma.TransactionClient,
@@ -317,40 +351,43 @@ export class CookidooIntegrationService {
     const { householdId } = await this.resolveMembership(userId);
     // Rola czytana od nowa W transakcji, pod blokadą wiersza członkostwa
     // (`lockMembership`) — zdegradowany albo usunięty w międzyczasie nie
-    // skasuje cudzych poświadczeń. Warunek w samym DELETE: odczyt „kto
-    // podłączył" i kasowanie nie mogą się rozjechać, gdy ktoś równolegle
-    // podłącza dom od nowa.
-    const removed = await this.prisma.$transaction(async (tx) => {
+    // skasuje cudzych poświadczeń. Kolejność blokad i to, czemu domownik nie
+    // czeka na cudzy wiersz poświadczeń: `writeCredentials`. REVOKED w
+    // dzienniku dostaje autor skasowanego hasła (także gdy rozłączył je
+    // właściciel), w tej samej transakcji; autor po skasowanym koncie
+    // (`null`) — bez wpisu.
+    await this.runLocked(async (tx) => {
       const role = await this.lockMembership(tx, userId, householdId);
       if (!role) throw this.notConnectorError();
-      const connector = await this.lockIntegration(tx, householdId);
-      const result = await tx.cookidooIntegration.deleteMany({
-        where:
-          role === 'OWNER'
-            ? { householdId }
-            : { householdId, connectedById: userId },
-      });
-      if (result.count === 0 && role !== 'OWNER') {
-        const foreign = await tx.cookidooIntegration.count({
+      let connector: string | null;
+      let count: number;
+      if (role === 'OWNER') {
+        connector = await this.lockIntegration(tx, householdId);
+        ({ count } = await tx.cookidooIntegration.deleteMany({
           where: { householdId },
-        });
-        if (foreign > 0) throw this.notConnectorError();
+        }));
+      } else {
+        ({ count } = await tx.cookidooIntegration.deleteMany({
+          where: { householdId, connectedById: userId },
+        }));
+        connector = count > 0 ? userId : null;
+        if (count === 0) {
+          const foreign = await tx.cookidooIntegration.count({
+            where: { householdId },
+          });
+          if (foreign > 0) throw this.notConnectorError();
+        }
       }
-      return { count: result.count, connector };
+      if (count > 0 && connector) {
+        await recordConsentInTx(tx, {
+          userId: connector,
+          kind: 'COOKIDOO',
+          action: 'REVOKED',
+          source: 'COOKIDOO_DISCONNECT',
+          householdId,
+        });
+      }
     });
-    // REVOKED dla osoby, której hasło zniknęło — także gdy rozłączył je
-    // właściciel (review 7.10.2026; dotąd wpis szedł na rozłączającego,
-    // a autor zostawał z GRANTED). Autor po skasowanym koncie (`null`): nie
-    // ma czyjej zgody odnotować.
-    if (removed.count > 0 && removed.connector) {
-      await this.consents?.recordSystem(
-        removed.connector,
-        'COOKIDOO',
-        'REVOKED',
-        'COOKIDOO_DISCONNECT',
-        householdId,
-      );
-    }
     return { connected: false, enabled: isCookidooIntegrationEnabled() };
   }
 
@@ -523,4 +560,25 @@ export class CookidooIntegrationService {
     }
     return membership;
   }
+}
+
+/**
+ * Konflikt blokad Postgresa: `40P01` (deadlock — Prisma NIE zamienia go na
+ * P2034, patrz `runSerializable`), `55P03` (NOWAIT), `40001`/`P2034`
+ * (serializacja). Kod bywa w `meta.code` (zapytania surowe, P2010) albo
+ * tylko w treści błędu (zapytania ORM w transakcji interaktywnej).
+ */
+export function isLockConflict(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2034') return true;
+    const pgCode = (error.meta as { code?: unknown } | undefined)?.code;
+    if (
+      typeof pgCode === 'string' &&
+      ['40P01', '55P03', '40001'].includes(pgCode)
+    ) {
+      return true;
+    }
+  }
+  const message = error instanceof Error ? error.message : '';
+  return /40P01|deadlock detected|55P03|could not obtain lock/i.test(message);
 }

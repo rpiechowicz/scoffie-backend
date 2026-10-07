@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { LEGAL_DOCUMENT_VERSIONS } from '../common/legal-documents';
+import { recordConsentInTx } from '../consents/consent-event.util';
 
 /**
  * Klient Prismy albo transakcja — obie ścieżki wołają te same operacje, a
@@ -58,15 +58,12 @@ export async function revokeCookidooCredentialsOf(
     where: { householdId, connectedById: userId },
   });
   if (result.count > 0) {
-    await tx.consentEvent.create({
-      data: {
-        userId,
-        kind: 'COOKIDOO',
-        action: 'REVOKED',
-        documentVersion: LEGAL_DOCUMENT_VERSIONS.COOKIDOO,
-        source: 'COOKIDOO_MEMBER_LEFT',
-        householdId,
-      },
+    await recordConsentInTx(tx, {
+      userId,
+      kind: 'COOKIDOO',
+      action: 'REVOKED',
+      source: 'COOKIDOO_MEMBER_LEFT',
+      householdId,
     });
   }
   return result.count;

@@ -19,7 +19,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
  *
  * Zatrzask: hak w transakcji zapisu — po zapisaniu wiersza, przed commitem —
  * odpala usunięcie z domu i czeka, aż to albo się skończy, albo stanie na
- * blokadzie (`pg_locks.granted = false`). Dopiero wtedy zapis się zatwierdza.
+ * blokadzie (`pg_blocking_pids` procesu w TEJ bazie). Dopiero wtedy zapis się
+ * zatwierdza.
+ *
+ * Trzeci scenariusz (review 7.10.2026, `40P01`): jedyny właściciel i autor
+ * hasła wychodzi z domu, a domownik równolegle rozłącza Cookidoo. Wyjście
+ * trzyma skasowany wiersz poświadczeń i czeka na `Membership` domownika
+ * (awans na właściciela); rozłączenie trzyma `FOR SHARE` na tym członkostwie.
+ * Gdyby rozłączenie czekało na wiersz poświadczeń, powstałby cykl.
  */
 type Session = { accessToken: string; user: { id: string } };
 
@@ -34,6 +41,9 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
   let wyrzucany: Session;
   let wychodzacy: Session;
   let householdId: string;
+  let autorWlasciciel: Session;
+  let nastepca: Session;
+  let domAwansu: string;
 
   const sleep = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
@@ -63,7 +73,12 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
    * wiersza (create/upsert/updateMany), i trzyma commit, aż `action` się
    * skończy albo zawiśnie na blokadzie wiersza.
    */
-  const duringCredentialWrite = (action: () => Promise<unknown>) => {
+  const duringCredentialWrite = (
+    action: () => Promise<unknown>,
+    // `write` — po zapisie wiersza poświadczeń; `membershipLock` — zaraz po
+    // `FOR SHARE` na `Membership` pytającego (przed czymkolwiek innym).
+    at: 'write' | 'membershipLock' = 'write',
+  ) => {
     let fired = false;
     let pending: Promise<unknown> = Promise.resolve();
     let settled = false;
@@ -77,8 +92,12 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
         });
       for (const deadline = Date.now() + 5_000; Date.now() < deadline;) {
         if (settled) return;
+        // Tylko procesy TEJ bazy, zablokowane przez inny proces — nie cały
+        // klaster (równoległe testy innych baz nie mogą zwolnić zatrzasku).
         const [{ waiting }] = await prisma.$queryRaw<{ waiting: number }[]>`
-          SELECT count(*)::int AS waiting FROM pg_locks WHERE NOT granted`;
+          SELECT count(*)::int AS waiting FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND cardinality(pg_blocking_pids(pid)) > 0`;
         if (waiting > 0) return;
         await sleep(25);
       }
@@ -95,7 +114,20 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
       return originalTransaction((tx: Record<string, unknown>) => {
         const proxied = new Proxy(tx, {
           get(target, prop, receiver) {
-            if (prop !== 'cookidooIntegration') {
+            if (at === 'membershipLock' && prop === '$queryRaw') {
+              const original = Reflect.get(target, prop, receiver) as (
+                ...args: unknown[]
+              ) => Promise<unknown>;
+              return async (...args: unknown[]) => {
+                const result = await original.apply(target, args);
+                const sql = (args[0] as TemplateStringsArray).join('?');
+                if (sql.includes('"Membership"') && sql.includes('FOR SHARE')) {
+                  await fire();
+                }
+                return result;
+              };
+            }
+            if (at !== 'write' || prop !== 'cookidooIntegration') {
               return Reflect.get(target, prop, receiver);
             }
             const inner = target.cookidooIntegration as Record<string, unknown>;
@@ -178,6 +210,37 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
         { userId: wychodzacy.user.id, householdId, role: 'MEMBER' },
       ],
     });
+
+    // Dom do scenariusza awansu: jedyny właściciel jest autorem hasła.
+    autorWlasciciel = await devLogin('AutorWlasciciel');
+    nastepca = await devLogin('Nastepca');
+    for (const s of [autorWlasciciel, nastepca]) {
+      await prisma.membership.deleteMany({ where: { userId: s.user.id } });
+    }
+    const second = await prisma.household.create({
+      data: {
+        name: `Dom awansu ${Date.now()}`,
+        createdById: autorWlasciciel.user.id,
+      },
+      select: { id: true },
+    });
+    domAwansu = second.id;
+    createdHouseholdIds.push(domAwansu);
+    await prisma.membership.create({
+      data: {
+        userId: autorWlasciciel.user.id,
+        householdId: domAwansu,
+        role: 'OWNER',
+      },
+    });
+    // Następca dołącza później — to on dostanie awans (najstarszy z resztą).
+    await prisma.membership.create({
+      data: {
+        userId: nastepca.user.id,
+        householdId: domAwansu,
+        role: 'MEMBER',
+      },
+    });
   });
 
   afterAll(async () => {
@@ -247,6 +310,49 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
     expect(
       await prisma.consentEvent.findFirst({
         where: { userId: wychodzacy.user.id, kind: 'COOKIDOO' },
+        orderBy: { createdAt: 'desc' },
+        select: { action: true, source: true },
+      }),
+    ).toEqual({ action: 'REVOKED', source: 'COOKIDOO_MEMBER_LEFT' });
+  });
+
+  it('właściciel-autor wychodzi, domownik równolegle rozłącza: bez 40P01, stan spójny', async () => {
+    await connect(autorWlasciciel).expect(201);
+    expect(
+      await prisma.cookidooIntegration.count({
+        where: { householdId: domAwansu },
+      }),
+    ).toBe(1);
+
+    const latch = duringCredentialWrite(
+      () => households.leave(autorWlasciciel.user.id, domAwansu),
+      'membershipLock',
+    );
+    const res = await request(app.getHttpServer())
+      .delete('/integrations/cookidoo')
+      .set({ Authorization: `Bearer ${nastepca.accessToken}` });
+    const leave = await latch.done();
+
+    expect(latch.fired()).toBe(true);
+    // Wyjście przeszło (bez deadlocka), a rozłączenie dostało zwykłą odmowę:
+    // w jego migawce hasło należało jeszcze do właściciela.
+    expect(leave).not.toBeInstanceOf(Error);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+    expect(
+      await prisma.membership.findMany({
+        where: { householdId: domAwansu },
+        select: { userId: true, role: true },
+      }),
+    ).toEqual([{ userId: nastepca.user.id, role: 'OWNER' }]);
+    expect(
+      await prisma.cookidooIntegration.count({
+        where: { householdId: domAwansu },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.consentEvent.findFirst({
+        where: { userId: autorWlasciciel.user.id, kind: 'COOKIDOO' },
         orderBy: { createdAt: 'desc' },
         select: { action: true, source: true },
       }),
