@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { unitsToServings } from '../weekly-plans/utils/plan-portions.util';
+import { withoutGeneratedImages } from '../recipes/recipe-image-generator';
 
 /**
  * Paczka danych osoby — RODO art. 15 (dostęp) i art. 20 (przenoszenie).
@@ -390,7 +391,9 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
         ...conversation,
         messages: conversation.messages.map((message) => ({
           ...message,
-          card: redactOthersFromCard(message.card, userId),
+          card: withoutGeneratedImages(
+            redactOthersFromCard(message.card, userId),
+          ),
         })),
       })),
       reports,

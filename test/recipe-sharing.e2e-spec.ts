@@ -40,7 +40,7 @@ type Opened = {
   shareToken: string | null;
 };
 type Saved = {
-  recipe: { id: string; title: string; imageUrl: string };
+  recipe: { id: string; title: string; imageUrl: string | null };
   created: boolean;
 };
 
@@ -375,15 +375,20 @@ describe('Udostępnianie przepisów E2E', () => {
 
     it('stan domu niesie shareUrl', async () => {
       const state = okData(
-        await ack<{ recipes: { id: string; shareUrl: string | null }[] }>(
-          socketA,
-          'recipes:householdState',
-          { householdId: householdA },
-        ),
+        await ack<{
+          recipes: {
+            id: string;
+            shareUrl: string | null;
+            imageUrl: string | null;
+          }[];
+        }>(socketA, 'recipes:householdState', { householdId: householdA }),
       );
-      expect(state.recipes.find((r) => r.id === ownRecipeId)?.shareUrl).toBe(
-        `https://scoffie.app/przepis/u/${token}`,
-      );
+      const own = state.recipes.find((r) => r.id === ownRecipeId);
+      expect(own?.shareUrl).toBe(`https://scoffie.app/przepis/u/${token}`);
+      // Audyt 5.09.2026, 2.2.5: przepis domu bez zdjęcia NIE dostaje adresu
+      // generatora z tytułem i opisem w ścieżce — klient pokazuje zaślepkę.
+      expect(own?.imageUrl).toBeNull();
+      expect(own).not.toHaveProperty('isCatalog');
     });
 
     it('obcy dom nie wygeneruje linku do cudzego przepisu', async () => {
@@ -405,6 +410,8 @@ describe('Udostępnianie przepisów E2E', () => {
         stepCount: 2,
         servings: 2,
         perServing: { kcal: 300 },
+        // Bez zdjęcia: strona pokazuje kartę marki, nie generator z treścią.
+        imageUrl: null,
       });
     });
 
@@ -482,13 +489,15 @@ describe('Udostępnianie przepisów E2E', () => {
         copiedFromRecipeId: ownRecipeId,
       });
       // Zdjęcie przechodzi jako rozwiązany adres — kopia z nowym id nie może
-      // dostać innego obrazka generowanego niż ten, który widział odbiorca.
+      // dostać innego obrazka niż ten, który widział odbiorca. Przepis domu
+      // bez zdjęcia: `null` w obu (bez generatora, audyt 2.2.5).
       const source = okData(
-        await ack<{ imageUrl: string }>(socketA, 'recipes:findById', {
+        await ack<{ imageUrl: string | null }>(socketA, 'recipes:findById', {
           id: ownRecipeId,
           householdId: householdA,
         }),
       );
+      expect(source.imageUrl).toBeNull();
       expect(copy.imageUrl).toBe(source.imageUrl);
 
       const again = okData(
@@ -611,6 +620,89 @@ describe('Udostępnianie przepisów E2E', () => {
           data: { isActive: true },
         });
       }
+    });
+  });
+
+  // Review 7.10.2026: kopia sprzed poprawki 2.2.5 utrwaliła w `imageUrl`
+  // adres generatora z tytułem i opisem prywatnego przepisu.
+  describe('przepis domu z UTRWALONYM adresem generatora', () => {
+    const stored =
+      'https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Tajny%20gulasz?seed=scoffie-x';
+    let legacyId: string;
+    let legacyToken: string;
+
+    beforeAll(async () => {
+      legacyId = okData(
+        await ack<{ id: string }>(socketA, 'recipes:create', {
+          data: {
+            householdId: householdA,
+            title: `Tajny gulasz ${Date.now()}`,
+            description: 'Kopia zapisana przez starą wersję.',
+            mealType: 'DINNER',
+            suitableMealTypes: ['DINNER'],
+            difficulty: 'EASY',
+            prepTimeMinutes: 30,
+            servings: 2,
+            nutritionKcal: 600,
+            nutritionProtein: 25,
+            nutritionFat: 20,
+            nutritionCarbs: 70,
+            nutritionFiber: 5,
+            nutritionSalt: 1.5,
+            steps: [{ text: 'Duś.' }],
+          },
+        }),
+      ).id;
+      await prisma.recipe.update({
+        where: { id: legacyId },
+        data: { imageUrl: stored },
+      });
+      legacyToken = tokenOf(
+        okData(
+          await ack<ShareLink>(socketA, 'recipes:shareLink', {
+            householdId: householdA,
+            recipeId: legacyId,
+          }),
+        ),
+      );
+    });
+
+    it('API oddaje null: szczegół, stan domu, publiczny link', async () => {
+      const detail = okData(
+        await ack<{ imageUrl: string | null }>(socketA, 'recipes:findById', {
+          id: legacyId,
+          householdId: householdA,
+        }),
+      );
+      expect(detail.imageUrl).toBeNull();
+      const state = okData(
+        await ack<{ recipes: { id: string; imageUrl: string | null }[] }>(
+          socketA,
+          'recipes:householdState',
+          { householdId: householdA },
+        ),
+      );
+      expect(state.recipes.find((r) => r.id === legacyId)?.imageUrl).toBeNull();
+      const res = await request(app.getHttpServer())
+        .get(`/public/recipes/shared/${legacyToken}`)
+        .expect(200);
+      expect(res.body.imageUrl).toBeNull();
+      expect(JSON.stringify(res.body)).not.toContain('pollinations');
+    });
+
+    it('kopia „Zapisz u siebie” nie dziedziczy adresu generatora', async () => {
+      const saved = okData(
+        await ack<Saved>(socketB, 'recipes:saveShared', {
+          householdId: householdB,
+          token: legacyToken,
+        }),
+      );
+      expect(saved.recipe).toMatchObject({ imageUrl: null });
+      const copy = await prisma.recipe.findUniqueOrThrow({
+        where: { id: saved.recipe.id },
+        select: { imageUrl: true },
+      });
+      expect(copy.imageUrl).toBeNull();
     });
   });
 

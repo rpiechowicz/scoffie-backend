@@ -104,6 +104,7 @@ import {
   SEARCH_SORTS,
   SearchSort,
 } from '../search/catalog-search';
+import { isGeneratedRecipeImageUrl } from '../../recipes/recipe-image-generator';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -2390,7 +2391,12 @@ export class AgentToolExecutor {
         title: recipe.title,
         kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
         prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
-        imageUrl: recipe.imageUrl ?? null,
+        // Karta zostaje w historii — bez adresu generatora (treść przepisu
+        // w ścieżce), także dla katalogu bez zdjęcia.
+        imageUrl:
+          recipe.imageUrl && !isGeneratedRecipeImageUrl(recipe.imageUrl)
+            ? recipe.imageUrl
+            : null,
         description: recipe.description?.trim() || null,
         proteinGrams: perServing(recipe.nutritionProtein ?? 0),
         carbsGrams: perServing(recipe.nutritionCarbs ?? 0),

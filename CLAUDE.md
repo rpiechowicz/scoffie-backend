@@ -169,6 +169,9 @@ etapami i mierzenie efektu zmian.
   a nie przy każdym użyciu. Następca zgaszony wylogowaniem nie jest dowodem kopii (401 bez kasowania), chyba że
   poprzednik był ratowany (RECOVERED — istnieje para spoza łańcucha). `POST /auth/logout-everywhere`: Bearer
   access token, bez ciała, 200 `{revokedSessions}`.
+- Absolutny kres sesji (od 7.10.2026, dowód: `test/auth-absolute-session.e2e-spec.ts`): `RefreshToken.sessionStartedAt`
+  = chwila logowania, rotacja i ratunek ją KOPIUJĄ (nowy kod wydający token następcy musi zrobić to samo). Po
+  `REFRESH_ABSOLUTE_DAYS` (180, stała) `/auth/refresh` = to samo 401 co wygasły token, bez kasowania rodziny.
 - Lista zakupów ma DWA źródła (od 21.09.2026): `PlanItem` i `ShoppingListExtra` — „brakuje mi"
   ze szczegółu przepisu (`weeklyPlans:addRecipeExtras` / `removeShoppingExtra`). Telefon wysyła
   tylko `recipeId`, `servings` i id `RecipeIngredient`; ilość, jednostkę i klucz liczy serwer tak

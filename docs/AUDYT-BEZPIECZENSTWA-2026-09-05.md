@@ -86,7 +86,7 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
 
 ### 2.2. Decyzje produktowe (wymagają Twojego „tak”, potem kod)
 
-- [ ] **Dane zdrowotne domowników.** `households:memberPreferences`
+- [x] **Dane zdrowotne domowników.** `households:memberPreferences`
       i `weeklyPlans:balance` z `memberUserId` oddają
       alergeny, dietę, cele i makra WSZYSTKICH domowników każdemu członkowi
       domu — bez zgody tych osób (art. 9 RODO). Opcje: (a) przełącznik
@@ -97,6 +97,17 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
       alergeny tylko za zgodą; `memberPreferences` dalej oddaje cele/makra —
       iOS z tego korzysta od 23.09 (kcal na osobę), DPIA uznaje to za istotę
       planowania — do potwierdzenia jako świadomy wybór.
+      **Świadomy wybór 7.10.2026 (Rafał):** cele i makra domowników zostają
+      widoczne w domu. Z nich liczy się kcal na osobę w Planie (pigułka
+      i „Cel dnia” z `memberPreferences.targets`) i porcje per osoba — bez nich
+      wspólny plan nie wie, ile kto ma zjeść. DPIA
+      (`docs/rejestr-czynnosci-i-dpia.md`, 2.1, ryzyko „Wyciek przez konto
+      domownika”) uznaje dane potrzebne do planu za istotę wspólnego
+      planowania; sylwetka (wzrost, waga, rok urodzenia) dalej niewidoczna dla
+      domowników i poza kontekstem modelu, alergeny do modelu tylko za zgodą
+      (`membersForModel`), eksport RODO nie oddaje danych innych osób. Bez
+      zmian w kodzie; powrót do opcji (a)/(b), gdyby dom przestał być
+      zaufanym kręgiem (np. dom współdzielony przez obcych).
 - [ ] **RLS w Postgresie.** Dziś zero polityk i ról; izolacja gospodarstw
       jest w 100% aplikacyjna (spójna: 47 tras + 45 handlerów WS z bramką).
       Minimum: osobna rola aplikacyjna bez DDL. Docelowo `ENABLE ROW LEVEL
@@ -104,6 +115,19 @@ SECURITY` na tabelach z `householdId`/`userId` i polityki na
       `current_setting('app.user_id')` ustawiane `SET LOCAL` w transakcji.
       **Stan 7.10.2026:** bez zmian — migracje nie mają żadnej polityki ani
       osobnej roli; izolacja dalej aplikacyjna.
+      **Decyzja 7.10.2026 (Rafał): nie teraz.** Izolacja aplikacyjna jest
+      spójna i sprawdzona (0 IDOR w 47 trasach i 45 handlerach WS, e2e
+      `test/cross-household-idor.e2e-spec.ts` i `test/authz-audit.e2e-spec.ts`),
+      a do bazy pisze jeden serwis. RLS to duża zmiana: osobne role (migracje
+      vs aplikacja), `SET LOCAL app.user_id` w KAŻDEJ transakcji, w tym
+      `runSerializable`, zamkach sesji i wyzwalaczach katalogu, oraz polityki
+      dla zapytań przekrojowych (crony, panel admina, eksport katalogu) —
+      ryzyko regresji większe niż zysk przy dzisiejszym jednym procesie.
+      **Warunek powrotu:** drugi serwis albo skrypt pisze do bazy produkcyjnej
+      z własnym kodem dostępu (np. osobny worker, narzędzie zespołu), do kodu
+      dochodzi zespół spoza jednej osoby, albo audyt znajdzie choć jeden IDOR.
+      Wtedy najpierw minimum: osobna rola aplikacyjna bez DDL (migracje
+      osobną rolą), potem RLS na tabelach z `householdId`/`userId`.
 - [x] **Zaproszenia przez Universal Links (iOS).** Token zaproszenia idzie
       w `scoffie://invite?token=…` (`SessionStore.swift`), a inna aplikacja
       może zarejestrować ten sam schemat i przejąć token. Potrzeba:
@@ -114,26 +138,47 @@ SECURITY` na tabelach z `householdId`/`userId` i polityki na
       (token we fragmencie), `applinks:scoffie.app` w entitlements, AASA
       z `/zaproszenie/*`. Zostaje schemat jako fallback ze strony — ryzyko
       szczątkowe.
-- [ ] **Poświadczenia Cookidoo domu.** Każdy domownik może skasować albo
+- [x] **Poświadczenia Cookidoo domu.** Każdy domownik może skasować albo
       nadpisać cudze poświadczenia (`cookidoo-integration.service.ts`
       `connect`/`disconnect`). Ograniczyć do `connectedById === userId` albo
       OWNER-a; wymaga zmiany w UI (przycisk „Rozłącz” tylko dla właściciela).
       **Stan 7.10.2026:** bez zmian w kodzie (`connect` robi `upsert` na dom);
       integracja Cookidoo czeka na zgodę Vorwerk i jest schowana flagą
       w klientach — decyzja przy jej odblokowaniu.
-- [ ] **Obrazek dla prywatnego przepisu bez `imageUrl`** buduje adres
+      **Zamknięte 7.10.2026:** nadpisać i rozłączyć istniejące połączenie może
+      tylko autor (`connectedById`) albo OWNER domu, pierwsze podłączenie —
+      każdy; bramka w samym zapisie (warunkowy `updateMany`/`deleteMany`,
+      P2002 przy wyścigu), odmowa = istniejący `FORBIDDEN` (403). `status`
+      oddaje pełny e-mail tylko autorowi i właścicielowi, reszcie maskę
+      `r•••@e•••.com`, plus `canManage` dla UI (przy odblokowaniu integracji
+      w iOS: chować „Rozłącz”, gdy `false`). Dowód:
+      `src/integrations/cookidoo-integration.service.ts`,
+      `test/cookidoo-household-access.e2e-spec.ts`.
+- [x] **Obrazek dla prywatnego przepisu bez `imageUrl`** buduje adres
       pollinations.ai z tytułem i opisem w ścieżce (`recipes.service.ts`
       ~473–491) — telefon wysyła treść przepisu do strony trzeciej. Opcja:
       generowany adres tylko dla `isCatalog: true`, dla domu `null`.
       **Stan 7.10.2026:** bez zmian — `resolveRecipeImageUrl` dalej buduje
       adres pollinations dla każdego przepisu bez zdjęcia.
+      **Zamknięte 7.10.2026:** generator tylko dla `isCatalog: true`; przepis
+      domu bez zdjęcia ma `imageUrl: null` (lista, szczegół, stan domu, kopia,
+      publiczne API linku). Klienci znoszą `null` (iOS `String?` → zaślepka,
+      Android `String?`, Worker strony → karta marki). Dowód:
+      `src/recipes/recipes.service.ts` (`resolveRecipeImageUrl`),
+      `test/recipe-sharing.e2e-spec.ts`.
 
 ### 2.3. Backend — niskie, do zrobienia przy okazji
 
-- [ ] Refresh token ma okno przesuwne 60 dni bez absolutnego kresu sesji
+- [x] Refresh token ma okno przesuwne 60 dni bez absolutnego kresu sesji
       (`auth.service.ts` ~383–398). Dołożyć twardy limit (np. 180 dni od
       pierwszego logowania rodziny tokenów).
       **Stan 7.10.2026:** bez zmian, świadomie poza rundą domknięcia.
+      **Zamknięte 7.10.2026:** `RefreshToken.sessionStartedAt` (logowanie,
+      kopiowane przy rotacji i ratunku), po `REFRESH_ABSOLUTE_DAYS` = 180 dni
+      `/auth/refresh` = to samo 401 co wygasły token, bez kasowania rodziny.
+      Istniejące tokeny: początek = `createdAt` (nikt nie wylatuje po
+      wdrożeniu). Dowód: migracja `20261007130000_refresh_kres_sesji`,
+      `test/auth-absolute-session.e2e-spec.ts`.
 - [x] `GET /ops/health` zdradza pełny SHA commitu bez tokenu. Skrót 7 znaków
       albo pełny tylko w `/ops/metrics`.
       **Zamknięte 7.10.2026:** skrót SHA w `/ops/health` od 12.09
@@ -191,7 +236,7 @@ SECURITY` na tabelach z `householdId`/`userId` i polityki na
       `DATABASE_URL` jako argumentem (tylko dev). `shell: false` + ścieżka
       do `node_modules/.bin`.
       **Zamknięte 7.10.2026:** `migrate diff --from-schema-datasource
-    prisma/schema.prisma` — URL z env dziecka, nie z argv (sprawdzone na
+prisma/schema.prisma` — URL z env dziecka, nie z argv (sprawdzone na
       jednorazowej bazie; commit `a8e1239`).
 - [ ] Opcjonalnie: App Attest na `POST /auth/apple` i wysyłce wiadomości do
       asystenta, gdy asystent stanie się publicznie płatny.
@@ -263,28 +308,28 @@ SECURITY` na tabelach z `householdId`/`userId` i polityki na
 
 ## 3. Stan 20 punktów po audycie
 
-| Punkt                         | Stan      | Uwagi                                                                                                              |
-| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
-| Hide API keys                 | OK        | Klucze tylko w env; `.env` w gitignore i dockerignore; iOS bez kluczy; fallbacki w kodzie blokuje asercja na prod. |
-| Purge secrets from Git        | OK        | Historia 3 repo bez prawdziwych kluczy; gitleaks w CI; host proxy bazy prod usunięty ze speców (5.09).             |
-| Expose only the public DB key | N/A       | Klient nie rozmawia z bazą; jedyny publiczny adres to bucket R2 ze zdjęciami.                                      |
-| Enable row-level security     | BRAK      | Izolacja aplikacyjna, spójna. Decyzja w 2.2.                                                                       |
-| Encrypt sensitive data        | OK        | AES-256-GCM (Cookidoo), sha256+pepper (refresh), HMAC (tożsamość zakupowa), kopie bazy `age`; tag GCM przypięty.   |
-| Enforce server-side auth      | OK        | Każdy kontroler za JWT/ops; WS przez `actorId`; `soft` na prod = odmowa startu (5.09).                             |
-| Lock record access            | OK        | 0 IDOR w 47 trasach i 45 handlerach; tura asystenta z członkostwem (5.09); Cookidoo disconnect w 2.2.              |
-| Block field tampering         | OK        | whitelist+forbid, `validateDto` na WS, brak spreadów DTO, pola wrażliwe poza DTO.                                  |
-| Secure session cookies        | OK        | Bearer w nagłówku, Keychain bez iCloud, rotacja + reuse detection; `JWT_EXPIRES_IN` do sprawdzenia na Railway.     |
-| Hash passwords                | OK        | Brak haseł użytkowników (Apple); hasło Cookidoo z konieczności odwracalne; tokeny ops w stałym czasie.             |
-| Rate limit login              | OK        | `/auth/*` 20/min/IP, Cookidoo 5/10 min, WS handshake z ostatnim XFF (5.09), webhook Apple 600/min (5.09).          |
-| Add bot protection            | CZĘŚCIOWO | Brak App Attest/captcha; hamulce: Apple ID, kwoty AI, budżet dobowy, allowlista. Opcja w 2.3.                      |
-| Parameterize queries          | OK        | Prisma; 2 `$queryRaw` parametryzowane; brak `Unsafe`; regexy nie z wejścia.                                        |
-| Validate all input            | OK        | Pipe + `validateDto` + `assertUuid`; `imageUrl` https (5.09); MaxLength (5.09); pydantic `max_length` (5.09).      |
-| Escape user content           | OK        | Tylko JSON, Swagger niezamontowany; prompt ogrodzony (5.09).                                                       |
-| Restrict file uploads         | OK        | Brak uploadu; `/static` bez listingu; serwer nie pobiera adresów użytkownika.                                      |
-| Trim API responses            | CZĘŚCIOWO | `users:me`, domownicy, billing przycięte (5.09); dane zdrowotne domowników w 2.2; drobiazgi w 2.3.                 |
-| Add security headers          | OK        | HSTS 1 rok, nosniff, X-Frame-Options, Referrer-Policy, COOP, CORP, CSP `none` (5.09); CORS bez obcych origin.      |
-| Force HTTPS                   | OK        | 301 na krawędzi Railway; ATS bez wyjątków; `COOKIDOO_SERVICE_URL` pilnowany (5.09); DNS `scoffie.app` w 2.1.       |
-| Scan dependencies             | OK        | `pnpm audit` 0 (i w CI od 5.09), OSV PyPI/Swift 0, Dependabot w 3 repo, SPM przypięte do wersji (5.09).            |
+| Punkt                         | Stan      | Uwagi                                                                                                                    |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Hide API keys                 | OK        | Klucze tylko w env; `.env` w gitignore i dockerignore; iOS bez kluczy; fallbacki w kodzie blokuje asercja na prod.       |
+| Purge secrets from Git        | OK        | Historia 3 repo bez prawdziwych kluczy; gitleaks w CI; host proxy bazy prod usunięty ze speców (5.09).                   |
+| Expose only the public DB key | N/A       | Klient nie rozmawia z bazą; jedyny publiczny adres to bucket R2 ze zdjęciami.                                            |
+| Enable row-level security     | BRAK      | Izolacja aplikacyjna, spójna. Decyzja 7.10: nie teraz — uzasadnienie i warunek powrotu w 2.2.                            |
+| Encrypt sensitive data        | OK        | AES-256-GCM (Cookidoo), sha256+pepper (refresh), HMAC (tożsamość zakupowa), kopie bazy `age`; tag GCM przypięty.         |
+| Enforce server-side auth      | OK        | Każdy kontroler za JWT/ops; WS przez `actorId`; `soft` na prod = odmowa startu (5.09).                                   |
+| Lock record access            | OK        | 0 IDOR w 47 trasach i 45 handlerach; tura asystenta z członkostwem (5.09); Cookidoo tylko autor/właściciel (7.10).       |
+| Block field tampering         | OK        | whitelist+forbid, `validateDto` na WS, brak spreadów DTO, pola wrażliwe poza DTO.                                        |
+| Secure session cookies        | OK        | Bearer w nagłówku, Keychain bez iCloud, rotacja + reuse detection, kres sesji 180 d (7.10); `JWT_EXPIRES_IN` na Railway. |
+| Hash passwords                | OK        | Brak haseł użytkowników (Apple); hasło Cookidoo z konieczności odwracalne; tokeny ops w stałym czasie.                   |
+| Rate limit login              | OK        | `/auth/*` 20/min/IP, Cookidoo 5/10 min, WS handshake z ostatnim XFF (5.09), webhook Apple 600/min (5.09).                |
+| Add bot protection            | CZĘŚCIOWO | Brak App Attest/captcha; hamulce: Apple ID, kwoty AI, budżet dobowy, allowlista. Opcja w 2.3.                            |
+| Parameterize queries          | OK        | Prisma; 2 `$queryRaw` parametryzowane; brak `Unsafe`; regexy nie z wejścia.                                              |
+| Validate all input            | OK        | Pipe + `validateDto` + `assertUuid`; `imageUrl` https (5.09); MaxLength (5.09); pydantic `max_length` (5.09).            |
+| Escape user content           | OK        | Tylko JSON, Swagger niezamontowany; prompt ogrodzony (5.09).                                                             |
+| Restrict file uploads         | OK        | Brak uploadu; `/static` bez listingu; serwer nie pobiera adresów użytkownika.                                            |
+| Trim API responses            | CZĘŚCIOWO | `users:me`, domownicy, billing przycięte (5.09); cele/makra domowników — świadomy wybór (2.2, 7.10); drobiazgi w 2.3.    |
+| Add security headers          | OK        | HSTS 1 rok, nosniff, X-Frame-Options, Referrer-Policy, COOP, CORP, CSP `none` (5.09); CORS bez obcych origin.            |
+| Force HTTPS                   | OK        | 301 na krawędzi Railway; ATS bez wyjątków; `COOKIDOO_SERVICE_URL` pilnowany (5.09); DNS `scoffie.app` w 2.1.             |
+| Scan dependencies             | OK        | `pnpm audit` 0 (i w CI od 5.09), OSV PyPI/Swift 0, Dependabot w 3 repo, SPM przypięte do wersji (5.09).                  |
 
 ## 4. Jak to sprawdzono
 

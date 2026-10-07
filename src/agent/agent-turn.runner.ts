@@ -56,6 +56,7 @@ import {
 } from './durable/turn-lease-config';
 import { effectLabel, turnTextFor } from './tools/agent-tool-executor';
 import { TOOL_ENDED_TURN } from './providers/anthropic-agent.provider';
+import { withoutGeneratedImages } from '../recipes/recipe-image-generator';
 
 export type RunTurnInput = {
   turnId: string;
@@ -1013,7 +1014,13 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             // z tytułu przepisu (audyt 12.09.2026, P0.8). Etykieta zostaje,
             // adres przestaje być przyciskiem.
             text: stripClickableLinks(result.text),
-            ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
+            ...(card
+              ? {
+                  card: withoutGeneratedImages(
+                    card.payload,
+                  ) as Prisma.InputJsonValue,
+                }
+              : {}),
             ...(usedContext.length > 0
               ? { context: { used: usedContext } }
               : {}),

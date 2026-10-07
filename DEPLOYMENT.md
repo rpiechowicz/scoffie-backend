@@ -406,7 +406,11 @@ room. Outside production `soft` stays the default so that local tools
 (`pnpm ws:smoke` with `userId` in the payload) keep working.
 
 `WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
-Refresh tokens default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
+Refresh tokens default to 60 days (`REFRESH_TOKEN_DAYS`, sliding with every
+rotation), but a session never outlives 180 days from sign-in
+(`REFRESH_ABSOLUTE_DAYS`, a constant; `RefreshToken.sessionStartedAt` is copied
+on rotation — afterwards the client gets the usual 401 and signs in again),
+reuse of a rotated
 refresh token revokes the whole family once the grace window
 (`REFRESH_REUSE_GRACE_SECONDS`, 60 s) has passed, unless `REFRESH_STRICT_REUSE`
 is explicitly `false` (strict is the default; a forked chain revokes the family

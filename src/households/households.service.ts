@@ -361,13 +361,17 @@ export class HouseholdsService {
         [];
 
       for (const previous of otherMemberships) {
-        await revokeCookidooCredentialsOf(tx, previous.householdId, userId);
         await revokeInvitationsCreatedBy(tx, previous.householdId, userId, now);
         await tx.membership.delete({
           where: {
             userId_householdId: { userId, householdId: previous.householdId },
           },
         });
+        // Poświadczenia Cookidoo PO usunięciu członkostwa: zapis poświadczeń
+        // blokuje wiersz `Membership` (`FOR SHARE`), więc DELETE czeka na jego
+        // commit, a sprzątanie niżej widzi już zapisany wiersz. Odwrotna kolejność
+        // zostawiała hasło osoby spoza domu (review 7.10.2026).
+        await revokeCookidooCredentialsOf(tx, previous.householdId, userId);
         // Dom, z którego właśnie wyszedł ostatni domownik, znika razem
         // z planami i listami — patrz `settleHouseholdAfterMemberLeft`.
         const settlement = await settleHouseholdAfterMemberLeft(
@@ -991,7 +995,6 @@ export class HouseholdsService {
           );
         }
       }
-      await revokeCookidooCredentialsOf(tx, householdId, memberUserId);
       await revokeInvitationsCreatedBy(tx, householdId, memberUserId, now);
       // Usunięty zna linki, które krążyły po rodzinnym czacie — także te
       // wystawione przez KOGOŚ INNEGO. Dopóki działały, wracał do domu jednym
@@ -1002,6 +1005,11 @@ export class HouseholdsService {
       const removed = await tx.membership.delete({
         where: { userId_householdId: { userId: memberUserId, householdId } },
       });
+      // Poświadczenia Cookidoo PO usunięciu członkostwa: zapis poświadczeń
+      // blokuje wiersz `Membership` (`FOR SHARE`), więc DELETE czeka na jego
+      // commit, a sprzątanie niżej widzi już zapisany wiersz. Odwrotna kolejność
+      // zostawiała hasło osoby spoza domu (review 7.10.2026).
+      await revokeCookidooCredentialsOf(tx, householdId, memberUserId);
       // Ta sama reguła co przy wyjściu — kontrola wyżej nie pozwala usunąć
       // ostatniego właściciela, ale porządkowanie ma być jedno dla wszystkich
       // ścieżek, żeby nie zależeć od tego, czy tamta kontrola przetrwa.
@@ -1032,11 +1040,15 @@ export class HouseholdsService {
     const now = new Date();
     const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
       async (tx) => {
-        await revokeCookidooCredentialsOf(tx, householdId, userId);
         await revokeInvitationsCreatedBy(tx, householdId, userId, now);
         await tx.membership.delete({
           where: { userId_householdId: { userId, householdId } },
         });
+        // Poświadczenia Cookidoo PO usunięciu członkostwa: zapis poświadczeń
+        // blokuje wiersz `Membership` (`FOR SHARE`), więc DELETE czeka na jego
+        // commit, a sprzątanie niżej widzi już zapisany wiersz. Odwrotna kolejność
+        // zostawiała hasło osoby spoza domu (review 7.10.2026).
+        await revokeCookidooCredentialsOf(tx, householdId, userId);
         const settled = await settleHouseholdAfterMemberLeft(tx, householdId);
         if (settled.outcome === 'DELETED') {
           return { settlement: settled, touchedWeekStarts: [] as string[] };

@@ -209,7 +209,7 @@ export class CatalogSyncService {
         ? []
         : await this.prisma.recipe.findMany({
             where: { id: { in: ids } },
-            select: { ...recipeListSelect, isCatalog: true },
+            select: recipeListSelect,
           });
     const byId = new Map(rows.map((row) => [row.id, row]));
     const upserts: CatalogItem[] = [];
@@ -217,8 +217,7 @@ export class CatalogSyncService {
     for (const id of ids) {
       const row = byId.get(id);
       if (row && row.isCatalog && row.isActive) {
-        const { isCatalog: _isCatalog, ...listRow } = row;
-        upserts.push(this.recipes.toListItem(listRow));
+        upserts.push(this.recipes.toListItem(row));
       } else {
         tombstones.push(id);
       }
