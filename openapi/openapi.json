@@ -11073,13 +11073,20 @@
             "description": "Czy integracja jest w ogóle dostępna (`COOKIDOO_INTEGRATION_ENABLED`).\n`false` = klient chowa wiersz w Ustawieniach; poświadczenia zostają,\n`disconnect` nadal działa.",
             "type": "boolean"
           },
-          "login": { "type": "string" },
+          "login": {
+            "description": "E-mail konta Cookidoo. Pełny tylko dla osoby, która konto podłączyła,\ni właściciela domu; pozostali domownicy dostają maskę (`r•••@g•••.com`).",
+            "type": "string"
+          },
           "status": { "type": "string" },
           "connectedById": { "type": "string", "nullable": true },
           "lastVerifiedAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "canManage": {
+            "description": "Czy pytający może nadpisać albo rozłączyć to połączenie: osoba, która je\npodłączyła, albo właściciel domu. Tylko przy `connected: true`.",
+            "type": "boolean"
           },
           "subscription": {
             "type": "object",
@@ -11119,13 +11126,20 @@
             "description": "Czy integracja jest w ogóle dostępna (`COOKIDOO_INTEGRATION_ENABLED`).\n`false` = klient chowa wiersz w Ustawieniach; poświadczenia zostają,\n`disconnect` nadal działa.",
             "type": "boolean"
           },
-          "login": { "type": "string" },
+          "login": {
+            "description": "E-mail konta Cookidoo. Pełny tylko dla osoby, która konto podłączyła,\ni właściciela domu; pozostali domownicy dostają maskę (`r•••@g•••.com`).",
+            "type": "string"
+          },
           "status": { "type": "string" },
           "connectedById": { "type": "string", "nullable": true },
           "lastVerifiedAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "canManage": {
+            "description": "Czy pytający może nadpisać albo rozłączyć to połączenie: osoba, która je\npodłączyła, albo właściciel domu. Tylko przy `connected: true`.",
+            "type": "boolean"
           }
         },
         "required": ["connected", "enabled"]

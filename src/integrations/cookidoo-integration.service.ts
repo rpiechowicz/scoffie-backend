@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, Optional } from '@nestjs/common';
+import { MembershipRole, Prisma } from '@prisma/client';
 import { ensureRecipeForHousehold } from '../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../common/app-exception';
 import {
@@ -23,6 +24,29 @@ const STATUS_AUTH_FAILED = 'AUTH_FAILED';
 // w „Mój tydzień", który Cookidoo i tak dopuszcza.
 const DEBOUNCE_WINDOW_MS = 60_000;
 
+/**
+ * Kropki zamiast znaków e-maila konta Cookidoo (`r•••@g•••.com`) — dla
+ * domownika, który nie podłączył konta i nie jest właścicielem domu (audyt
+ * 5.09.2026, 2.2.4). Pole zostaje tekstem: `login` w kontrakcie jest stringiem,
+ * a klient pokazuje go jako „połączone jako …" — maska mówi „konto jest", ale
+ * nie zdradza cudzego adresu.
+ */
+export function maskCookidooLogin(email: string): string {
+  const dots = '•••';
+  const at = email.lastIndexOf('@');
+  if (at <= 0 || at === email.length - 1) return dots;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const lastDot = domain.lastIndexOf('.');
+  const maskedDomain =
+    lastDot > 0
+      ? `${domain[0]}${dots}${domain.slice(lastDot)}`
+      : `${domain[0]}${dots}`;
+  return `${local[0]}${dots}@${maskedDomain}`;
+}
+
+type HouseholdMembershipRef = { householdId: string; role: MembershipRole };
+
 export type CookidooStatusView = {
   connected: boolean;
   /**
@@ -31,10 +55,19 @@ export type CookidooStatusView = {
    * `disconnect` nadal działa.
    */
   enabled: boolean;
+  /**
+   * E-mail konta Cookidoo. Pełny tylko dla osoby, która konto podłączyła,
+   * i właściciela domu; pozostali domownicy dostają maskę (`r•••@g•••.com`).
+   */
   login?: string;
   status?: string;
   connectedById?: string | null;
   lastVerifiedAt?: Date | null;
+  /**
+   * Czy pytający może nadpisać albo rozłączyć to połączenie: osoba, która je
+   * podłączyła, albo właściciel domu. Tylko przy `connected: true`.
+   */
+  canManage?: boolean;
 };
 
 @Injectable()
@@ -68,7 +101,21 @@ export class CookidooIntegrationService {
     CookidooStatusView & { subscription: CookidooSubscriptionInfo | null }
   > {
     this.assertEnabled();
-    const householdId = await this.resolveHouseholdId(userId);
+    const membership = await this.resolveMembership(userId);
+    const { householdId } = membership;
+
+    // Cudze połączenie nadpisuje tylko jego autor albo właściciel domu —
+    // sprawdzone PRZED wysłaniem hasła do Vorwerka, żeby odmowa nie kosztowała
+    // logowania na cudzym koncie. Ostateczna bramka jest w samym zapisie
+    // (`writeCredentials`), bo między tym odczytem a zapisem ktoś mógł
+    // podłączyć dom pierwszy.
+    const existing = await this.prisma.cookidooIntegration.findUnique({
+      where: { householdId },
+      select: { connectedById: true },
+    });
+    if (existing && !this.canManage(existing, userId, membership)) {
+      throw this.notConnectorError();
+    }
 
     // Najpierw walidacja u Vorwerka — błędne dane nie mogą nadpisać
     // działającej integracji (klient rzuca, nic nie zapisujemy).
@@ -86,11 +133,7 @@ export class CookidooIntegrationService {
       lastVerifiedAt: now,
       lastErrorCode: null,
     };
-    await this.prisma.cookidooIntegration.upsert({
-      where: { householdId },
-      create: { householdId, ...encrypted },
-      update: encrypted,
-    });
+    await this.writeCredentials(userId, membership, encrypted);
     // Podanie hasła JEST zgodą na przekazanie go usłudze trzeciej (polityka
     // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić.
     await this.consents?.recordSystem(
@@ -108,13 +151,58 @@ export class CookidooIntegrationService {
       status: STATUS_CONNECTED,
       connectedById: userId,
       lastVerifiedAt: now,
+      canManage: true,
       subscription,
     };
   }
 
+  /**
+   * Zapis poświadczeń z bramką „autor albo właściciel" W SAMYM ZAPISIE.
+   *
+   * Właściciel nadpisuje zawsze (`upsert`). Domownik: aktualizacja tylko
+   * wiersza, który sam podłączył; brak takiego wiersza = pierwsze podłączenie
+   * domu (`create`). Gdy w międzyczasie podłączył ktoś inny, `create` trafia
+   * w unikalny `householdId` (P2002) i kończy się tą samą odmową, co odczyt
+   * wyżej — bez okna, w którym dwa telefony nadpisują się nawzajem.
+   */
+  private async writeCredentials(
+    userId: string,
+    membership: HouseholdMembershipRef,
+    data: Omit<Prisma.CookidooIntegrationUncheckedCreateInput, 'householdId'>,
+  ): Promise<void> {
+    const { householdId } = membership;
+    if (membership.role === 'OWNER') {
+      await this.prisma.cookidooIntegration.upsert({
+        where: { householdId },
+        create: { householdId, ...data },
+        update: data,
+      });
+      return;
+    }
+    const own = await this.prisma.cookidooIntegration.updateMany({
+      where: { householdId, connectedById: userId },
+      data,
+    });
+    if (own.count > 0) return;
+    try {
+      await this.prisma.cookidooIntegration.create({
+        data: { householdId, ...data },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw this.notConnectorError();
+      }
+      throw error;
+    }
+  }
+
   async status(userId: string): Promise<CookidooStatusView> {
     const enabled = isCookidooIntegrationEnabled();
-    const householdId = await this.resolveHouseholdId(userId);
+    const membership = await this.resolveMembership(userId);
+    const { householdId } = membership;
     const integration = await this.prisma.cookidooIntegration.findUnique({
       where: { householdId },
     });
@@ -134,25 +222,46 @@ export class CookidooIntegrationService {
 
     // Wyłączona integracja z zapisanym hasłem: klient chowa łączenie i
     // wysyłkę, ale MUSI pokazać „rozłącz" — inaczej hasło zostaje w bazie
-    // bez drogi do usunięcia (audyt 2, 3.09.2026).
+    // bez drogi do usunięcia (audyt 2, 3.09.2026). „Rozłącz" działa dla
+    // autora połączenia i właściciela domu — `canManage` mówi klientowi, czy
+    // to ten przypadek; pozostali widzą e-mail w masce.
+    const canManage = this.canManage(integration, userId, membership);
     return {
       connected: true,
       enabled,
-      login,
+      login: canManage ? login : maskCookidooLogin(login),
       status: integration.status,
       connectedById: integration.connectedById,
       lastVerifiedAt: integration.lastVerifiedAt,
+      canManage,
     };
   }
 
-  /** Działa także przy wyłączonej integracji — usunięcie hasła to prawo użytkownika. */
+  /**
+   * Działa także przy wyłączonej integracji — usunięcie hasła to prawo
+   * użytkownika. Kasuje tylko autor połączenia albo właściciel domu: dotąd
+   * każdy domownik mógł skasować cudze poświadczenia (audyt 5.09.2026, 2.2.4).
+   * Brak połączenia = sukces bez zmian (idempotentnie, jak dotąd).
+   */
   async disconnect(
     userId: string,
   ): Promise<{ connected: false; enabled: boolean }> {
-    const householdId = await this.resolveHouseholdId(userId);
+    const membership = await this.resolveMembership(userId);
+    const { householdId } = membership;
+    // Warunek w samym DELETE: odczyt „kto podłączył" i kasowanie nie mogą się
+    // rozjechać, gdy ktoś równolegle podłącza dom od nowa.
     const removed = await this.prisma.cookidooIntegration.deleteMany({
-      where: { householdId },
+      where:
+        membership.role === 'OWNER'
+          ? { householdId }
+          : { householdId, connectedById: userId },
     });
+    if (removed.count === 0 && membership.role !== 'OWNER') {
+      const foreign = await this.prisma.cookidooIntegration.count({
+        where: { householdId },
+      });
+      if (foreign > 0) throw this.notConnectorError();
+    }
     if (removed.count > 0) {
       await this.consents?.recordSystem(
         userId,
@@ -171,7 +280,7 @@ export class CookidooIntegrationService {
     date: string,
   ): Promise<{ ok: true; date: string; alreadySent: boolean }> {
     this.assertEnabled();
-    const householdId = await this.resolveHouseholdId(userId);
+    const { householdId } = await this.resolveMembership(userId);
 
     const integration = await this.prisma.cookidooIntegration.findUnique({
       where: { householdId },
@@ -275,6 +384,27 @@ export class CookidooIntegrationService {
     );
   }
 
+  private canManage(
+    integration: { connectedById: string | null },
+    userId: string,
+    membership: HouseholdMembershipRef,
+  ): boolean {
+    return membership.role === 'OWNER' || integration.connectedById === userId;
+  }
+
+  /**
+   * Istniejący kod `FORBIDDEN` (403) zamiast nowego: klienci mają już na niego
+   * kopię („Nie masz uprawnień do tej akcji."), a nowy kod wymagałby nowego
+   * builda iOS. Komunikat mówi, kto może.
+   */
+  private notConnectorError(): AppException {
+    return new AppException(
+      'FORBIDDEN',
+      'Połączenie z Cookidoo może zmienić albo rozłączyć tylko osoba, która je podłączyła, albo właściciel gospodarstwa.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+
   private wasRecentlySent(key: string): boolean {
     const now = Date.now();
     for (const [entryKey, sentAt] of this.recentSends) {
@@ -295,11 +425,14 @@ export class CookidooIntegrationService {
 
   // Ta sama reguła co przy logowaniu (auth.service): gospodarstwo użytkownika
   // to jego najstarsze membership. Id bierzemy z JWT, nigdy z payloadu.
-  private async resolveHouseholdId(userId: string): Promise<string> {
+  // Rola z tego samego wiersza — od niej zależy, kto zarządza połączeniem.
+  private async resolveMembership(
+    userId: string,
+  ): Promise<HouseholdMembershipRef> {
     const membership = await this.prisma.membership.findFirst({
       where: { userId },
       orderBy: { createdAt: 'asc' },
-      select: { householdId: true },
+      select: { householdId: true, role: true },
     });
     if (!membership) {
       throw new AppException(
@@ -308,6 +441,6 @@ export class CookidooIntegrationService {
         HttpStatus.FORBIDDEN,
       );
     }
-    return membership.householdId;
+    return membership;
   }
 }
