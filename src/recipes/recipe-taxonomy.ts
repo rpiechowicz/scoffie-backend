@@ -310,12 +310,13 @@ export const TAXONOMY_SEARCH_WORDS: Record<string, string> = {
   SPANISH: 'hiszpanska hiszpanskie',
   GREEK: 'grecka greckie',
   FRENCH: 'francuska francuskie francja',
-  MIDDLE_EASTERN:
-    'bliskowschodnia bliskowschodnie bliski wschod arabska arabskie turecka tureckie libanska',
+  // Nowe kuchnie (7.10.2026) — tylko nazwa całej grupy: „tureckie” albo
+  // „chińskie” przypięte do grupy trafiałyby każde jej danie (teriyaki
+  // na „chińskie”); kraj trafia się po tytule.
+  MIDDLE_EASTERN: 'bliskowschodnia bliskowschodnie',
   INDIAN: 'indyjska indyjskie',
   THAI: 'tajska tajskie',
-  ASIAN:
-    'azjatycka azjatyckie chinska chinskie japonska japonskie koreanska koreanskie wietnamska',
+  ASIAN: 'azjatycka azjatyckie',
   MEXICAN: 'meksykanska meksykanskie',
   AMERICAN: 'amerykanska amerykanskie',
   SPRING: 'wiosna wiosenne',
