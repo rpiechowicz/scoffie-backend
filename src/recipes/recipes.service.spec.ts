@@ -1048,16 +1048,17 @@ describe('RecipesService — adresy zdjęć z R2 w trakcie przenosin bucketu', (
     process.env = { ...saved };
   });
 
-  const resolve = (imageUrl: string) => {
+  const resolve = (imageUrl: string | null, isCatalog = true) => {
     process.env.R2_PUBLIC_BASE_URL = `${NEW}/`;
     process.env.R2_LEGACY_PUBLIC_BASE_URLS = ` ${OLD} , `;
     const service = new RecipesService({} as any, {} as any);
-    return (service as any).resolveRecipeImageUrl({
+    return service.resolveRecipeImageUrl({
       id: ID,
       title: 'Owsianka',
-      description: null,
+      description: 'Sekretny przepis babci',
       imageUrl,
       sourceMeta: null,
+      isCatalog,
     });
   };
 
@@ -1073,6 +1074,27 @@ describe('RecipesService — adresy zdjęć z R2 w trakcie przenosin bucketu', (
   it('obcy host z tą samą ścieżką dalej idzie do generatora', () => {
     expect(resolve(`https://api.scoffie.app/recipe-images/${ID}.png`)).toMatch(
       /^https:\/\/image\.pollinations\.ai\/prompt\//,
+    );
+  });
+
+  // Audyt 5.09.2026, 2.2.5: adres generatora niesie tytuł i opis w ścieżce.
+  it('przepis KATALOGU bez zdjęcia dostaje obrazek z generatora', () => {
+    expect(resolve(null)).toMatch(
+      /^https:\/\/image\.pollinations\.ai\/prompt\/.*Owsianka/,
+    );
+  });
+
+  it('przepis DOMU bez zdjęcia ma null — treść nie wychodzi do generatora', () => {
+    expect(resolve(null, false)).toBeNull();
+    expect(resolve('   ', false)).toBeNull();
+    expect(
+      resolve(`https://api.scoffie.app/recipe-images/${ID}.png`, false),
+    ).toBeNull();
+  });
+
+  it('przepis DOMU z własnym zdjęciem zostaje przy nim', () => {
+    expect(resolve('https://cdn.example/zapiekanka.jpg', false)).toBe(
+      'https://cdn.example/zapiekanka.jpg',
     );
   });
 });

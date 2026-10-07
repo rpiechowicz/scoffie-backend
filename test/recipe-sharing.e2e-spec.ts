@@ -375,15 +375,20 @@ describe('Udostępnianie przepisów E2E', () => {
 
     it('stan domu niesie shareUrl', async () => {
       const state = okData(
-        await ack<{ recipes: { id: string; shareUrl: string | null }[] }>(
-          socketA,
-          'recipes:householdState',
-          { householdId: householdA },
-        ),
+        await ack<{
+          recipes: {
+            id: string;
+            shareUrl: string | null;
+            imageUrl: string | null;
+          }[];
+        }>(socketA, 'recipes:householdState', { householdId: householdA }),
       );
-      expect(state.recipes.find((r) => r.id === ownRecipeId)?.shareUrl).toBe(
-        `https://scoffie.app/przepis/u/${token}`,
-      );
+      const own = state.recipes.find((r) => r.id === ownRecipeId);
+      expect(own?.shareUrl).toBe(`https://scoffie.app/przepis/u/${token}`);
+      // Audyt 5.09.2026, 2.2.5: przepis domu bez zdjęcia NIE dostaje adresu
+      // generatora z tytułem i opisem w ścieżce — klient pokazuje zaślepkę.
+      expect(own?.imageUrl).toBeNull();
+      expect(own).not.toHaveProperty('isCatalog');
     });
 
     it('obcy dom nie wygeneruje linku do cudzego przepisu', async () => {
@@ -405,6 +410,8 @@ describe('Udostępnianie przepisów E2E', () => {
         stepCount: 2,
         servings: 2,
         perServing: { kcal: 300 },
+        // Bez zdjęcia: strona pokazuje kartę marki, nie generator z treścią.
+        imageUrl: null,
       });
     });
 
@@ -482,13 +489,15 @@ describe('Udostępnianie przepisów E2E', () => {
         copiedFromRecipeId: ownRecipeId,
       });
       // Zdjęcie przechodzi jako rozwiązany adres — kopia z nowym id nie może
-      // dostać innego obrazka generowanego niż ten, który widział odbiorca.
+      // dostać innego obrazka niż ten, który widział odbiorca. Przepis domu
+      // bez zdjęcia: `null` w obu (bez generatora, audyt 2.2.5).
       const source = okData(
-        await ack<{ imageUrl: string }>(socketA, 'recipes:findById', {
+        await ack<{ imageUrl: string | null }>(socketA, 'recipes:findById', {
           id: ownRecipeId,
           householdId: householdA,
         }),
       );
+      expect(source.imageUrl).toBeNull();
       expect(copy.imageUrl).toBe(source.imageUrl);
 
       const again = okData(

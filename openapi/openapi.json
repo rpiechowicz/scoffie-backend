@@ -11280,7 +11280,11 @@
           },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia — strona pokazuje kartę marki zamiast\nobrazka z generatora (ten niósłby treść prywatnego przepisu w adresie).",
+            "type": "string",
+            "nullable": true
+          },
           "mealType": { "$ref": "#/components/schemas/MealType" },
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
@@ -11340,7 +11344,11 @@
           },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia — strona pokazuje kartę marki zamiast\nobrazka z generatora (ten niósłby treść prywatnego przepisu w adresie).",
+            "type": "string",
+            "nullable": true
+          },
           "mealType": { "$ref": "#/components/schemas/MealType" },
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
@@ -11441,7 +11449,11 @@
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
           "servings": { "type": "number" },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+            "type": "string",
+            "nullable": true
+          },
           "nutritionKcal": { "type": "number" },
           "nutritionProtein": { "type": "number" },
           "nutritionFat": { "type": "number" },
@@ -13292,7 +13304,11 @@
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
           "servings": { "type": "number" },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+            "type": "string",
+            "nullable": true
+          },
           "nutritionKcal": { "type": "number" },
           "nutritionProtein": { "type": "number" },
           "nutritionFat": { "type": "number" },
@@ -13453,7 +13469,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
@@ -13550,7 +13566,11 @@
                 "difficulty": { "$ref": "#/components/schemas/Difficulty" },
                 "prepTimeMinutes": { "type": "number" },
                 "servings": { "type": "number" },
-                "imageUrl": { "type": "string" },
+                "imageUrl": {
+                  "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+                  "type": "string",
+                  "nullable": true
+                },
                 "nutritionKcal": { "type": "number" },
                 "nutritionProtein": { "type": "number" },
                 "nutritionFat": { "type": "number" },
@@ -13684,7 +13704,7 @@
               "difficulty": { "$ref": "#/components/schemas/Difficulty" },
               "prepTimeMinutes": { "type": "number" },
               "servings": { "type": "number" },
-              "imageUrl": { "type": "string" },
+              "imageUrl": { "type": "string", "nullable": true },
               "nutritionKcal": { "type": "number" },
               "nutritionProtein": { "type": "number" },
               "nutritionFat": { "type": "number" },
@@ -13877,7 +13897,7 @@
                 "type": "array",
                 "items": { "$ref": "#/components/schemas/MealType" }
               },
-              "imageUrl": { "type": "string" },
+              "imageUrl": { "type": "string", "nullable": true },
               "isFavorite": { "type": "boolean" },
               "title": { "type": "string" },
               "description": { "type": "string", "nullable": true },
@@ -14012,7 +14032,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
@@ -14157,7 +14177,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },

@@ -49,6 +49,9 @@ export const recipeListSelect = {
   servings: true,
   imageUrl: true,
   sourceMeta: true,
+  // Tylko do `resolveRecipeImageUrl` (generowany obrazek wyłącznie dla
+  // katalogu) — `toListItem` zdejmuje je z odpowiedzi jak `sourceMeta`.
+  isCatalog: true,
   nutritionKcal: true,
   nutritionProtein: true,
   nutritionFat: true,
@@ -112,9 +115,10 @@ export type RecipeDetailRow = Prisma.RecipeGetPayload<{
 /** Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych. */
 export type RecipeListItem = Omit<
   RecipeListRow,
-  'sourceMeta' | 'ingredients'
+  'sourceMeta' | 'isCatalog' | 'ingredients'
 > & {
-  imageUrl: string;
+  /** `null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę). */
+  imageUrl: string | null;
   /** Wiersze z miarą kuchenną przypraw (`withKitchenMeasure`). */
   ingredients: Array<
     RecipeListRow['ingredients'][number] & { kitchenMeasure?: KitchenMeasure }
@@ -158,6 +162,8 @@ type RecipeImageSource = {
   description: string | null;
   imageUrl: string | null;
   sourceMeta?: Prisma.JsonValue | null;
+  /** Generowany obrazek tylko dla katalogu — patrz `resolveRecipeImageUrl`. */
+  isCatalog: boolean;
 };
 
 /**
@@ -552,7 +558,15 @@ export class RecipesService {
     return `${this.imageGeneratorBaseUrl}/${encodedPrompt}?seed=${encodeURIComponent(seed)}${query}`;
   }
 
-  resolveRecipeImageUrl(recipe: RecipeImageSource): string {
+  /**
+   * Adres zdjęcia dla klienta. Przepis bez własnego zdjęcia dostaje obrazek
+   * z generatora (pollinations) TYLKO, gdy jest w katalogu. Adres generatora
+   * niesie tytuł i opis w ścieżce, a pobiera go telefon (albo strona
+   * udostępnionego przepisu) — dla przepisu DOMU znaczyło to wysyłanie
+   * prywatnej treści do strony trzeciej (audyt 5.09.2026, 2.2.5). Przepis
+   * domu bez zdjęcia ma `null`, a klient pokazuje zaślepkę.
+   */
+  resolveRecipeImageUrl(recipe: RecipeImageSource): string | null {
     const currentImageUrl = recipe.imageUrl?.trim() ?? '';
     if (
       currentImageUrl &&
@@ -561,7 +575,7 @@ export class RecipesService {
       return currentImageUrl;
     }
 
-    return this.buildGeneratedImageUrl(recipe);
+    return recipe.isCatalog ? this.buildGeneratedImageUrl(recipe) : null;
   }
 
   async findAll(userIdentifier: string, filters?: FindRecipesDto) {
@@ -699,7 +713,7 @@ export class RecipesService {
    * telefon dostawał ten sam przepis niezależnie od ścieżki.
    */
   toListItem(recipe: RecipeListRow): RecipeListItem {
-    const { sourceMeta: _sourceMeta, ...base } = recipe;
+    const { sourceMeta: _sourceMeta, isCatalog: _isCatalog, ...base } = recipe;
     return {
       ...base,
       ingredients: base.ingredients.map(withKitchenMeasure),
@@ -785,6 +799,7 @@ export class RecipesService {
         prepTimeMinutes: true,
         imageUrl: true,
         sourceMeta: true,
+        isCatalog: true,
         nutritionKcal: true,
         nutritionProtein: true,
         nutritionCarbs: true,
@@ -802,7 +817,12 @@ export class RecipesService {
           HttpStatus.NOT_FOUND,
         );
       }
-      const { sourceMeta: _sourceMeta, _count, ...base } = row;
+      const {
+        sourceMeta: _sourceMeta,
+        isCatalog: _isCatalog,
+        _count,
+        ...base
+      } = row;
       return {
         ...base,
         imageUrl: this.resolveRecipeImageUrl(row),

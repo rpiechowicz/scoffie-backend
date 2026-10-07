@@ -53,7 +53,11 @@ export type PublicRecipe = {
   slug: string | null;
   title: string;
   description: string | null;
-  imageUrl: string;
+  /**
+   * `null` = przepis domu bez zdjęcia — strona pokazuje kartę marki zamiast
+   * obrazka z generatora (ten niósłby treść prywatnego przepisu w adresie).
+   */
+  imageUrl: string | null;
   mealType: MealType;
   difficulty: Difficulty;
   prepTimeMinutes: number;
@@ -78,6 +82,7 @@ const publicSelect = {
   description: true,
   imageUrl: true,
   sourceMeta: true,
+  isCatalog: true,
   mealType: true,
   difficulty: true,
   prepTimeMinutes: true,
@@ -105,6 +110,7 @@ const copySelect = {
   description: true,
   imageUrl: true,
   sourceMeta: true,
+  isCatalog: true,
   sourceProvider: true,
   sourceRecipeId: true,
   sourceInstructions: true,
@@ -469,9 +475,11 @@ export class RecipeSharingService {
   }
 
   /**
-   * Kolumny kopii. Zdjęcie idzie jako ROZWIĄZANY adres: przepis bez własnego
-   * zdjęcia dostaje obrazek generowany z ziarnem po `id`, więc kopia z nowym
-   * id pokazałaby inne danie niż to, które odbiorca zobaczył w linku.
+   * Kolumny kopii. Zdjęcie idzie jako ROZWIĄZANY adres: przepis KATALOGU bez
+   * własnego zdjęcia dostaje obrazek generowany z ziarnem po `id`, więc kopia
+   * z nowym id pokazałaby inne danie niż to, które odbiorca zobaczył w linku.
+   * Przepis domu bez zdjęcia ma `null` i kopia też (bez generatora — audyt
+   * 5.09.2026, 2.2.5).
    * Składniki z rosnącym `createdAt` — kolejność = `[createdAt, id]`.
    */
   private copyData(
