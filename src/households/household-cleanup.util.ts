@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { LEGAL_DOCUMENT_VERSIONS } from '../common/legal-documents';
 
 /**
  * Klient Prismy albo transakcja — obie ścieżki wołają te same operacje, a
@@ -39,8 +40,14 @@ export type HouseholdSettlement =
  */
 /**
  * Poświadczenia Cookidoo należą do osoby, która je podała: gdy ta osoba
- * opuszcza dom (sama, usunięta, albo z kontem), jej hasło nie może zostać
- * w domu do dyspozycji pozostałych. Dom łączy się na nowo własnym hasłem.
+ * opuszcza dom (sama albo usunięta), jej hasło nie może zostać w domu do
+ * dyspozycji pozostałych. Dom łączy się na nowo własnym hasłem.
+ *
+ * Skasowane hasło = cofnięta zgoda na przekazywanie go Vorwerkowi: dziennik
+ * zgód dostaje REVOKED tej osoby W TEJ SAMEJ transakcji (review 7.10.2026 —
+ * dotąd zostawało GRANTED bez pokrycia). Kasowanie konta sprząta hasło
+ * osobno (`UsersService.deleteAccount`) i wpisu nie robi: dziennik zgód
+ * odchodzi z kontem kaskadą.
  */
 export async function revokeCookidooCredentialsOf(
   tx: PrismaLike,
@@ -50,6 +57,18 @@ export async function revokeCookidooCredentialsOf(
   const result = await tx.cookidooIntegration.deleteMany({
     where: { householdId, connectedById: userId },
   });
+  if (result.count > 0) {
+    await tx.consentEvent.create({
+      data: {
+        userId,
+        kind: 'COOKIDOO',
+        action: 'REVOKED',
+        documentVersion: LEGAL_DOCUMENT_VERSIONS.COOKIDOO,
+        source: 'COOKIDOO_MEMBER_LEFT',
+        householdId,
+      },
+    });
+  }
   return result.count;
 }
 

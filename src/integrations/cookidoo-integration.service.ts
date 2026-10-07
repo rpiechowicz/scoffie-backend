@@ -133,7 +133,22 @@ export class CookidooIntegrationService {
       lastVerifiedAt: now,
       lastErrorCode: null,
     };
-    await this.writeCredentials(userId, householdId, encrypted);
+    const replaced = await this.writeCredentials(
+      userId,
+      householdId,
+      encrypted,
+    );
+    // Właściciel nadpisał cudze połączenie: hasło tamtej osoby zniknęło, więc
+    // w dzienniku ma JEJ REVOKED (review 7.10.2026 — zostawało GRANTED).
+    if (replaced && replaced !== userId) {
+      await this.consents?.recordSystem(
+        replaced,
+        'COOKIDOO',
+        'REVOKED',
+        'COOKIDOO_REPLACED',
+        householdId,
+      );
+    }
     // Podanie hasła JEST zgodą na przekazanie go usłudze trzeciej (polityka
     // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić.
     await this.consents?.recordSystem(
@@ -169,32 +184,37 @@ export class CookidooIntegrationService {
    * domu (`create`). Gdy w międzyczasie podłączył ktoś inny, `create` trafia
    * w unikalny `householdId` (P2002) i kończy się tą samą odmową, co odczyt
    * wyżej — bez okna, w którym dwa telefony nadpisują się nawzajem.
+   *
+   * Zwraca `connectedById` nadpisanego wiersza (`null` = nie było wiersza albo
+   * autor skasował konto) — do dziennika zgód.
    */
   private async writeCredentials(
     userId: string,
     householdId: string,
     data: Omit<Prisma.CookidooIntegrationUncheckedCreateInput, 'householdId'>,
-  ): Promise<void> {
+  ): Promise<string | null> {
     try {
-      await this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
         const role = await this.lockMembership(tx, userId, householdId);
         if (!role) throw this.notConnectorError();
+        const previous = await this.lockIntegration(tx, householdId);
         if (role === 'OWNER') {
           await tx.cookidooIntegration.upsert({
             where: { householdId },
             create: { householdId, ...data },
             update: data,
           });
-          return;
+          return previous;
         }
         const own = await tx.cookidooIntegration.updateMany({
           where: { householdId, connectedById: userId },
           data,
         });
-        if (own.count > 0) return;
+        if (own.count > 0) return userId;
         await tx.cookidooIntegration.create({
           data: { householdId, ...data },
         });
+        return null;
       });
     } catch (error) {
       if (
@@ -228,6 +248,23 @@ export class CookidooIntegrationService {
       WHERE "userId" = ${userId}::uuid AND "householdId" = ${householdId}::uuid
       FOR SHARE`;
     return rows[0]?.role ?? null;
+  }
+
+  /**
+   * `connectedById` połączenia domu z blokadą `FOR UPDATE` (po `lockMembership`
+   * — ta sama kolejność blokad co sprzątanie: członkostwo, potem poświadczenia).
+   * Dziennik zgód ma wpisać REVOKED osobie, której hasło TEN zapis usuwa,
+   * a nie komuś, kto podłączył się w międzyczasie.
+   */
+  private async lockIntegration(
+    tx: Prisma.TransactionClient,
+    householdId: string,
+  ): Promise<string | null> {
+    const rows = await tx.$queryRaw<{ connectedById: string | null }[]>`
+      SELECT "connectedById" FROM "CookidooIntegration"
+      WHERE "householdId" = ${householdId}::uuid
+      FOR UPDATE`;
+    return rows[0]?.connectedById ?? null;
   }
 
   async status(userId: string): Promise<CookidooStatusView> {
@@ -286,6 +323,7 @@ export class CookidooIntegrationService {
     const removed = await this.prisma.$transaction(async (tx) => {
       const role = await this.lockMembership(tx, userId, householdId);
       if (!role) throw this.notConnectorError();
+      const connector = await this.lockIntegration(tx, householdId);
       const result = await tx.cookidooIntegration.deleteMany({
         where:
           role === 'OWNER'
@@ -298,11 +336,15 @@ export class CookidooIntegrationService {
         });
         if (foreign > 0) throw this.notConnectorError();
       }
-      return result;
+      return { count: result.count, connector };
     });
-    if (removed.count > 0) {
+    // REVOKED dla osoby, której hasło zniknęło — także gdy rozłączył je
+    // właściciel (review 7.10.2026; dotąd wpis szedł na rozłączającego,
+    // a autor zostawał z GRANTED). Autor po skasowanym koncie (`null`): nie
+    // ma czyjej zgody odnotować.
+    if (removed.count > 0 && removed.connector) {
       await this.consents?.recordSystem(
-        userId,
+        removed.connector,
         'COOKIDOO',
         'REVOKED',
         'COOKIDOO_DISCONNECT',

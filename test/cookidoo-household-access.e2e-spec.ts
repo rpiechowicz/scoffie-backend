@@ -195,6 +195,18 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
   it('właściciel rozłącza cudze połączenie', async () => {
     await disconnect(owner).expect(200);
     expect(await stored()).toBeNull();
+    // Dziennik zgód: REVOKED dla AUTORA hasła, nie dla rozłączającego.
+    const latest = (userId: string) =>
+      prisma.consentEvent.findFirst({
+        where: { userId, kind: 'COOKIDOO' },
+        orderBy: { createdAt: 'desc' },
+        select: { action: true, source: true },
+      });
+    expect(await latest(autor.user.id)).toEqual({
+      action: 'REVOKED',
+      source: 'COOKIDOO_DISCONNECT',
+    });
+    expect(await latest(owner.user.id)).toBeNull();
   });
 
   it('po rozłączeniu dom znów może podłączyć każdy; właściciel nadpisuje', async () => {

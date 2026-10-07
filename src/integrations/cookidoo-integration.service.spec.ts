@@ -398,10 +398,18 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     const sqls = prisma.$queryRaw.mock.calls.map(([strings]: unknown[]) =>
       (strings as TemplateStringsArray).join('?'),
     );
-    expect(sqls).toHaveLength(2);
-    for (const sql of sqls) {
-      expect(sql).toMatch(/FROM "Membership"/);
+    const membership = sqls.filter((sql) => /FROM "Membership"/.test(sql));
+    expect(membership).toHaveLength(2);
+    for (const sql of membership) {
       expect(sql).toMatch(/FOR SHARE\s*$/);
+    }
+    // Poprzedni autor połączenia (do dziennika zgód) — pod `FOR UPDATE`.
+    const integration = sqls.filter((sql) =>
+      /FROM "CookidooIntegration"/.test(sql),
+    );
+    expect(integration).toHaveLength(2);
+    for (const sql of integration) {
+      expect(sql).toMatch(/FOR UPDATE\s*$/);
     }
     // Zapytanie biegnie W transakcji zapisu, nie przed nią.
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
@@ -427,5 +435,111 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       login: 'rafal@example.com',
       canManage: true,
     });
+  });
+});
+
+describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozłączeniu (review 7.10.2026)', () => {
+  const originalKey = process.env.COOKIDOO_ENCRYPTION_KEY;
+  let prisma: Record<string, any>;
+  let consents: { recordSystem: jest.Mock };
+  let service: CookidooIntegrationService;
+
+  /** Rola pytającego i autor istniejącego połączenia — po treści zapytania. */
+  const given = (role: 'OWNER' | 'MEMBER', connector: string | null) => {
+    prisma.membership.findFirst.mockResolvedValue({
+      householdId: HOUSEHOLD,
+      role,
+    });
+    prisma.cookidooIntegration.findUnique.mockResolvedValue(
+      connector === undefined ? null : { connectedById: connector },
+    );
+    prisma.$queryRaw.mockImplementation((strings: TemplateStringsArray) =>
+      Promise.resolve(
+        strings.join('?').includes('"Membership"')
+          ? [{ role }]
+          : connector === null
+            ? []
+            : [{ connectedById: connector }],
+      ),
+    );
+  };
+
+  beforeEach(() => {
+    process.env.COOKIDOO_ENCRYPTION_KEY = KEY;
+    prisma = {
+      membership: { findFirst: jest.fn() },
+      $queryRaw: jest.fn(),
+      $transaction: jest.fn(),
+      cookidooIntegration: {
+        findUnique: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+    prisma.$transaction.mockImplementation((run: (tx: unknown) => unknown) =>
+      run(prisma),
+    );
+    consents = { recordSystem: jest.fn().mockResolvedValue(undefined) };
+    service = new CookidooIntegrationService(
+      prisma as unknown as PrismaService,
+      {
+        validateCredentials: jest
+          .fn()
+          .mockResolvedValue({ subscription: null }),
+        addToWeek: jest.fn(),
+      } as unknown as CookidooServiceClient,
+      consents as never,
+    );
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.COOKIDOO_ENCRYPTION_KEY;
+    else process.env.COOKIDOO_ENCRYPTION_KEY = originalKey;
+  });
+
+  const calls = () =>
+    consents.recordSystem.mock.calls.map(([who, , action, source]) => [
+      who,
+      action,
+      source,
+    ]);
+
+  it('właściciel nadpisuje połączenie innej osoby: REVOKED dla NIEJ, GRANTED dla właściciela', async () => {
+    given('OWNER', OTHER);
+    await service.connect(USER, 'a@b.pl', 'tajne');
+    expect(calls()).toEqual([
+      [OTHER, 'REVOKED', 'COOKIDOO_REPLACED'],
+      [USER, 'GRANTED', 'COOKIDOO_CONNECT'],
+    ]);
+  });
+
+  it('autor podłącza się ponownie: bez REVOKED, jak dotąd', async () => {
+    given('MEMBER', USER);
+    await service.connect(USER, 'a@b.pl', 'tajne');
+    expect(calls()).toEqual([[USER, 'GRANTED', 'COOKIDOO_CONNECT']]);
+  });
+
+  it('właściciel rozłącza połączenie innej osoby: REVOKED dla autora, nie dla rozłączającego', async () => {
+    given('OWNER', OTHER);
+    await service.disconnect(USER);
+    expect(calls()).toEqual([[OTHER, 'REVOKED', 'COOKIDOO_DISCONNECT']]);
+  });
+
+  it('autor rozłącza własne połączenie: REVOKED dla niego, jak dotąd', async () => {
+    given('MEMBER', USER);
+    await service.disconnect(USER);
+    expect(calls()).toEqual([[USER, 'REVOKED', 'COOKIDOO_DISCONNECT']]);
+  });
+
+  it('połączenie po skasowanym koncie (autor null): bez wpisu', async () => {
+    given('OWNER', null);
+    prisma.cookidooIntegration.findUnique.mockResolvedValue({
+      connectedById: null,
+    });
+    await service.disconnect(USER);
+    expect(consents.recordSystem).not.toHaveBeenCalled();
   });
 });

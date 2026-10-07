@@ -215,6 +215,14 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
       }),
     ).toBe(0);
     expect(await credentials()).toBe(0);
+    // Hasło skasowane przy wyjściu z domu = REVOKED w dzienniku zgód.
+    expect(
+      await prisma.consentEvent.findFirst({
+        where: { userId: wyrzucany.user.id, kind: 'COOKIDOO' },
+        orderBy: { createdAt: 'desc' },
+        select: { action: true, source: true },
+      }),
+    ).toEqual({ action: 'REVOKED', source: 'COOKIDOO_MEMBER_LEFT' });
   });
 
   it('domownik wychodzi z domu W TRAKCIE zapisu swojego hasła: hasło nie zostaje', async () => {
@@ -235,5 +243,13 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
       }),
     ).toBe(0);
     expect(await credentials()).toBe(0);
+    // Hasło skasowane przy wyjściu z domu = REVOKED w dzienniku zgód.
+    expect(
+      await prisma.consentEvent.findFirst({
+        where: { userId: wychodzacy.user.id, kind: 'COOKIDOO' },
+        orderBy: { createdAt: 'desc' },
+        select: { action: true, source: true },
+      }),
+    ).toEqual({ action: 'REVOKED', source: 'COOKIDOO_MEMBER_LEFT' });
   });
 });

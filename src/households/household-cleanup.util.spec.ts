@@ -1,5 +1,7 @@
+import { LEGAL_DOCUMENT_VERSIONS } from '../common/legal-documents';
 import {
   PrismaLike,
+  revokeCookidooCredentialsOf,
   revokeInvitationsCreatedBy,
   settleHouseholdAfterMemberLeft,
 } from './household-cleanup.util';
@@ -178,5 +180,44 @@ describe('revokeInvitationsCreatedBy', () => {
       (tx as unknown as { invitation: { deleteMany?: unknown } }).invitation
         .deleteMany,
     ).toBeUndefined();
+  });
+});
+
+describe('revokeCookidooCredentialsOf — hasło i zgoda odchodzą z osobą (review 7.10.2026)', () => {
+  const makeTx = (deleted: number) => ({
+    cookidooIntegration: {
+      deleteMany: jest.fn().mockResolvedValue({ count: deleted }),
+    },
+    consentEvent: { create: jest.fn().mockResolvedValue({}) },
+  });
+
+  it('skasowane hasło = REVOKED tej osoby w tej samej transakcji', async () => {
+    const tx = makeTx(1);
+    await expect(
+      revokeCookidooCredentialsOf(tx as unknown as PrismaLike, 'hh-1', 'u-1'),
+    ).resolves.toBe(1);
+    expect(tx.cookidooIntegration.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: 'hh-1', connectedById: 'u-1' },
+    });
+    expect(tx.consentEvent.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'u-1',
+        kind: 'COOKIDOO',
+        action: 'REVOKED',
+        documentVersion: LEGAL_DOCUMENT_VERSIONS.COOKIDOO,
+        source: 'COOKIDOO_MEMBER_LEFT',
+        householdId: 'hh-1',
+      },
+    });
+  });
+
+  it('nic nie skasowano (hasło podał ktoś inny albo go nie było): bez wpisu', async () => {
+    const tx = makeTx(0);
+    await revokeCookidooCredentialsOf(
+      tx as unknown as PrismaLike,
+      'hh-1',
+      'u-1',
+    );
+    expect(tx.consentEvent.create).not.toHaveBeenCalled();
   });
 });
