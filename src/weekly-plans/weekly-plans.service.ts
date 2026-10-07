@@ -71,6 +71,7 @@ import {
   weeklyBalanceForMember,
 } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
+import { isGeneratedRecipeImageUrl } from '../recipes/recipe-image-generator';
 
 /**
  * Everything a PlanItem read needs: the recipe payload the app renders, plus
@@ -2047,7 +2048,13 @@ export class WeeklyPlansService {
         title: detail?.title ?? '',
         kcalPerServing: Math.round((detail?.nutritionKcal ?? 0) / servings),
         prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
-        imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
+        // Karta propozycji trafia do historii rozmowy — bez adresu
+        // generatora (tytuł i opis przepisu domu w ścieżce, audyt 2.2.5).
+        imageUrl:
+          detail?.imageUrl?.trim() &&
+          !isGeneratedRecipeImageUrl(detail.imageUrl)
+            ? detail.imageUrl
+            : null,
         participantIds: slot.participantIds,
         ...withPortions(slotPortions),
         ...(slotPortions.length === 0

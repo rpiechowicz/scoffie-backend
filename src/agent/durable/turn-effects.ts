@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgentCard } from '../cards/agent-cards';
 import { AgentTurnQueue } from './agent-turn-queue.service';
+import { withoutGeneratedImages } from '../../recipes/recipe-image-generator';
 
 /**
  * Jak narzędzie zachowuje się przy odzyskaniu tury (workstream, Etap 5, §5.7).
@@ -283,6 +284,9 @@ export function toStored(row: {
     attempt: row.attempt,
     input: (row.input ?? {}) as Record<string, unknown>,
     result: row.result as unknown as StoredEffect['result'],
-    card: (row.card ?? null) as unknown as AgentCard | null,
+    // Powtórka karty z dziennika efektów — ta sama reguła co historia.
+    card: withoutGeneratedImages(
+      (row.card ?? null) as unknown as AgentCard | null,
+    ),
   };
 }

@@ -32,6 +32,10 @@ import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 import { normalizeRecipeSteps } from './recipe-steps.util';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 import { sharedRecipeUrl } from './sharing/recipe-share-links';
+import {
+  imageGeneratorBaseUrl,
+  isGeneratedRecipeImageUrl,
+} from './recipe-image-generator';
 
 export const recipeListSelect = {
   id: true,
@@ -185,9 +189,7 @@ export class RecipesService {
     private readonly recipesCache: RecipesCacheService,
   ) {}
 
-  private readonly imageGeneratorBaseUrl =
-    process.env.IMAGE_GENERATOR_BASE_URL ??
-    'https://image.pollinations.ai/prompt';
+  private readonly imageGeneratorBaseUrl = imageGeneratorBaseUrl();
   private readonly imageGeneratorQuery =
     process.env.IMAGE_GENERATOR_QUERY ?? 'width=1200&height=800&nologo=true';
   private readonly imageGeneratorStyle =
@@ -543,13 +545,7 @@ export class RecipesService {
    * niesie w ścieżce tytuł i opis przepisu.
    */
   isGeneratedImageUrl(imageUrl: string): boolean {
-    const normalized = imageUrl.trim();
-    if (normalized.startsWith(`${this.imageGeneratorBaseUrl}/`)) return true;
-    try {
-      return new URL(normalized).hostname === 'image.pollinations.ai';
-    } catch {
-      return false;
-    }
+    return isGeneratedRecipeImageUrl(imageUrl, this.imageGeneratorBaseUrl);
   }
 
   private buildGeneratedImageUrl(recipe: RecipeImageSource): string {
