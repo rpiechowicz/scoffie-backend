@@ -479,7 +479,9 @@ export class RecipeSharingService {
    * własnego zdjęcia dostaje obrazek generowany z ziarnem po `id`, więc kopia
    * z nowym id pokazałaby inne danie niż to, które odbiorca zobaczył w linku.
    * Przepis domu bez zdjęcia ma `null` i kopia też (bez generatora — audyt
-   * 5.09.2026, 2.2.5).
+   * 5.09.2026, 2.2.5). Adresu generatora kopia nie zapisuje WCALE: jest
+   * przepisem domu, a w nim taki adres i tak znaczy „brak zdjęcia” — dawniej
+   * utrwalony niósł treść przepisu dalej, do każdej kolejnej kopii.
    * Składniki z rosnącym `createdAt` — kolejność = `[createdAt, id]`.
    */
   private copyData(
@@ -488,10 +490,14 @@ export class RecipeSharingService {
     authorId: string,
   ): Prisma.RecipeUncheckedCreateInput {
     const now = Date.now();
+    const imageUrl = this.recipes.resolveRecipeImageUrl(source);
     return {
       title: source.title,
       description: source.description,
-      imageUrl: this.recipes.resolveRecipeImageUrl(source),
+      imageUrl:
+        imageUrl && !this.recipes.isGeneratedImageUrl(imageUrl)
+          ? imageUrl
+          : null,
       sourceMeta: source.sourceMeta ?? Prisma.JsonNull,
       sourceProvider: source.sourceProvider,
       sourceRecipeId: source.sourceRecipeId,

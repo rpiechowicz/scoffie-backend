@@ -537,6 +537,21 @@ export class RecipesService {
     );
   }
 
+  /**
+   * Adres z generatora obrazków: pod skonfigurowaną bazą
+   * (`IMAGE_GENERATOR_BASE_URL`) albo na hoście pollinations. Taki adres
+   * niesie w ścieżce tytuł i opis przepisu.
+   */
+  isGeneratedImageUrl(imageUrl: string): boolean {
+    const normalized = imageUrl.trim();
+    if (normalized.startsWith(`${this.imageGeneratorBaseUrl}/`)) return true;
+    try {
+      return new URL(normalized).hostname === 'image.pollinations.ai';
+    } catch {
+      return false;
+    }
+  }
+
   private buildGeneratedImageUrl(recipe: RecipeImageSource): string {
     const prompt =
       this.extractImagePrompt(recipe.sourceMeta) ??
@@ -565,12 +580,17 @@ export class RecipesService {
    * udostępnionego przepisu) — dla przepisu DOMU znaczyło to wysyłanie
    * prywatnej treści do strony trzeciej (audyt 5.09.2026, 2.2.5). Przepis
    * domu bez zdjęcia ma `null`, a klient pokazuje zaślepkę.
+   *
+   * Adres generatora ZAPISANY w przepisie domu (kopie „Zapisz u siebie” sprzed
+   * 7.10.2026 utrwalały rozwiązany adres) też jest brakiem zdjęcia — inaczej
+   * stare kopie dalej wysyłałyby treść do generatora (review 7.10.2026).
    */
   resolveRecipeImageUrl(recipe: RecipeImageSource): string | null {
     const currentImageUrl = recipe.imageUrl?.trim() ?? '';
     if (
       currentImageUrl &&
-      !this.isLegacyStaticRecipeImageUrl(currentImageUrl)
+      !this.isLegacyStaticRecipeImageUrl(currentImageUrl) &&
+      (recipe.isCatalog || !this.isGeneratedImageUrl(currentImageUrl))
     ) {
       return currentImageUrl;
     }

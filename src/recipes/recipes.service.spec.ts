@@ -1092,6 +1092,15 @@ describe('RecipesService — adresy zdjęć z R2 w trakcie przenosin bucketu', (
     ).toBeNull();
   });
 
+  it('ZAPISANY adres generatora w przepisie domu (stara kopia) to brak zdjęcia', () => {
+    const stored =
+      'https://image.pollinations.ai/prompt/Sekretna%20zapiekanka?seed=scoffie-x';
+    expect(resolve(stored, false)).toBeNull();
+    expect(resolve(`  ${stored}  `, false)).toBeNull();
+    // Katalog jest publiczny — jego zapisany adres zostaje.
+    expect(resolve(stored, true)).toBe(stored);
+  });
+
   it('przepis DOMU z własnym zdjęciem zostaje przy nim', () => {
     expect(resolve('https://cdn.example/zapiekanka.jpg', false)).toBe(
       'https://cdn.example/zapiekanka.jpg',
