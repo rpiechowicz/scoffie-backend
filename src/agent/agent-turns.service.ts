@@ -366,6 +366,34 @@ export class AgentTurnsService {
     const plan = await this.counters.resolvePlan(conversation.householdId, {
       userId,
     });
+    // Próba ma własny, niższy sufit w budżecie instalacji — fala nowych kont
+    // nie może zgasić asystenta płacącym (audyt 7.10.2026). Bez transakcji:
+    // to przegroda, a nie twardy limit; twardy pilnuje rachunek wyżej.
+    if (
+      plan.tier === 'TRIAL' &&
+      env.globalDailyBudgetUsd !== null &&
+      env.trialBudgetShare < 1
+    ) {
+      const trialCeilingUsd = env.globalDailyBudgetUsd * env.trialBudgetShare;
+      const headroom = await this.installationHeadroomMicroUsd(
+        this.prisma,
+        env,
+        trialCeilingUsd,
+      );
+      if (headroom <= 0) {
+        this.metrics.recordRejected('budget');
+        void this.alerts.notify(
+          `ai-trial-budget-paused:${this.counters.dayKey()}`,
+          `próby wydały dziś ${Math.round(env.trialBudgetShare * 100)} % budżetu dobowego ($${trialCeilingUsd.toFixed(2)}) — konta na próbie dostają 503 AI_BUDGET_PAUSED do północy UTC, płacący dalej działają`,
+        );
+        throw new AppException(
+          'AI_BUDGET_PAUSED',
+          'Darmowy Asystent ma dziś dużo chętnych. Spróbuj jutro.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+          [`resetsAt:${this.counters.dayResetsAt().toISOString()}`],
+        );
+      }
+    }
     const periodKey = plan.periodKey;
     // Zakres kwoty: `sub:<id>` przy subskrypcji, `trial:<hasz>` na próbie,
     // UUID domu przy nadaniu. Zapisujemy go przy turze, bo zwrot ma wrócić

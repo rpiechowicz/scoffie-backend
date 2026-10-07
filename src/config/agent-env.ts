@@ -224,6 +224,15 @@ export type AgentEnv = {
    */
   turnCostReserveUsd: number;
   /**
+   * Jaką część dobowego budżetu instalacji wolno wydać turom na PRÓBIE
+   * (0 < x ≤ 1). Budżet jest wspólny, więc w dniu premiery fala nowych kont
+   * (albo nalot kont-słupów) wyczerpywała go do zera i PŁACĄCY dostawali
+   * 503 do północy UTC (audyt 7.10.2026). Przy 0,6 próba staje, gdy wydane
+   * + rezerwacje dojdą do 60 % budżetu — reszta zostaje płacącym. `1` =
+   * jak dotąd (jeden wspólny sufit).
+   */
+  trialBudgetShare: number;
+  /**
    * Ile ms po SIGTERM czekamy, aż tury w biegu domkną się same, zanim
    * przerwiemy resztę (`AI_PROVIDER_ERROR`, koszt zostaje w księdze).
    * Ma sens tylko, gdy platforma daje procesowi ten czas przed SIGKILL.
@@ -378,6 +387,7 @@ export const AGENT_ENV_DEFAULTS = {
    * za INNE tury w biegu — a dwie równoległe tuż pod sufitem już zatrzymuje.
    */
   turnCostReserveUsd: 0.25,
+  trialBudgetShare: 0.6,
   shutdownGraceMs: 8_000,
 } as const;
 
@@ -626,6 +636,7 @@ export function readAgentEnv(
       'AI_TURN_COST_RESERVE_USD',
       AGENT_ENV_DEFAULTS.turnCostReserveUsd,
     ),
+    trialBudgetShare: readTrialBudgetShare(env),
     plannerPerUserPortions:
       (env.AI_PLANNER_PER_USER_PORTIONS ?? '').trim().toLowerCase() === 'true',
     partialServerText:
@@ -649,6 +660,16 @@ function readNonNegativeUsd(
   if (!raw) return fallback;
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Udział prób w budżecie dobowym: (0, 1], śmieci = domyślne. */
+function readTrialBudgetShare(env: NodeJS.ProcessEnv): number {
+  const raw = (env.AI_TRIAL_BUDGET_SHARE ?? '').trim();
+  if (!raw) return AGENT_ENV_DEFAULTS.trialBudgetShare;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 && value <= 1
+    ? value
+    : AGENT_ENV_DEFAULTS.trialBudgetShare;
 }
 
 /** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */

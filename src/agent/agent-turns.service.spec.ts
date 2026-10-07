@@ -56,6 +56,7 @@ const ENV: AgentEnv = {
   catalogMode: 'search',
   cacheWarmHours: 0,
   turnCostReserveUsd: 0.25,
+  trialBudgetShare: 1,
   shutdownGraceMs: 8_000,
   plannerPerUserPortions: false,
   partialServerText: false,
@@ -307,6 +308,43 @@ describe('AgentTurnsService', () => {
       expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
       expect(metrics.snapshot().rejected.budget).toBe(1);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('próba ma niższy sufit w budżecie dobowym — płacący przechodzą dalej', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        globalDailyBudgetUsd: 10,
+        trialBudgetShare: 0.6,
+        turnCostReserveUsd: 0,
+      });
+      // Wydane $6,50: ponad 60 % z $10, ale pod całym budżetem.
+      counters.read.mockResolvedValue(6_500_000);
+      counters.resolvePlan.mockResolvedValue({
+        tier: 'TRIAL',
+        source: 'TRIAL',
+        quotaScopeId: 'trial:hasz',
+        periodKey: 'trial',
+        renews: false,
+        resetsAt: null,
+        messagesLimit: 5,
+        plansLimit: 1,
+      });
+      expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+
+      // Ten sam stan budżetu, ale dom płaci — przechodzi do transakcji.
+      counters.resolvePlan.mockResolvedValue({
+        tier: 'PRO',
+        source: 'SUBSCRIPTION',
+        quotaScopeId: 'sub:1',
+        periodKey: '2026-08',
+        renews: true,
+        resetsAt: '2026-09-01T00:00:00.000Z',
+        messagesLimit: 200,
+        plansLimit: 30,
+      });
+      await codeOf(post());
+      expect(prisma.$transaction).toHaveBeenCalled();
     });
 
     it('zamykany proces (SIGTERM): tura PRZYJĘTA — trwała, wykona ją nowa instancja (Etap 5)', async () => {
