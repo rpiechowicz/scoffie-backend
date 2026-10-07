@@ -7,6 +7,8 @@ const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token';
 const APPLE_REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
 const APPLE_AUDIENCE = 'https://appleid.apple.com';
 const DEFAULT_CLIENT_ID = 'app.scoffie.ios';
+/** Limit jednego żądania do Apple przy unieważnianiu tokenów. */
+const REVOCATION_TIMEOUT_MS = 5000;
 
 /**
  * Unieważnienie tokenów Sign in with Apple przy kasowaniu konta.
@@ -127,6 +129,10 @@ export class AppleRevocationService {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(form).toString(),
+      // Bez limitu zawieszone Apple wstrzymywało ack `users:delete` —
+      // telefon czekał na usunięcie konta bez końca (audyt 7.10.2026).
+      // Przekroczenie to zwykłe `failed`: konto i tak znika.
+      signal: AbortSignal.timeout(REVOCATION_TIMEOUT_MS),
     });
   }
 }
