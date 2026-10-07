@@ -257,6 +257,39 @@ describe('HouseholdsService', () => {
     service = module.get<HouseholdsService>(HouseholdsService);
   });
 
+  /**
+   * Hasło Cookidoo sprzątane PO `membership.delete` (review 7.10.2026): zapis
+   * poświadczeń trzyma `FOR SHARE` na wierszu członkostwa, więc DELETE czeka
+   * na jego commit, a dopiero późniejsze sprzątanie widzi zapisany wiersz.
+   * Odwrotna kolejność zostawiała hasło osoby spoza domu
+   * (`test/cookidoo-credentials-race.e2e-spec.ts`).
+   */
+  const expectCookidooCleanupAfterMembershipDelete = (
+    userId: string,
+    householdId: string,
+  ) => {
+    const deleteCall = prisma.membership.delete.mock.calls.findIndex(
+      ([args]: any[]) =>
+        args?.where?.userId_householdId?.userId === userId &&
+        args?.where?.userId_householdId?.householdId === householdId,
+    );
+    const cleanupCall =
+      prisma.cookidooIntegration.deleteMany.mock.calls.findIndex(
+        ([args]: any[]) =>
+          args?.where?.connectedById === userId &&
+          args?.where?.householdId === householdId,
+      );
+    expect(deleteCall).toBeGreaterThanOrEqual(0);
+    expect(cleanupCall).toBeGreaterThanOrEqual(0);
+    expect(
+      prisma.cookidooIntegration.deleteMany.mock.invocationCallOrder[
+        cleanupCall
+      ],
+    ).toBeGreaterThan(
+      prisma.membership.delete.mock.invocationCallOrder[deleteCall],
+    );
+  };
+
   // ─── create ───────────────────────────────────────────────────────────────
 
   describe('create', () => {
@@ -749,6 +782,7 @@ describe('HouseholdsService', () => {
         }),
       );
       expect(result.leftHouseholdIds).toEqual([OTHER_HH]);
+      expectCookidooCleanupAfterMembershipDelete(STRANGER, OTHER_HH);
     });
 
     it('pusty stary dom znika, a hook odejścia jest pominięty', async () => {
@@ -1141,6 +1175,7 @@ describe('HouseholdsService', () => {
         }),
       );
       expect(result.touchedWeekStarts).toEqual(['2026-09-07']);
+      expectCookidooCleanupAfterMembershipDelete(MEMBER, HH);
     });
   });
 
@@ -1184,6 +1219,7 @@ describe('HouseholdsService', () => {
         }),
       );
       expect(result.householdDeleted).toBe(false);
+      expectCookidooCleanupAfterMembershipDelete(OWNER, HH);
     });
 
     it('nie-członek nie może wyjść z cudzego domu', async () => {

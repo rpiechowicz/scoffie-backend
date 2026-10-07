@@ -392,6 +392,21 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     });
   });
 
+  it('rola czytana W transakcji zapytaniem z blokadą FOR SHARE na Membership', async () => {
+    await service.connect(USER, 'a@b.pl', 'tajne');
+    await service.disconnect(USER);
+    const sqls = prisma.$queryRaw.mock.calls.map(([strings]: unknown[]) =>
+      (strings as TemplateStringsArray).join('?'),
+    );
+    expect(sqls).toHaveLength(2);
+    for (const sql of sqls) {
+      expect(sql).toMatch(/FROM "Membership"/);
+      expect(sql).toMatch(/FOR SHARE\s*$/);
+    }
+    // Zapytanie biegnie W transakcji zapisu, nie przed nią.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('rozłączenie po usunięciu z domu: odmowa bez kasowania', async () => {
     prisma.$queryRaw.mockResolvedValue([]);
     await expect(service.disconnect(USER)).rejects.toMatchObject({
