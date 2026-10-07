@@ -82,15 +82,15 @@ Use [`.env.example`](./.env.example) as the source of truth.
 - `DATABASE_URL`
 - `JWT_SECRET` (≥32 characters in production)
 - `REFRESH_TOKEN_PEPPER` (≥32 characters in production, different from `JWT_SECRET`)
-- `REFRESH_REUSE_GRACE_SECONDS` (60) — grace window for a *lost* rotation
+- `REFRESH_REUSE_GRACE_SECONDS` (60) — grace window for a _lost_ rotation
   response. Refresh tokens are single-use and replay revokes the whole family;
   without this window a phone suspended mid-refresh was logged out through no
   fault of its own. Recovery fires once per rotation and only while the
   successor token is still unused. It also covers the duplicate that arrives
-  *during* the rotation: the phone retransmits a POST whose connection died
+  _during_ the rotation: the phone retransmits a POST whose connection died
   before the response, so both requests carry the same token.
 - `REFRESH_STRICT_REUSE` (`true`) — what happens when a rotated token comes
-  back *after* the grace window while its successor is still unused. `true`
+  back _after_ the grace window while its successor is still unused. `true`
   (default; also when unset, empty or misspelled): treated as replay, the whole
   token family is revoked. Only an explicit `false` enables "cold" recovery
   after the window — more forgiving for a phone that lost a response, but a
@@ -175,7 +175,8 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   write that changed nothing all cost nothing. Out of plans, the tool answers
   the model with `AI_PLAN_QUOTA_EXCEEDED` instead of killing the turn.
 - `AI_ALLOWED_USERS` (empty = everyone) — comma-separated user ids or
-  e-mails allowed to start a conversation or send a message; anyone else
+  verified e-mails (`emailVerified = true`) allowed to start a conversation
+  or send a message; anyone else
   gets `503 AI_DISABLED` with `details: ['not_allowed']`, which the shipped
   iOS build renders as "assistant unavailable". The gate for the period
   between "family is testing" and consents + paywall.

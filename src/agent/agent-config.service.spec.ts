@@ -28,9 +28,11 @@ describe('AgentConfigService', () => {
     metrics = new AgentMetricsService();
     prisma = {
       user: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ id: USER_ID, email: 'Rafal@Example.com' }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: USER_ID,
+          email: 'Rafal@Example.com',
+          emailVerified: true,
+        }),
       },
     };
     consents = { hasValid: jest.fn().mockResolvedValue(false) };
@@ -105,6 +107,44 @@ describe('AgentConfigService', () => {
 
     it('przepuszcza po e-mailu bez względu na wielkość liter', async () => {
       process.env.AI_ALLOWED_USERS = 'RAFAL@example.COM';
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+    });
+
+    it('pyta bazę o emailVerified', async () => {
+      process.env.AI_ALLOWED_USERS = 'RAFAL@example.COM';
+      await service.assertUserAllowed(USER_ID);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        select: { id: true, email: true, emailVerified: true },
+      });
+    });
+
+    // Audyt 5.09.2026, 2.3.3: adres, którego dostawca nie potwierdził, nie
+    // jest dowodem tożsamości — mógłby wpuścić obcego na cudzy wpis listy.
+    it.each([
+      ['niepotwierdzony', false],
+      ['bez informacji o potwierdzeniu', undefined],
+      ['z wartością inną niż true', null],
+    ])('e-mail %s nie przepuszcza', async (_label, emailVerified) => {
+      process.env.AI_ALLOWED_USERS = 'rafal@example.com';
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        email: 'Rafal@Example.com',
+        emailVerified,
+      });
+      await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
+        code: 'AI_DISABLED',
+        details: ['not_allowed'],
+      });
+    });
+
+    it('niepotwierdzony e-mail nie przeszkadza dopasowaniu po id', async () => {
+      process.env.AI_ALLOWED_USERS = `rafal@example.com,${USER_ID}`;
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        email: 'Rafal@Example.com',
+        emailVerified: false,
+      });
       await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
     });
 
