@@ -51,6 +51,10 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
       rotowane. Railway → Postgres → Variables → nowe hasło; Backend czyta
       przez referencję → restart. Potem zaktualizować `DATABASE_PUBLIC_URL`
       w sekretach GitHuba (workflow `DB backup`) i odpalić go ręcznie.
+      **Stan 7.10.2026:** proxy TCP Postgresa usunięte (ryzyko mniejsze), ale
+      rotacja dalej potrzebna; krok z `DATABASE_PUBLIC_URL`/workflow `DB backup`
+      nieaktualny — kopia to cron na Railwayu; sekrety `DATABASE_PUBLIC_URL`
+      i `R2_BACKUP_*` w repo do skasowania.
 - [ ] **Sprawdzić zmienne na Railway PRZED merge do `main`**
       (`railway variables --service Backend`). Nowy kod odmówi startu przy:
   - `WS_AUTH_MODE=soft` → usunąć zmienną (domyślne na prod to `strict`);
@@ -62,15 +66,23 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
     istnieje, `APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY` ustawione
     (unieważnianie tokenów Apple przy kasowaniu konta, App Store 5.1.1(v)),
     `OPS_TOKEN` ≥ 32 znaki.
-- [ ] **DNS `scoffie.app`.** 5.09.2026 domena nie miała rekordu A na
+    **Stan 7.10.2026:** warunki blokujące start spełnione (prod działa na
+    `dadf008`), reszta do potwierdzenia ręcznie; `JWT_EXPIRES_IN` dłuższe niż
+    1h daje od teraz ostrzeżenie w logu startu (`assert-env.ts`, commit `e4fed61`).
+- [x] **DNS `scoffie.app`.** 5.09.2026 domena nie miała rekordu A na
       1.1.1.1 ani 8.8.8.8, `www` nie istnieje — polityka prywatności i
       regulamin z GitHub Pages (`scoffie-ios/docs`, CNAME `scoffie.app`) są
       niedostępne, a App Store wymaga działającego adresu polityki. Dodać
       rekordy A/AAAA GitHub Pages u rejestratora, włączyć „Enforce HTTPS”
       w ustawieniach repo `scoffie-ios`.
+      **Zamknięte 7.10.2026:** `scoffie.app` stoi na Cloudflare Workers
+      (repo `scoffie-web`), `/privacy`, `/terms` i `/support` odpowiadają 200.
 - [ ] **Ustawienia GitHuba** (nie widać ich z repo): ochrona gałęzi `main`
       i `develop` (PR + zielone CI), Dependabot alerts włączone w trzech
       repo, retencja artefaktów.
+      **Stan 7.10.2026:** repo backend i iOS są publiczne — ochrona gałęzi
+      darmowa i nieustawiona; secret scanning wyłączony w backendzie;
+      Dependabot alerts wyłączone w iOS, cookidoo, web i dashboard.
 
 ### 2.2. Decyzje produktowe (wymagają Twojego „tak”, potem kod)
 
@@ -81,110 +93,173 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
       „udostępniaj domownikom” per użytkownik na wzór zgody `AI_ASSISTANT`,
       (b) domownicy widzą tylko to, czego wymaga planowanie (alergeny jako
       flagi, bez celów i makr), a bilans tylko własny.
+      **Stan 7.10.2026:** sylwetka wypadła z `MemberContext`, asystent wysyła
+      alergeny tylko za zgodą; `memberPreferences` dalej oddaje cele/makra —
+      iOS z tego korzysta od 23.09 (kcal na osobę), DPIA uznaje to za istotę
+      planowania — do potwierdzenia jako świadomy wybór.
 - [ ] **RLS w Postgresie.** Dziś zero polityk i ról; izolacja gospodarstw
       jest w 100% aplikacyjna (spójna: 47 tras + 45 handlerów WS z bramką).
       Minimum: osobna rola aplikacyjna bez DDL. Docelowo `ENABLE ROW LEVEL
-  SECURITY` na tabelach z `householdId`/`userId` i polityki na
+SECURITY` na tabelach z `householdId`/`userId` i polityki na
       `current_setting('app.user_id')` ustawiane `SET LOCAL` w transakcji.
-- [ ] **Zaproszenia przez Universal Links (iOS).** Token zaproszenia idzie
+      **Stan 7.10.2026:** bez zmian — migracje nie mają żadnej polityki ani
+      osobnej roli; izolacja dalej aplikacyjna.
+- [x] **Zaproszenia przez Universal Links (iOS).** Token zaproszenia idzie
       w `scoffie://invite?token=…` (`SessionStore.swift`), a inna aplikacja
       może zarejestrować ten sam schemat i przejąć token. Potrzeba:
       entitlement `associated-domains` (`applinks:scoffie.app`), plik AASA
       na `scoffie.app` (po naprawie DNS), linki `https://scoffie.app/invite?token=…`,
       schemat jako fallback.
+      **Zamknięte 7.10.2026:** link `https://scoffie.app/zaproszenie/#<token>`
+      (token we fragmencie), `applinks:scoffie.app` w entitlements, AASA
+      z `/zaproszenie/*`. Zostaje schemat jako fallback ze strony — ryzyko
+      szczątkowe.
 - [ ] **Poświadczenia Cookidoo domu.** Każdy domownik może skasować albo
       nadpisać cudze poświadczenia (`cookidoo-integration.service.ts`
       `connect`/`disconnect`). Ograniczyć do `connectedById === userId` albo
       OWNER-a; wymaga zmiany w UI (przycisk „Rozłącz” tylko dla właściciela).
+      **Stan 7.10.2026:** bez zmian w kodzie (`connect` robi `upsert` na dom);
+      integracja Cookidoo czeka na zgodę Vorwerk i jest schowana flagą
+      w klientach — decyzja przy jej odblokowaniu.
 - [ ] **Obrazek dla prywatnego przepisu bez `imageUrl`** buduje adres
       pollinations.ai z tytułem i opisem w ścieżce (`recipes.service.ts`
       ~473–491) — telefon wysyła treść przepisu do strony trzeciej. Opcja:
       generowany adres tylko dla `isCatalog: true`, dla domu `null`.
+      **Stan 7.10.2026:** bez zmian — `resolveRecipeImageUrl` dalej buduje
+      adres pollinations dla każdego przepisu bez zdjęcia.
 
 ### 2.3. Backend — niskie, do zrobienia przy okazji
 
 - [ ] Refresh token ma okno przesuwne 60 dni bez absolutnego kresu sesji
       (`auth.service.ts` ~383–398). Dołożyć twardy limit (np. 180 dni od
       pierwszego logowania rodziny tokenów).
-- [ ] `GET /ops/health` zdradza pełny SHA commitu bez tokenu. Skrót 7 znaków
+      **Stan 7.10.2026:** bez zmian, świadomie poza rundą domknięcia.
+- [x] `GET /ops/health` zdradza pełny SHA commitu bez tokenu. Skrót 7 znaków
       albo pełny tylko w `/ops/metrics`.
-- [ ] `AI_ALLOWED_USERS` dopasowuje po e-mailu bez `emailVerified`, a
+      **Zamknięte 7.10.2026:** skrót SHA w `/ops/health` od 12.09
+      (`src/observability/ops.controller.ts`).
+- [x] `AI_ALLOWED_USERS` dopasowuje po e-mailu bez `emailVerified`, a
       `POST /auth/apple` ma fallback e-maila z DTO, gdy brak claimu
       (`auth.service.ts` ~90–91). Dopasowywać po `id` albo wymagać
       `emailVerified`; rozważyć usunięcie fallbacku.
-- [ ] `ConsentEvent.householdId` z klienta bez walidacji członkostwa
+      **Zamknięte 7.10.2026:** częściowo już wcześniej — fallback e-maila
+      z DTO Apple usunięty 21.09; teraz e-mail z listy liczy się tylko przy
+      `emailVerified === true`, id bez zmian (`agent-config.service.ts`,
+      commit `4c68ac4`).
+- [x] `ConsentEvent.householdId` z klienta bez walidacji członkostwa
       (`consents.service.ts` ~62) — `ensureMembership` albo dom z
       najstarszego członkostwa (uwaga: zgoda bywa zapisywana przed
       założeniem domu).
-- [ ] Kolejność 404→403 zdradza istnienie identyfikatorów
+      **Zamknięte 7.10.2026:** dom zapisywany tylko przy członkostwie, inaczej
+      `null` — od 12.09 (`src/consents/consents.service.ts`).
+- [x] Kolejność 404→403 zdradza istnienie identyfikatorów
       (`households.service.ts` `getHouseholdOrThrow` przed `ensureMembership`,
       `recipes.service.ts` `findById`). Członkostwo pierwsze albo ten sam 404.
+      **Zamknięte 7.10.2026:** członkostwo przed odczytem zasobu
+      w `households`/`recipes` od 21.09 (dowód `test/authz-audit.e2e-spec.ts`).
 - [ ] `weeklyPlans:getByWeek` oddaje `recipe.authorId`, `recipe.householdId`
       i pełne `RecipeIngredient`; `households:findAll/findById` oddają
       `tierOverride` i `createdById`. Ujednolicić z `recipeListSelect` /
       `HouseholdDto`.
-- [ ] Eksport RODO: notatki pamięci domu (`createdByUserId`) i karty
+      **Stan 7.10.2026:** `tierOverride` już nie wychodzi; `createdById`
+      świadomie w `HouseholdDto`; `authorId` w planie zostaje (Android ma go
+      jako wymagane pole klienta OpenAPI).
+- [x] Eksport RODO: notatki pamięci domu (`createdByUserId`) i karty
       `PLAN_WEEK`/`SWAP` niosą imiona i `participantIds` innych domowników
       (`user-export.ts` ~228–232, 332–346). Redagować do własnego id.
+      **Zamknięte 7.10.2026:** notatki pamięci od 12.09 (autor albo osoba,
+      której dotyczą); karty PLAN_WEEK/PLAN_DAY w eksporcie mają już tylko
+      własne id i porcję, inni jako liczba `otherParticipants`
+      (`redactOthersFromCard`, commit `220d986`).
 - [ ] `PURCHASE_IDENTITY_PEPPER` pusty na prod = stały fallback z kodu i
       tylko ostrzeżenie (`billing-env-problems.ts`). Przy `BILLING_ENABLED=true`
       traktować jako naruszenie (świadomie łamie zasadę „płatności nie
       blokują startu” — do decyzji).
-- [ ] `NODE_ENV` inne niż `production` na zdalnej bazie egzekwuje tylko
+      **Stan 7.10.2026:** bez zmian (do decyzji); ostrzeżenie widać teraz też
+      na Railwayu — host `*.railway.internal` dotąd je uciszał (`e4fed61`).
+- [x] `NODE_ENV` inne niż `production` na zdalnej bazie egzekwuje tylko
       sekrety, nie dev-login (`assert-env.ts`). Przy nielokalnej bazie
       `AUTH_DEV_LOGIN_ENABLED=true` też jako naruszenie.
+      **Zamknięte 7.10.2026:** dev-login przy nielokalnej bazie = odmowa
+      startu, a Railway (`RAILWAY_ENVIRONMENT*`) liczy się jako baza zdalna
+      także przy hoście `*.internal` (`assert-env.ts`, commit `e4fed61`).
 - [ ] Throttler i limitery WS w pamięci procesu — poprawne dla jednej
       instancji Railway. Przy skalowaniu: `ThrottlerStorageRedis` i wspólny
       licznik WS.
-- [ ] `prisma-migrate-deploy-safe.js` na Windows używa `shell: true` z
+      **Stan 7.10.2026:** bez zmian — jedna instancja, Redis świadomie nie.
+- [x] `prisma-migrate-deploy-safe.js` na Windows używa `shell: true` z
       `DATABASE_URL` jako argumentem (tylko dev). `shell: false` + ścieżka
       do `node_modules/.bin`.
+      **Zamknięte 7.10.2026:** `migrate diff --from-schema-datasource
+    prisma/schema.prisma` — URL z env dziecka, nie z argv (sprawdzone na
+      jednorazowej bazie; commit `a8e1239`).
 - [ ] Opcjonalnie: App Attest na `POST /auth/apple` i wysyłce wiadomości do
       asystenta, gdy asystent stanie się publicznie płatny.
+      **Stan 7.10.2026:** bez zmian — opcjonalne.
 
 ### 2.4. Cookidoo — niskie
 
 - [ ] Brak pliku blokady zależności (`requirements.txt` przypina tylko 3
       pakiety, transitive idą luzem). `pip-compile --generate-hashes`
       z Pythona 3.12 (jak w Dockerfile) i instalacja `--require-hashes`.
-- [ ] Sprawdzić, czy serwis nie ma publicznej domeny na Railway (zgadywane
+      **Stan 7.10.2026:** bez zmian — `requirements.txt` przypina 3 pakiety,
+      bez hashy.
+- [x] Sprawdzić, czy serwis nie ma publicznej domeny na Railway (zgadywane
       nazwy dawały 404; ma być tylko `*.railway.internal`).
+      **Zamknięte 7.10.2026:** na Railwayu serwis cookidoo nie ma żadnej
+      domeny ani proxy TCP.
 
 ### 2.5. iOS — do zrobienia na Macu (wymagają builda)
 
 - [ ] `NSAllowsLocalNetworking` w `Scoffie-Info.plist` obowiązuje też w
       Release. `INFOPLIST_PREPROCESS` z `#if DEBUG` albo osobny plist per
       konfiguracja.
+      **Stan 7.10.2026:** do zrobienia w skrypcie build phase na Macu.
 - [ ] Zdjąć `userId` z payloadów WS (`WebSocketRecipeTransportClient.swift`,
       `WebSocketShoppingListTransportClient.swift`, `SessionStore.swift`) —
       serwer w `strict` bierze tożsamość wyłącznie z tokenu.
+      **Stan 7.10.2026:** backend `userId` z payloadu ignoruje — świadomie
+      zostaje.
 - [ ] Profil, sylwetka, alergeny, dieta i e-mail leżą w `UserDefaults`
       (jawny plist w backupie). Przenieść do pliku JSON z
       `.completeFileProtectionUntilFirstUserAuthentication` i
       `isExcludedFromBackup = true`; e-mail do Keychain.
+      **Stan 7.10.2026:** na Maca, razem z migracją istniejących danych.
 - [ ] Cache domowników, katalogu, planu i listy zakupów w `Documents` bez
       wykluczenia z backupu. `Application Support` + `isExcludedFromBackup`
       albo `Caches`.
+      **Stan 7.10.2026:** na Maca, razem z migracją istniejących plików.
 - [ ] Nieznany kod błędu pokazuje surowy komunikat serwera
       (`UserFacingErrorMapper.swift:127`, `ConsentStore.swift:106`) — kopia
       generyczna, szczegóły tylko w DEBUG.
+      **Stan 7.10.2026:** `ConsentStore` poprawiony; `UserFacingErrorMapper`
+      na Maca.
 - [ ] Opcjonalnie: `NSPinnedDomains` dla `api.scoffie.app` (pin na klucz CA
       pośredniego + zapas).
-- [ ] CI: akcje przypięte do SHA zamiast tagów; ID klucza App Store Connect
+      **Stan 7.10.2026:** rekomendacja — odrzucić.
+- [x] CI: akcje przypięte do SHA zamiast tagów; ID klucza App Store Connect
       w `env:` zamiast w nazwie pliku trafiającej do `GITHUB_OUTPUT`.
-- [ ] Polityka prywatności i stopka logowania wymieniają Sentry jako
+      **Zamknięte 7.10.2026:** checkout przypięty do SHA (v7.0.1), gitleaks do
+      v3.0.0; ID klucza ASC w CI nieaktualne — build robi Xcode Cloud (iOS,
+      commit na gałęzi `fix/audyt-ios-ci-zgody`).
+- [x] Polityka prywatności i stopka logowania wymieniają Sentry jako
       odbiorcę błędów aplikacji, a aplikacja nie ma SDK Sentry (tylko
       backend) — doprecyzować „błędów serwera”.
+      **Zamknięte 7.10.2026 (nieaktualne):** iOS ma SDK Sentry od 23.09,
+      teksty są zgodne.
 
 ### 2.6. Dokumentacja i higiena
 
 - [ ] `docs/handover/memory/` — zapisać datę rotacji hasła bazy po jej
       wykonaniu (zasada z `docs/ROTACJA-SEKRETOW.md`).
+      **Stan 7.10.2026:** czeka na samą rotację (2.1).
 - [ ] Node na maszynie Windows to 24, projekt chce 22 (`engines`). Działa,
       ale CI i Docker chodzą na 22 — rozważyć `fnm`/`nvm` na hoście.
-- [ ] Port 5432 na Windows trzyma stary kontener `weeklymeals-db`
+      **Stan 7.10.2026:** bez zmian — host dalej na Node 24.
+- [x] Port 5432 na Windows trzyma stary kontener `weeklymeals-db`
       (poprzednia nazwa projektu) — `docker compose up db` nie wstanie,
       dopóki on żyje. Usunąć, jeśli niepotrzebny.
+      **Zamknięte 7.10.2026:** kontener `weeklymeals-db` usunięty.
 
 ## 3. Stan 20 punktów po audycie
 

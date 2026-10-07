@@ -489,7 +489,7 @@ modelu).
 
 Aplikacja jest w App Store i każdy może założyć konto. Do czasu zgód, polityki
 i paywalla `AI_ALLOWED_USERS` (identyfikatory użytkowników albo e-maile po
-przecinku; pusta = wszyscy) jest jedyną bramką między „rodzina testuje" a „obcy
+przecinku — e-mail działa tylko przy `emailVerified = true`; pusta = wszyscy) jest jedyną bramką między „rodzina testuje" a „obcy
 palą klucz". Konto spoza listy dostaje `503 AI_DISABLED` z
 `details: ['not_allowed']` — telefon pokazuje „asystent niedostępny" i blokuje
 pole. Bramka stoi tylko na założeniu rozmowy i wysłaniu wiadomości; odczyt

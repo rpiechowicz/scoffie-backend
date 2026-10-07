@@ -1,3 +1,4 @@
+import { jwtExpiresInSeconds } from '../auth/jwt-expiration.util';
 import { parseEncryptionKey } from '../common/crypto.util';
 import { throttleEnvProblems } from '../common/throttle/throttle-env';
 import { adminEnvProblems } from './admin-env';
@@ -82,6 +83,40 @@ export function isLocalDatabaseUrl(raw: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Wdrożenie na Railwayu: Railway ustawia `RAILWAY_ENVIRONMENT*` każdemu
+ * serwisowi (ta sama reguła, co `adminDevBypassEmail`).
+ */
+export function isRailwayEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return Object.keys(env).some((key) => key.startsWith('RAILWAY_ENVIRONMENT'));
+}
+
+/**
+ * Baza lokalna W TYM środowisku. Sam host nie wystarcza: na Railwayu baza
+ * siedzi pod `*.railway.internal`, który `isLocalDatabaseUrl` (słusznie dla
+ * docker-compose i `.local`) uznaje za lokalny — a to są prawdziwe dane
+ * w chmurze (audyt 5.09.2026, 2.3.9).
+ */
+export function isLocalDatabase(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isLocalDatabaseUrl(env.DATABASE_URL) && !isRailwayEnvironment(env);
+}
+
+/** Token dostępu dłuższy niż godzina żyje po wylogowaniu (audyt 2.1.2). */
+const MAX_JWT_EXPIRES_IN_SECONDS = 3600;
+
+function jwtExpiresInWarning(raw: string | undefined): string | null {
+  const seconds = jwtExpiresInSeconds(raw);
+  if (seconds === null) {
+    return `JWT_EXPIRES_IN="${(raw ?? '').trim()}" nie jest czasem, który przyjmie jsonwebtoken (np. 1h, 900) — podpis tokenu się wywróci`;
+  }
+  if (seconds > MAX_JWT_EXPIRES_IN_SECONDS) {
+    return `JWT_EXPIRES_IN=${(raw ?? '').trim()} to ponad godzinę — wylogowanie unieważnia tylko refresh token, więc token dostępu żyje dalej; usuń zmienną albo ustaw ≤ 1h`;
+  }
+  return null;
 }
 
 function secretProblem(name: string, value: string | undefined): string | null {
@@ -185,6 +220,10 @@ export function inspectRuntimeEnv(
       `${opsTokenProblem} — zrotuj na dłuższy przy najbliższej okazji`,
     );
   }
+  // Długi token dostępu też tylko ostrzega: wymuszenie ≤ 1h zablokowałoby
+  // deploy przez zapomnianą zmienną, a kod domyślnie i tak daje 1h.
+  const jwtLifetimeWarning = jwtExpiresInWarning(env.JWT_EXPIRES_IN);
+  if (jwtLifetimeWarning) productionWarnings.push(jwtLifetimeWarning);
   if (env.AUTH_DEV_LOGIN_ENABLED === 'true') {
     productionOnly.push(
       'AUTH_DEV_LOGIN_ENABLED=true — dev-login na produkcji wybija tokeny każdemu',
@@ -209,7 +248,7 @@ export function inspectRuntimeEnv(
   // deploy to cała aplikacja w dół; niedokonfigurowany paywall to tylko
   // paywall, który się nie włączy. Dlatego zawsze `warnings`.
   const billingWarnings = billingEnvProblems(env, {
-    localDatabase: isLocalDatabaseUrl(env.DATABASE_URL),
+    localDatabase: isLocalDatabase(env),
   });
 
   // Panel administratora: blokuje WYŁĄCZNIE obejście bramki Access na
@@ -237,16 +276,28 @@ export function inspectRuntimeEnv(
   // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.
   // Staging z `NODE_ENV` innym niż production i bazą w chmurze startował
   // dotąd z `dev-secret-change-me` — każdy mógł podpisać sobie token.
-  const remoteDatabase = !isLocalDatabaseUrl(env.DATABASE_URL);
+  const remoteDatabase = !isLocalDatabase(env);
   const secretViolations = remoteDatabase
     ? [jwtProblem, pepperProblem].filter((p): p is string => Boolean(p))
     : [];
+  // Dev-login wybija token dla DOWOLNEGO konta. Lokalnie (e2e, compose) to
+  // narzędzie; na prawdziwych danych w chmurze — przejęcie każdego konta,
+  // nawet gdy staging zapomni `NODE_ENV=production` (audyt 5.09.2026, 2.3.9).
+  const devLoginViolations =
+    remoteDatabase && env.AUTH_DEV_LOGIN_ENABLED === 'true'
+      ? [
+          'AUTH_DEV_LOGIN_ENABLED=true przy nielokalnej bazie — dev-login wybija tokeny każdemu',
+        ]
+      : [];
   return {
     production,
-    violations: secretViolations.map(
-      (problem) =>
-        `${problem} (baza nielokalna — sekret z repo nie wchodzi w grę)`,
-    ),
+    violations: [
+      ...secretViolations.map(
+        (problem) =>
+          `${problem} (baza nielokalna — sekret z repo nie wchodzi w grę)`,
+      ),
+      ...devLoginViolations,
+    ],
     warnings: [
       ...problems.filter((problem) => !secretViolations.includes(problem)),
       ...billingWarnings,
@@ -270,7 +321,7 @@ export function assertRuntimeEnv(
   }
   if (report.violations.length > 0) {
     throw new Error(
-      `Odmowa startu (NODE_ENV=production) — popraw zmienne środowiskowe:\n - ${report.violations.join('\n - ')}`,
+      `Odmowa startu (NODE_ENV=${env.NODE_ENV ?? 'brak'}) — popraw zmienne środowiskowe:\n - ${report.violations.join('\n - ')}`,
     );
   }
 }
