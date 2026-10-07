@@ -13,14 +13,24 @@
  * katalogu (import, panel).
  */
 
-/** Kuchnia — jedna na przepis. `OTHER` = międzynarodowa albo spoza listy. */
+/**
+ * Kuchnia — jedna na przepis. `OTHER` = międzynarodowa albo spoza listy.
+ *
+ * `FRENCH`, `MIDDLE_EASTERN` (Lewant, Turcja, Afryka Płn.) i `ASIAN`
+ * (chińska, japońska, koreańska, wietnamska — tajska i indyjska mają
+ * własne) doszły 7.10.2026: połowa katalogu stała w `OTHER`, więc filtr
+ * „wszystkie kuchnie” chował 530 przepisów.
+ */
 export const RECIPE_CUISINES = [
   'POLISH',
   'ITALIAN',
   'SPANISH',
   'GREEK',
+  'FRENCH',
+  'MIDDLE_EASTERN',
   'INDIAN',
   'THAI',
+  'ASIAN',
   'MEXICAN',
   'AMERICAN',
   'OTHER',
