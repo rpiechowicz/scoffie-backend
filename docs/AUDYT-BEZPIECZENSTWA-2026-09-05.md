@@ -115,6 +115,19 @@ SECURITY` na tabelach z `householdId`/`userId` i polityki na
       `current_setting('app.user_id')` ustawiane `SET LOCAL` w transakcji.
       **Stan 7.10.2026:** bez zmian — migracje nie mają żadnej polityki ani
       osobnej roli; izolacja dalej aplikacyjna.
+      **Decyzja 7.10.2026 (Rafał): nie teraz.** Izolacja aplikacyjna jest
+      spójna i sprawdzona (0 IDOR w 47 trasach i 45 handlerach WS, e2e
+      `test/cross-household-idor.e2e-spec.ts` i `test/authz-audit.e2e-spec.ts`),
+      a do bazy pisze jeden serwis. RLS to duża zmiana: osobne role (migracje
+      vs aplikacja), `SET LOCAL app.user_id` w KAŻDEJ transakcji, w tym
+      `runSerializable`, zamkach sesji i wyzwalaczach katalogu, oraz polityki
+      dla zapytań przekrojowych (crony, panel admina, eksport katalogu) —
+      ryzyko regresji większe niż zysk przy dzisiejszym jednym procesie.
+      **Warunek powrotu:** drugi serwis albo skrypt pisze do bazy produkcyjnej
+      z własnym kodem dostępu (np. osobny worker, narzędzie zespołu), do kodu
+      dochodzi zespół spoza jednej osoby, albo audyt znajdzie choć jeden IDOR.
+      Wtedy najpierw minimum: osobna rola aplikacyjna bez DDL (migracje
+      osobną rolą), potem RLS na tabelach z `householdId`/`userId`.
 - [x] **Zaproszenia przez Universal Links (iOS).** Token zaproszenia idzie
       w `scoffie://invite?token=…` (`SessionStore.swift`), a inna aplikacja
       może zarejestrować ten sam schemat i przejąć token. Potrzeba:
@@ -279,7 +292,7 @@ prisma/schema.prisma` — URL z env dziecka, nie z argv (sprawdzone na
 | Hide API keys                 | OK        | Klucze tylko w env; `.env` w gitignore i dockerignore; iOS bez kluczy; fallbacki w kodzie blokuje asercja na prod.    |
 | Purge secrets from Git        | OK        | Historia 3 repo bez prawdziwych kluczy; gitleaks w CI; host proxy bazy prod usunięty ze speców (5.09).                |
 | Expose only the public DB key | N/A       | Klient nie rozmawia z bazą; jedyny publiczny adres to bucket R2 ze zdjęciami.                                         |
-| Enable row-level security     | BRAK      | Izolacja aplikacyjna, spójna. Decyzja w 2.2.                                                                          |
+| Enable row-level security     | BRAK      | Izolacja aplikacyjna, spójna. Decyzja 7.10: nie teraz — uzasadnienie i warunek powrotu w 2.2.                         |
 | Encrypt sensitive data        | OK        | AES-256-GCM (Cookidoo), sha256+pepper (refresh), HMAC (tożsamość zakupowa), kopie bazy `age`; tag GCM przypięty.      |
 | Enforce server-side auth      | OK        | Każdy kontroler za JWT/ops; WS przez `actorId`; `soft` na prod = odmowa startu (5.09).                                |
 | Lock record access            | OK        | 0 IDOR w 47 trasach i 45 handlerach; tura asystenta z członkostwem (5.09); Cookidoo disconnect w 2.2.                 |
