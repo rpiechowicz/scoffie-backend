@@ -309,8 +309,13 @@ export const TAXONOMY_SEARCH_WORDS: Record<string, string> = {
   ITALIAN: 'wloska wloskie wlochy',
   SPANISH: 'hiszpanska hiszpanskie',
   GREEK: 'grecka greckie',
+  FRENCH: 'francuska francuskie francja',
+  MIDDLE_EASTERN:
+    'bliskowschodnia bliskowschodnie bliski wschod arabska arabskie turecka tureckie libanska',
   INDIAN: 'indyjska indyjskie',
   THAI: 'tajska tajskie',
+  ASIAN:
+    'azjatycka azjatyckie chinska chinskie japonska japonskie koreanska koreanskie wietnamska',
   MEXICAN: 'meksykanska meksykanskie',
   AMERICAN: 'amerykanska amerykanskie',
   SPRING: 'wiosna wiosenne',

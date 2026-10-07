@@ -167,6 +167,23 @@ describe('searchRecipes — taksonomia w tekście zapytania (katalog 1000)', () 
     expect(find('do pudełka')).toEqual(['Kanapka z indykiem']);
   });
 
+  it('nowe kuchnie (7.10.2026) trafiają po polu, gdy nazwy nie ma w tytule', () => {
+    const recipes = [
+      doc('Ratatouille z bagietką', { cuisine: 'FRENCH' }),
+      doc('Szakszuka z papryką', { cuisine: 'MIDDLE_EASTERN' }),
+      doc('Kurczak kung pao z ryżem', { cuisine: 'ASIAN' }),
+      doc('Zupa pomidorowa'),
+    ];
+    const find = (text: string) =>
+      titles(searchRecipes(recipes, query({ text }), NOBODY));
+    expect(find('coś francuskiego')).toEqual(['Ratatouille z bagietką']);
+    expect(find('francuskie')).toEqual(['Ratatouille z bagietką']);
+    expect(find('bliskowschodnie')).toEqual(['Szakszuka z papryką']);
+    expect(find('arabskie')).toEqual(['Szakszuka z papryką']);
+    expect(find('azjatyckie')).toEqual(['Kurczak kung pao z ryżem']);
+    expect(find('chińskie')).toEqual(['Kurczak kung pao z ryżem']);
+  });
+
   it('wyszukiwarka nie stosuje reguł dnia planera — karp jest i w lipcu', () => {
     const recipes = [
       doc('Karp smażony', {
