@@ -28,6 +28,8 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
   const createdUserIds: string[] = [];
   const createdHouseholdIds: string[] = [];
   const validated: string[] = [];
+  /** Wstrzyknięcie w środek walidacji u Vorwerka (sekundy na prod). */
+  let duringValidation: (() => Promise<unknown>) | null = null;
 
   const devLogin = async (label: string): Promise<Session> => {
     const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -59,6 +61,7 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
   let owner: Session;
   let autor: Session;
   let domownik: Session;
+  let drugiWlasciciel: Session;
   let householdId: string;
 
   const stored = () =>
@@ -69,8 +72,9 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
 
   beforeAll(async () => {
     process.env.THROTTLE_AUTH_LIMIT = '10000';
-    // Uwaga: `connect` ma stały limit 5 na 10 minut (`COOKIDOO_CONNECT_LIMIT`)
-    // — suita robi dokładnie pięć prób; szósta dostałaby 429.
+    // Uwaga: `connect` ma stały limit 5 na 10 minut NA OSOBĘ
+    // (`COOKIDOO_CONNECT_LIMIT`, tracker `user:<id>`) — żadna osoba w suicie
+    // nie robi więcej niż trzech prób.
     delete process.env.COOKIDOO_INTEGRATION_ENABLED;
     process.env.COOKIDOO_ENCRYPTION_KEY ??=
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
@@ -80,9 +84,12 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
     })
       .overrideProvider(CookidooServiceClient)
       .useValue({
-        validateCredentials: (email: string) => {
+        validateCredentials: async (email: string) => {
           validated.push(email);
-          return Promise.resolve({ subscription: null });
+          const hook = duringValidation;
+          duringValidation = null;
+          if (hook) await hook();
+          return { subscription: null };
         },
         addToWeek: () => Promise.resolve({}),
       })
@@ -97,9 +104,10 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
     owner = await devLogin('Wlasciciel');
     autor = await devLogin('Autor');
     domownik = await devLogin('Domownik');
+    drugiWlasciciel = await devLogin('DrugiWlasciciel');
     // Dom zakładany wprost: ma to być NAJSTARSZE członkostwo każdego z nich
     // (tak serwis wybiera dom), więc dev-login nie może mieć własnego domu.
-    for (const s of [owner, autor, domownik]) {
+    for (const s of [owner, autor, domownik, drugiWlasciciel]) {
       await prisma.membership.deleteMany({ where: { userId: s.user.id } });
     }
     const household = await prisma.household.create({
@@ -113,6 +121,7 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
         { userId: owner.user.id, householdId, role: 'OWNER' },
         { userId: autor.user.id, householdId, role: 'MEMBER' },
         { userId: domownik.user.id, householdId, role: 'MEMBER' },
+        { userId: drugiWlasciciel.user.id, householdId, role: 'OWNER' },
       ],
     });
   });
@@ -196,5 +205,34 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
     expect((await stored())?.connectedById).toBe(owner.user.id);
     // Domownik, który podłączył wcześniej, nie jest już autorem.
     await disconnect(domownik).expect(403);
+  });
+
+  // ─── review 7.10.2026: rola zmienia się w trakcie walidacji u Vorwerka ───
+  // Rola czytana przed `validateCredentials` mogła być nieaktualna, gdy
+  // przychodził zapis. Teraz zapis czyta członkostwo od nowa, pod blokadą.
+
+  it('właściciel zdegradowany W TRAKCIE walidacji nie nadpisuje cudzego połączenia', async () => {
+    duringValidation = () =>
+      prisma.membership.update({
+        where: {
+          userId_householdId: { userId: drugiWlasciciel.user.id, householdId },
+        },
+        data: { role: 'MEMBER' },
+      });
+    const res = await connect(drugiWlasciciel, 'drugi@example.com').expect(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+    expect((await stored())?.connectedById).toBe(owner.user.id);
+  });
+
+  it('usunięty z domu W TRAKCIE walidacji niczego nie zapisuje', async () => {
+    await disconnect(owner).expect(200);
+    duringValidation = () =>
+      prisma.membership.delete({
+        where: {
+          userId_householdId: { userId: domownik.user.id, householdId },
+        },
+      });
+    await connect(domownik, 'usuniety@example.com').expect(403);
+    expect(await stored()).toBeNull();
   });
 });

@@ -133,7 +133,7 @@ export class CookidooIntegrationService {
       lastVerifiedAt: now,
       lastErrorCode: null,
     };
-    await this.writeCredentials(userId, membership, encrypted);
+    await this.writeCredentials(userId, householdId, encrypted);
     // Podanie hasła JEST zgodą na przekazanie go usłudze trzeciej (polityka
     // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić.
     await this.consents?.recordSystem(
@@ -157,7 +157,12 @@ export class CookidooIntegrationService {
   }
 
   /**
-   * Zapis poświadczeń z bramką „autor albo właściciel" W SAMYM ZAPISIE.
+   * Zapis poświadczeń z bramką „autor albo właściciel" W TRANSAKCJI ZAPISU.
+   *
+   * Rola z `resolveMembership` jest sprzed walidacji u Vorwerka (sekundy) —
+   * w tym czasie pytający mógł zostać zdegradowany albo usunięty z domu
+   * (Codex, review 7.10.2026). Dlatego członkostwo i rola są czytane od nowa,
+   * z blokadą wiersza (`lockMembership`), i dopiero na nich opiera się zapis.
    *
    * Właściciel nadpisuje zawsze (`upsert`). Domownik: aktualizacja tylko
    * wiersza, który sam podłączył; brak takiego wiersza = pierwsze podłączenie
@@ -167,26 +172,29 @@ export class CookidooIntegrationService {
    */
   private async writeCredentials(
     userId: string,
-    membership: HouseholdMembershipRef,
+    householdId: string,
     data: Omit<Prisma.CookidooIntegrationUncheckedCreateInput, 'householdId'>,
   ): Promise<void> {
-    const { householdId } = membership;
-    if (membership.role === 'OWNER') {
-      await this.prisma.cookidooIntegration.upsert({
-        where: { householdId },
-        create: { householdId, ...data },
-        update: data,
-      });
-      return;
-    }
-    const own = await this.prisma.cookidooIntegration.updateMany({
-      where: { householdId, connectedById: userId },
-      data,
-    });
-    if (own.count > 0) return;
     try {
-      await this.prisma.cookidooIntegration.create({
-        data: { householdId, ...data },
+      await this.prisma.$transaction(async (tx) => {
+        const role = await this.lockMembership(tx, userId, householdId);
+        if (!role) throw this.notConnectorError();
+        if (role === 'OWNER') {
+          await tx.cookidooIntegration.upsert({
+            where: { householdId },
+            create: { householdId, ...data },
+            update: data,
+          });
+          return;
+        }
+        const own = await tx.cookidooIntegration.updateMany({
+          where: { householdId, connectedById: userId },
+          data,
+        });
+        if (own.count > 0) return;
+        await tx.cookidooIntegration.create({
+          data: { householdId, ...data },
+        });
       });
     } catch (error) {
       if (
@@ -197,6 +205,29 @@ export class CookidooIntegrationService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Rola pytającego w domu, czytana W transakcji z `FOR SHARE` na jego wierszu
+   * `Membership`; `null` = już nie jest domownikiem.
+   *
+   * Blokada szereguje zapis poświadczeń z degradacją (`UPDATE` roli) i
+   * usunięciem z domu (`DELETE` członkostwa): albo tamto czeka na nasz commit
+   * (i sprzątanie `revokeCookidooCredentialsOf`, które biegnie PO usunięciu
+   * członkostwa, widzi już nasz wiersz), albo my czekamy i czytamy stan po
+   * nim. `FOR SHARE`, nie `FOR UPDATE`: dwa równoległe zapisy tego samego
+   * domownika nie muszą się wykluczać — to robi unikalny `householdId`.
+   */
+  private async lockMembership(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    householdId: string,
+  ): Promise<MembershipRole | null> {
+    const rows = await tx.$queryRaw<{ role: MembershipRole }[]>`
+      SELECT "role" FROM "Membership"
+      WHERE "userId" = ${userId}::uuid AND "householdId" = ${householdId}::uuid
+      FOR SHARE`;
+    return rows[0]?.role ?? null;
   }
 
   async status(userId: string): Promise<CookidooStatusView> {
@@ -246,22 +277,29 @@ export class CookidooIntegrationService {
   async disconnect(
     userId: string,
   ): Promise<{ connected: false; enabled: boolean }> {
-    const membership = await this.resolveMembership(userId);
-    const { householdId } = membership;
-    // Warunek w samym DELETE: odczyt „kto podłączył" i kasowanie nie mogą się
-    // rozjechać, gdy ktoś równolegle podłącza dom od nowa.
-    const removed = await this.prisma.cookidooIntegration.deleteMany({
-      where:
-        membership.role === 'OWNER'
-          ? { householdId }
-          : { householdId, connectedById: userId },
-    });
-    if (removed.count === 0 && membership.role !== 'OWNER') {
-      const foreign = await this.prisma.cookidooIntegration.count({
-        where: { householdId },
+    const { householdId } = await this.resolveMembership(userId);
+    // Rola czytana od nowa W transakcji, pod blokadą wiersza członkostwa
+    // (`lockMembership`) — zdegradowany albo usunięty w międzyczasie nie
+    // skasuje cudzych poświadczeń. Warunek w samym DELETE: odczyt „kto
+    // podłączył" i kasowanie nie mogą się rozjechać, gdy ktoś równolegle
+    // podłącza dom od nowa.
+    const removed = await this.prisma.$transaction(async (tx) => {
+      const role = await this.lockMembership(tx, userId, householdId);
+      if (!role) throw this.notConnectorError();
+      const result = await tx.cookidooIntegration.deleteMany({
+        where:
+          role === 'OWNER'
+            ? { householdId }
+            : { householdId, connectedById: userId },
       });
-      if (foreign > 0) throw this.notConnectorError();
-    }
+      if (result.count === 0 && role !== 'OWNER') {
+        const foreign = await tx.cookidooIntegration.count({
+          where: { householdId },
+        });
+        if (foreign > 0) throw this.notConnectorError();
+      }
+      return result;
+    });
     if (removed.count > 0) {
       await this.consents?.recordSystem(
         userId,

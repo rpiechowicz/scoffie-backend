@@ -21,6 +21,8 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
   };
   let prisma: {
     membership: { findFirst: jest.Mock };
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     cookidooIntegration: {
       findUnique: jest.Mock;
       upsert: jest.Mock;
@@ -39,12 +41,18 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
           .fn()
           .mockResolvedValue({ householdId: HOUSEHOLD, role: 'OWNER' }),
       },
+      // Transakcja zapisu dostaje ten sam obiekt; rola czytana pod blokadą.
+      $transaction: jest.fn(),
+      $queryRaw: jest.fn().mockResolvedValue([{ role: 'OWNER' }]),
       cookidooIntegration: {
         findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$transaction.mockImplementation((run: (tx: unknown) => unknown) =>
+      run(prisma),
+    );
     client = {
       validateCredentials: jest.fn().mockResolvedValue({ subscription: null }),
       addToWeek: jest.fn().mockResolvedValue({}),
@@ -133,6 +141,8 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
   const originalFlag = process.env.COOKIDOO_INTEGRATION_ENABLED;
   let prisma: {
     membership: { findFirst: jest.Mock };
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     cookidooIntegration: {
       findUnique: jest.Mock;
       upsert: jest.Mock;
@@ -145,11 +155,14 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
   let client: { validateCredentials: jest.Mock; addToWeek: jest.Mock };
   let service: CookidooIntegrationService;
 
-  const asRole = (role: 'OWNER' | 'MEMBER') =>
+  const asRole = (role: 'OWNER' | 'MEMBER') => {
     prisma.membership.findFirst.mockResolvedValue({
       householdId: HOUSEHOLD,
       role,
     });
+    // Ta sama rola przy ponownym odczycie W transakcji zapisu.
+    prisma.$queryRaw.mockResolvedValue([{ role }]);
+  };
   const storedBy = (connectedById: string | null) => ({
     householdId: HOUSEHOLD,
     emailEncrypted: encryptSecret('rafal@example.com', parseEncryptionKey(KEY)),
@@ -164,6 +177,8 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
     delete process.env.COOKIDOO_INTEGRATION_ENABLED;
     prisma = {
       membership: { findFirst: jest.fn() },
+      $transaction: jest.fn(),
+      $queryRaw: jest.fn(),
       cookidooIntegration: {
         findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
@@ -173,6 +188,9 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
         count: jest.fn().mockResolvedValue(0),
       },
     };
+    prisma.$transaction.mockImplementation((run: (tx: unknown) => unknown) =>
+      run(prisma),
+    );
     client = {
       validateCredentials: jest.fn().mockResolvedValue({ subscription: null }),
       addToWeek: jest.fn().mockResolvedValue({}),
@@ -312,6 +330,74 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
       connectedById: OTHER,
       canManage: false,
     });
+  });
+
+  // ─── review 7.10.2026: rola zmienia się w trakcie walidacji u Vorwerka ───
+
+  it('właściciel zdegradowany W TRAKCIE walidacji nie nadpisuje cudzego połączenia', async () => {
+    asRole('OWNER');
+    prisma.cookidooIntegration.findUnique.mockResolvedValue({
+      connectedById: OTHER,
+    });
+    client.validateCredentials.mockImplementation(() => {
+      // Inny właściciel degraduje pytającego, zanim Vorwerk odpowie.
+      prisma.$queryRaw.mockResolvedValue([{ role: 'MEMBER' }]);
+      prisma.cookidooIntegration.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+      return Promise.resolve({ subscription: null });
+    });
+
+    await expect(
+      service.connect(USER, 'a@b.pl', 'tajne'),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(prisma.cookidooIntegration.upsert).not.toHaveBeenCalled();
+    expect(prisma.cookidooIntegration.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { householdId: HOUSEHOLD, connectedById: USER },
+      }),
+    );
+  });
+
+  it('usunięty z domu W TRAKCIE walidacji niczego nie zapisuje', async () => {
+    client.validateCredentials.mockImplementation(() => {
+      prisma.$queryRaw.mockResolvedValue([]);
+      return Promise.resolve({ subscription: null });
+    });
+
+    await expect(
+      service.connect(USER, 'a@b.pl', 'tajne'),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(prisma.cookidooIntegration.upsert).not.toHaveBeenCalled();
+    expect(prisma.cookidooIntegration.updateMany).not.toHaveBeenCalled();
+    expect(prisma.cookidooIntegration.create).not.toHaveBeenCalled();
+  });
+
+  it('rozłączenie liczy rolę pod blokadą: zdegradowany właściciel kasuje tylko własne', async () => {
+    prisma.membership.findFirst.mockResolvedValue({
+      householdId: HOUSEHOLD,
+      role: 'OWNER',
+    });
+    prisma.$queryRaw.mockResolvedValue([{ role: 'MEMBER' }]);
+    prisma.cookidooIntegration.count.mockResolvedValue(1);
+
+    await expect(service.disconnect(USER)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(prisma.cookidooIntegration.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: HOUSEHOLD, connectedById: USER },
+    });
+  });
+
+  it('rozłączenie po usunięciu z domu: odmowa bez kasowania', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+    await expect(service.disconnect(USER)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(prisma.cookidooIntegration.deleteMany).not.toHaveBeenCalled();
   });
 
   it('status: autor i właściciel widzą pełny e-mail', async () => {
