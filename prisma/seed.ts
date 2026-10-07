@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { isLocalDatabaseUrl } from '../src/config/assert-env';
+import { isLocalDatabase } from '../src/config/assert-env';
 import { normalizeText } from '../src/common/normalize-text.util';
 import { hashInvitationToken } from '../src/households/invitation-token.util';
 
@@ -13,7 +13,8 @@ const prisma = new PrismaClient();
  */
 function assertSeedAllowed(): void {
   const today = new Date().toISOString().slice(0, 10);
-  if (!isLocalDatabaseUrl(process.env.DATABASE_URL)) {
+  // Na Railwayu `*.railway.internal` to prawdziwa baza, nie docker-compose.
+  if (!isLocalDatabase(process.env)) {
     throw new Error(
       'Seed kasuje całą bazę i działa wyłącznie na lokalnym DATABASE_URL (localhost / docker). Nic nie zmieniono.',
     );
