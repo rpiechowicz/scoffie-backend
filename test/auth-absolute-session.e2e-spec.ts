@@ -175,5 +175,17 @@ describe('Absolutny kres sesji refresh (e2e, żywa baza)', () => {
       0,
     );
     expect(await tokenVersion(session.userId)).toBe(versionBefore);
+
+    // Kres stoi też na NASTĘPCY wydanym przez ratunek: odziedziczył początek
+    // sesji, więc żywy, nieużyty token po kresie też dostaje 401 — ratunek
+    // nie jest furtką do przedłużenia sesji.
+    const successor = after.find(
+      (row) => row.revokedAt === null && row.revokedReason === null,
+    );
+    expect(successor?.sessionStartedAt.toISOString()).toBe(
+      after[0].sessionStartedAt.toISOString(),
+    );
+    await refresh(recovered.body.refreshToken as string).expect(401);
+    expect(await tokenVersion(session.userId)).toBe(versionBefore);
   });
 });
