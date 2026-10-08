@@ -5,6 +5,7 @@ import { productLimits } from '../config/subscription-products';
 import {
   purchaseIdentityHashForUser,
   subscriptionScopeId,
+  TRIAL_SCOPE_PREFIX,
   trialScopeId,
 } from '../config/purchase-identity';
 import {
@@ -87,6 +88,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Okres darmowej puli: klucz licznika i chwila, w której wraca pula. */
 export type FreeCycle = { periodKey: string; resetsAt: string | null };
+
+/**
+ * Kotwica dla zużycia sprzed odnawiania (licznik `trial` bez kotwicy): jeden
+ * cykl wstecz, czyli świeża pula od razu — ta sama reguła co migracja
+ * `darmowa_pula_co_30_dni`. Nie z `updatedAt` licznika: ta data przesuwa się
+ * przy każdym naliczeniu i zwrocie, więc nie mówi, kiedy było pierwsze użycie.
+ * Nowe zużycie ma kotwicę od razu (`tryConsume`), więc ta ścieżka dotyczy
+ * wyłącznie liczników z jednorazowej próby (także z okna wdrożenia).
+ */
+export function legacyFreeAnchor(now: Date, renewDays: number): Date {
+  return new Date(now.getTime() - renewDays * DAY_MS);
+}
 
 /**
  * Bieżący cykl darmowej puli — czysta arytmetyka, wspólna dla asystenta
@@ -399,15 +412,15 @@ export class AiUsageCountersService {
   }
 
   /**
-   * Cykl darmowej puli osoby. Kotwica powstaje TUTAJ, przy pierwszym
-   * odczycie planu po pierwszym użyciu (jest już licznik `trial`, a kotwicy
-   * nie ma) — każde zdjęcie kwoty idzie po `resolvePlan`, więc następne
-   * żądanie po pierwszej wiadomości ją wbija. Data = najstarszy zapis
-   * licznika, czyli w praktyce chwila pierwszego użycia.
+   * Cykl darmowej puli osoby. Kotwicę (chwilę pierwszego użycia) wbija
+   * `tryConsume` w transakcji pierwszego udanego pobrania — także przy
+   * odnawianiu wyłączonym, żeby późniejsze włączenie liczyło od prawdziwego
+   * początku.
    *
-   * Dlaczego nie w transakcji `tryConsume`: odmowa (pusta pula) wycofuje
-   * transakcję razem z kotwicą, więc ktoś, kto zużył pulę w oknie wdrożenia
-   * na starej instancji, nie dostałby kotwicy nigdy — i nowej puli też.
+   * Licznik `trial` bez kotwicy to zużycie sprzed odnawiania (jednorazowa
+   * próba, też z okna wdrożenia na starej instancji). Dostaje kotwicę jak
+   * w migracji — `legacyFreeAnchor`, świeża pula od razu. Wbijamy ją poza
+   * transakcją pobrania: tam odmowa (pusta pula) wycofałaby ją razem z resztą.
    * `skipDuplicates` = `ON CONFLICT DO NOTHING`: dwa równoległe żądania
    * wbijają jedną kotwicę, a po zapisie czytamy ją z bazy.
    */
@@ -423,30 +436,27 @@ export class AiUsageCountersService {
     });
     if (existing) return freeCycle(existing.anchoredAt, now, renewDays);
 
-    const firstUse = await this.prisma.aiUsageCounter.findFirst({
+    const legacyUse = await this.prisma.aiUsageCounter.findFirst({
       where: {
         scopeId,
         periodKey: TRIAL_PERIOD_KEY,
         kind: { in: ['messages', 'plans'] },
+        value: { gt: 0 },
       },
-      orderBy: { updatedAt: 'asc' },
-      select: { updatedAt: true },
+      select: { scopeId: true },
     });
-    if (!firstUse) return freeCycle(null, now, renewDays);
+    if (!legacyUse) return freeCycle(null, now, renewDays);
 
+    const legacyAnchor = legacyFreeAnchor(now, renewDays);
     await this.prisma.aiFreeQuotaCycle.createMany({
-      data: [{ scopeId, anchoredAt: firstUse.updatedAt }],
+      data: [{ scopeId, anchoredAt: legacyAnchor }],
       skipDuplicates: true,
     });
     const anchored = await this.prisma.aiFreeQuotaCycle.findUnique({
       where: { scopeId },
       select: { anchoredAt: true },
     });
-    return freeCycle(
-      anchored?.anchoredAt ?? firstUse.updatedAt,
-      now,
-      renewDays,
-    );
+    return freeCycle(anchored?.anchoredAt ?? legacyAnchor, now, renewDays);
   }
 
   private proPlan(
@@ -535,6 +545,12 @@ export class AiUsageCountersService {
   /**
    * Zdejmuje 1 z kwoty, jeśli jest z czego. `false` = limit wyczerpany
    * (wołający oddaje 429 `AI_QUOTA_EXCEEDED`). Limit 0 nigdy nie przechodzi.
+   *
+   * Pierwsze udane pobranie z darmowej puli wbija kotwicę cyklu osoby
+   * (`AiFreeQuotaCycle`) w tej samej transakcji: wycofane pobranie = brak
+   * kotwicy, a `skipDuplicates` zostawia pierwszą datę na zawsze. Niezależnie
+   * od `AI_TRIAL_RENEW_DAYS` — włączenie odnawiania później liczy wtedy od
+   * prawdziwego pierwszego użycia (Codex, 8.10.2026).
    */
   async tryConsume(
     client: UsageCounterClient,
@@ -550,7 +566,14 @@ export class AiUsageCountersService {
       where: { scopeId, periodKey, kind, value: { lt: limit } },
       data: { value: { increment: 1 } },
     });
-    return consumed.count === 1;
+    if (consumed.count !== 1) return false;
+    if (scopeId.startsWith(TRIAL_SCOPE_PREFIX)) {
+      await client.aiFreeQuotaCycle.createMany({
+        data: [{ scopeId, anchoredAt: new Date() }],
+        skipDuplicates: true,
+      });
+    }
+    return true;
   }
 
   /**

@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   AiUsageCountersService,
+  legacyFreeAnchor,
   TRIAL_PERIOD_KEY,
 } from '../../agent/ai-usage-counters.service';
 import { AppException } from '../../common/app-exception';
@@ -426,25 +427,23 @@ export class AdminHouseholdsService {
         : []
       ).map((row) => [row.scopeId, row.anchoredAt]),
     );
-    // Zakres z licznikiem `trial`, a bez kotwicy: osoba już użyła puli, ale
-    // jeszcze nie wróciła z żądaniem, które kotwicę wbija. `resolvePlan`
-    // wbije ją z najstarszego zapisu licznika — panel liczy z tej samej daty,
-    // tylko bez zapisu, więc oba pokazują ten sam cykl.
+    // Zużyty licznik `trial` bez kotwicy: zużycie sprzed odnawiania, które
+    // jeszcze nie wróciło z żądaniem. `resolvePlan` wbije mu kotwicę
+    // `legacyFreeAnchor` — panel liczy z tej samej reguły, tylko bez zapisu,
+    // więc oba pokazują ten sam cykl.
     const unanchored = [...trialScopes].filter((id) => !freeAnchors.has(id));
-    if (unanchored.length > 0) {
-      const firstUses = await tx.aiUsageCounter.groupBy({
+    if (unanchored.length > 0 && env.trialRenewDays > 0) {
+      const legacyUses = await tx.aiUsageCounter.groupBy({
         by: ['scopeId'],
         where: {
           scopeId: { in: unanchored },
           periodKey: TRIAL_PERIOD_KEY,
           kind: { in: ['messages', 'plans'] },
+          value: { gt: 0 },
         },
-        _min: { updatedAt: true },
       });
-      for (const row of firstUses) {
-        if (row._min.updatedAt)
-          freeAnchors.set(row.scopeId, row._min.updatedAt);
-      }
+      const legacyAnchor = legacyFreeAnchor(now, env.trialRenewDays);
+      for (const row of legacyUses) freeAnchors.set(row.scopeId, legacyAnchor);
     }
 
     const resolutions = households.map((household) => ({

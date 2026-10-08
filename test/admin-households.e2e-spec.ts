@@ -47,6 +47,8 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
   const createdHouseholdIds: string[] = [];
   const createdSubscriptionIds: string[] = [];
   const createdScopeIds: string[] = [];
+  /** Kotwica darmowej puli Bartka — pierwsze pobranie dwa dni temu. */
+  let bartekFirstUse = new Date();
 
   const ids = {
     trial: '',
@@ -262,6 +264,17 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     await setCounter(`trial:${users.Ania.hash}`, 'trial', 'messages', 1);
     await setCounter(`trial:user:${users.Bartek.id}`, 'trial', 'messages', 4);
     await setCounter(`trial:user:${users.Bartek.id}`, 'trial', 'plans', 1);
+    // Zużycie pod nowym kodem ma kotwicę od pierwszego pobrania (`tryConsume`).
+    // Licznik Ani jest bez kotwicy, czyli sprzed odnawiania (legacyFreeAnchor).
+    bartekFirstUse = new Date(now - 2 * DAY);
+    await prisma.aiFreeQuotaCycle.upsert({
+      where: { scopeId: `trial:user:${users.Bartek.id}` },
+      create: {
+        scopeId: `trial:user:${users.Bartek.id}`,
+        anchoredAt: bartekFirstUse,
+      },
+      update: { anchoredAt: bartekFirstUse },
+    });
 
     // ——— nadanie operatora, mimo żywej Rodziny właściciela ———
     await createUser('Celina', {
@@ -546,19 +559,15 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     it('próba: pula domownika, który zużył najwięcej — ta sama, co u asystenta', async () => {
       const item = await listItem(ids.trial);
       expect(item.plan).toEqual({ kind: 'trial' });
-      // Darmowa pula wraca 30 dni po pierwszym użyciu (najstarszy zapis
-      // licznika) — panel liczy to samo, co asystent, zanim ten wbije kotwicę.
-      const firstUse = await prisma.aiUsageCounter.findFirst({
-        where: { scopeId: `trial:user:${users.Bartek.id}`, periodKey: 'trial' },
-        orderBy: { updatedAt: 'asc' },
-        select: { updatedAt: true },
-      });
+      // Darmowa pula wraca 30 dni po pierwszym użyciu (kotwica z pierwszego
+      // pobrania) — panel liczy to samo, co asystent. Ania ma licznik sprzed
+      // odnawiania: świeża pula, więc „zużył najwięcej” dalej Bartek.
       expect(item.pool).toEqual({
         scopeId: `trial:user:${users.Bartek.id}`,
         messages: { used: 4, limit: 5 },
         plans: { used: 1, limit: 1 },
         resetsAt: new Date(
-          firstUse!.updatedAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+          bartekFirstUse.getTime() + 30 * 24 * 60 * 60 * 1000,
         ).toISOString(),
       });
       await expectSameAsAssistant(item.pool, ids.trial, 'Bartek');

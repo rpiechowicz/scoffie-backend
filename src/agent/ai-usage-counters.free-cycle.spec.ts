@@ -115,24 +115,35 @@ describe('resolvePlan — cykl darmowej puli', () => {
     expect(prisma.aiFreeQuotaCycle.createMany).not.toHaveBeenCalled();
   });
 
-  it('pierwsze użycie bez kotwicy: kotwica = najstarszy zapis licznika', async () => {
-    prisma.aiUsageCounter.findFirst.mockResolvedValue({ updatedAt: ANCHOR });
+  // Codex 8.10.2026: kotwica z `updatedAt` licznika przesuwała się z każdym
+  // naliczeniem. Zużycie sprzed odnawiania dostaje regułę migracji.
+  it('zużycie sprzed odnawiania bez kotwicy: cykl wstecz — świeża pula od razu', async () => {
+    prisma.aiUsageCounter.findFirst.mockResolvedValue({
+      scopeId: `trial:${HASH}`,
+    });
     prisma.aiFreeQuotaCycle.findUnique
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ anchoredAt: ANCHOR });
+      .mockResolvedValueOnce({ anchoredAt: at(-29) });
 
     const plan = await counters.resolvePlan(HOUSE, { userId: USER }, at(1));
+    expect(prisma.aiUsageCounter.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ value: { gt: 0 } }),
+      }),
+    );
     expect(prisma.aiFreeQuotaCycle.createMany).toHaveBeenCalledWith({
-      data: [{ scopeId: `trial:${HASH}`, anchoredAt: ANCHOR }],
+      data: [{ scopeId: `trial:${HASH}`, anchoredAt: at(-29) }],
       skipDuplicates: true,
     });
-    expect(plan.periodKey).toBe('trial');
-    expect(plan.resetsAt).toBe(at(30).toISOString());
+    expect(plan.periodKey).toBe('free:2026-10-08');
+    expect(plan.resetsAt).toBe(at(31).toISOString());
   });
 
   it('równoległe żądanie wbiło kotwicę pierwsze — liczymy od JEGO daty', async () => {
     const earlier = at(-1);
-    prisma.aiUsageCounter.findFirst.mockResolvedValue({ updatedAt: ANCHOR });
+    prisma.aiUsageCounter.findFirst.mockResolvedValue({
+      scopeId: `trial:${HASH}`,
+    });
     prisma.aiFreeQuotaCycle.findUnique
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ anchoredAt: earlier });
@@ -159,6 +170,72 @@ describe('resolvePlan — cykl darmowej puli', () => {
       resetsAt: null,
     });
     expect(prisma.aiFreeQuotaCycle.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('tryConsume — kotwica cyklu przy pierwszym pobraniu', () => {
+  const SCOPE = 'trial:hasz';
+  let client: {
+    aiUsageCounter: { createMany: jest.Mock; updateMany: jest.Mock };
+    aiFreeQuotaCycle: { createMany: jest.Mock };
+  };
+  let counters: AiUsageCountersService;
+
+  beforeEach(() => {
+    client = {
+      aiUsageCounter: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      aiFreeQuotaCycle: {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    counters = new AiUsageCountersService({} as PrismaService);
+  });
+
+  const consume = (scopeId: string) =>
+    counters.tryConsume(
+      client as unknown as PrismaService,
+      scopeId,
+      TRIAL_PERIOD_KEY,
+      'messages',
+      5,
+    );
+
+  it('udane pobranie z darmowej puli wbija kotwicę, pierwsza data zostaje', async () => {
+    jest.useFakeTimers({ now: ANCHOR });
+    try {
+      expect(await consume(SCOPE)).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(client.aiFreeQuotaCycle.createMany).toHaveBeenCalledWith({
+      data: [{ scopeId: SCOPE, anchoredAt: ANCHOR }],
+      skipDuplicates: true,
+    });
+  });
+
+  it('odmowa (pusta pula) nie wbija kotwicy', async () => {
+    client.aiUsageCounter.updateMany.mockResolvedValue({ count: 0 });
+    expect(await consume(SCOPE)).toBe(false);
+    expect(client.aiFreeQuotaCycle.createMany).not.toHaveBeenCalled();
+  });
+
+  it('subskrypcja i dom — bez kotwicy darmowej puli', async () => {
+    expect(await consume('sub:1')).toBe(true);
+    expect(await consume('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).toBe(true);
+    expect(client.aiFreeQuotaCycle.createMany).not.toHaveBeenCalled();
+  });
+
+  // Scenariusz Codexa: start 8.10 przy odnawianiu wyłączonym, ostatnia
+  // wiadomość 5.11, włączenie 8.11. Kotwica z pierwszego pobrania daje
+  // świeżą pulę od 7.11, a nie dopiero od 5.12.
+  it('odnawianie włączone później liczy od pierwszego pobrania', () => {
+    const firstUse = new Date('2026-10-08T10:00:00.000Z');
+    const cycle = freeCycle(firstUse, new Date('2026-11-08T10:00:00Z'), 30);
+    expect(cycle.periodKey).toBe('free:2026-11-07');
+    expect(cycle.resetsAt).toBe('2026-12-07T10:00:00.000Z');
   });
 });
 
