@@ -221,7 +221,11 @@ describe('podpis JWS', () => {
     ).toBe('ROOT_NOT_PINNED');
   });
 
-  it('poprawny łańcuch z niepasującym podpisem nie przechodzi', () => {
+  it('przypięty korzeń w roli liścia nie przechodzi — to nie łańcuch podpisu App Store', () => {
+    // Dawniej ten test kończył się na BAD_SIGNATURE. Od 7.10.2026 kształt
+    // łańcucha (trzy ogniwa, znaczniki ról Apple) rozstrzyga WCZEŚNIEJ niż
+    // podpis — zły podpis pod dobrym łańcuchem sprawdza spec „positive”.
+
     expect(
       codeOf(() =>
         verifyAppleJws(
@@ -234,7 +238,7 @@ describe('podpis JWS', () => {
           { now: NOW },
         ),
       ),
-    ).toBe('BAD_SIGNATURE');
+    ).toBe('CHAIN_NOT_APP_STORE');
   });
 });
 

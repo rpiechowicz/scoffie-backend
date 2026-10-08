@@ -54,6 +54,7 @@ const ENV: AgentEnv = {
   catalogMode: 'search',
   cacheWarmHours: 0,
   turnCostReserveUsd: 0.25,
+  trialBudgetShare: 1,
   shutdownGraceMs: 8_000,
   plannerPerUserPortions: false,
   partialServerText: false,

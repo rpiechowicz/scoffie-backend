@@ -809,7 +809,14 @@ export class SubscriptionsService {
       // starsze zdarzenie po prostu nadpisywało nowszy stan, mimo że strażnik
       // kolejności wyżej „przepuścił" oba. `updateMany` z warunkiem na
       // `lastNotificationAt` przegrywa cicho i zostawia świeższy stan.
-      const stamp = signedDate ?? now;
+      // Data podpisu z przyszłości nie może zostać strażnikiem kolejności:
+      // `lastNotificationAt` w 2099 odrzucałby każde prawdziwe zdarzenie od
+      // Apple do końca subskrypcji (audyt 7.10.2026). Zegar Apple i nasz
+      // różnią się o sekundy, więc pięć minut zapasu wystarcza.
+      const stamp =
+        signedDate && signedDate.getTime() <= now.getTime() + 5 * 60_000
+          ? signedDate
+          : now;
       const written = await this.prisma.subscription.updateMany({
         where: {
           id: existing.id,

@@ -312,7 +312,12 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
     to samo, bo zły klucz nie mija.
 
 7. `PURCHASE_IDENTITY_PEPPER` — długi, losowy, **ustawiony raz na zawsze**.
-8. `APPLE_ENVIRONMENT=Production`, `APPLE_ACCEPT_SANDBOX=false`.
+8. `APPLE_ENVIRONMENT=Production` (od 7.10.2026 inna wartość na produkcji GASI
+   zakupy — paywall pokazuje „Zakupy wkrótce”). `APPLE_ACCEPT_SANDBOX`:
+   **`true` na czas recenzji App Store** — recenzent i testerzy TestFlighta
+   kupują w sandboxie, a przy `false` dostają `BILLING_ENVIRONMENT_MISMATCH`
+   (odrzucenie z 2.1). Cena: każdy tester TestFlighta ma PRO za darmo. Po
+   akceptacji wersji — świadomie `false`.
 9. `BILLING_ENABLED=true` — dopiero po punktach 4–8.
 10. **`AI_TIER_OVERRIDE` — wyczyścić albo skasować.** Od 4.09.2026 jedno i
     drugie znaczy to samo. Wcześniej BRAK zmiennej znaczył `PRO`, więc
@@ -324,8 +329,9 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
 
 11a. `APPLE_ACCEPT_FAMILY_SHARED=false` (domyślnie) — i przełącznik Chmury
     Rodzinnej wyłączony także w App Store Connect.
-11b. Konto demo dla recenzenta App Store + `POST /ops/billing/grant` z
-    `months: 0` na jego tożsamość; login i hasło w notatkach do recenzji.
+11b. ~~Konto demo dla recenzenta~~ — logowanie jest TYLKO przez Apple, więc
+    recenzent wchodzi własnym Apple ID i konta demo nie da się podać. Zakup
+    w recenzji działa przez `APPLE_ACCEPT_SANDBOX=true` (pkt 8).
 
 **iOS**
 

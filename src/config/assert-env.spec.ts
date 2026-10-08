@@ -22,6 +22,9 @@ const productionEnv = (
     OPS_TOKEN: 'o'.repeat(40),
     AUTH_DEV_LOGIN_ENABLED: 'false',
     COOKIDOO_SERVICE_URL: 'http://cookidoo.railway.internal:8000',
+    APPLE_TEAM_ID: 'TEAM123456',
+    APPLE_KEY_ID: 'KEY1234567',
+    APPLE_PRIVATE_KEY: 'klucz-p8',
     ...overrides,
   };
   for (const key of Object.keys(env)) {
@@ -34,6 +37,16 @@ describe('inspectRuntimeEnv', () => {
   it('produkcja z kompletem zmiennych przechodzi bez naruszeń', () => {
     const report = inspectRuntimeEnv(productionEnv());
     expect(report).toEqual({ production: true, violations: [], warnings: [] });
+  });
+
+  it('brak klucza Sign in with Apple to ostrzeżenie, nie blokada startu', () => {
+    const report = inspectRuntimeEnv(
+      productionEnv({ APPLE_PRIVATE_KEY: undefined }),
+    );
+    expect(report.violations).toEqual([]);
+    expect(report.warnings.join(' | ')).toMatch(
+      /APPLE_PRIVATE_KEY puste — usunięcie konta nie unieważni/,
+    );
   });
 
   it.each([

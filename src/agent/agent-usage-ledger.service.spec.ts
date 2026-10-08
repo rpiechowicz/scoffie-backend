@@ -227,6 +227,38 @@ describe('AgentUsageLedger', () => {
       expect(verdict).toEqual({ budgetExceeded: true });
     });
 
+    it('tura na darmowej puli staje na sufit prób, płacąca dopiero na pełnym', async () => {
+      // Wydane $3 = 60 % z $5.
+      counters.read.mockImplementation((scope: string) =>
+        Promise.resolve(scope === 'global' ? 3_000_000 : 0),
+      );
+      const trialTurn: LedgerTurn = {
+        ...TURN_CTX,
+        env: {
+          ...TURN_CTX.env,
+          globalDailyBudgetUsd: 5,
+          trialBudgetShare: 0.6,
+        },
+      };
+      tx.agentTurn.findUnique.mockResolvedValue({
+        quotaScopeId: 'trial:hasz',
+        quotaPeriodKey: 'trial',
+        startedAt: new Date('2026-09-26T10:00:00Z'),
+      });
+      expect(await ledger.record(trialTurn, call(3000))).toEqual({
+        budgetExceeded: true,
+      });
+
+      tx.agentTurn.findUnique.mockResolvedValue({
+        quotaScopeId: 'sub:1',
+        quotaPeriodKey: 'okres:2026-10-15',
+        startedAt: new Date('2026-09-26T10:00:00Z'),
+      });
+      expect(
+        await ledger.record(trialTurn, call(3000, { callIndex: 3 })),
+      ).toEqual({ budgetExceeded: false });
+    });
+
     it('zapis zastępczy niesie apiCalls z wywołującego (także null)', async () => {
       await ledger.record(TURN_CTX, call(3000, { apiCalls: null }));
       expect(tx.aiUsage.createMany).toHaveBeenCalledWith({

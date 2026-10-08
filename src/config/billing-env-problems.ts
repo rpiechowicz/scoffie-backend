@@ -54,7 +54,7 @@ export function billingEnvProblems(
     parseAppleEnvironment(env.APPLE_ENVIRONMENT) !== 'Production'
   ) {
     problems.push(
-      'BILLING_ENABLED=true na produkcji, a APPLE_ENVIRONMENT != Production — transakcje z App Store będą odrzucane',
+      'BILLING_ENABLED=true na produkcji, a APPLE_ENVIRONMENT != Production — zakupy zostają WYŁĄCZONE (paywall: „Zakupy wkrótce”)',
     );
   }
 

@@ -224,6 +224,20 @@ export function inspectRuntimeEnv(
   // deploy przez zapomnianą zmienną, a kod domyślnie i tak daje 1h.
   const jwtLifetimeWarning = jwtExpiresInWarning(env.JWT_EXPIRES_IN);
   if (jwtLifetimeWarning) productionWarnings.push(jwtLifetimeWarning);
+  // Usunięcie konta MUSI unieważnić Sign in with Apple (wytyczna App Store
+  // 5.1.1(v)). Bez klucza dawało to tylko `warn` przy samym kasowaniu, czyli
+  // nikt by tego nie zauważył (audyt 7.10.2026). Ostrzeżenie, nie blokada:
+  // konto i tak znika, a deploy nie może przez to stanąć.
+  const missingRevocation = [
+    'APPLE_TEAM_ID',
+    'APPLE_KEY_ID',
+    'APPLE_PRIVATE_KEY',
+  ].filter((name) => !(env[name] ?? '').trim());
+  if (missingRevocation.length > 0) {
+    productionWarnings.push(
+      `${missingRevocation.join(', ')} puste — usunięcie konta nie unieważni tokenów Sign in with Apple (App Store 5.1.1(v))`,
+    );
+  }
   if (env.AUTH_DEV_LOGIN_ENABLED === 'true') {
     productionOnly.push(
       'AUTH_DEV_LOGIN_ENABLED=true — dev-login na produkcji wybija tokeny każdemu',

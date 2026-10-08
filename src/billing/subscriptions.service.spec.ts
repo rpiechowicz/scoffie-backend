@@ -709,6 +709,33 @@ describe('SubscriptionsService', () => {
       expect(String(zapis.error)).toContain('świeższy');
     });
 
+    it('data podpisu z przyszłości nie zostaje strażnikiem kolejności', async () => {
+      // `lastNotificationAt` w 2099 odrzucałby każde prawdziwe zdarzenie od
+      // Apple aż do końca subskrypcji (audyt 7.10.2026).
+      (verifyAppleJws as jest.Mock).mockReturnValue(
+        notification({ signedDate: Date.parse('2099-01-01T00:00:00.000Z') }),
+      );
+      prisma.appleNotification.findUnique.mockResolvedValue({
+        notificationUuid: 'uuid-1',
+        signedPayload: 'payload',
+        processedAt: null,
+      });
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        lastNotificationAt: null,
+        latestTransactionId: '2000000000000009',
+        expiresAt: new Date('2026-09-01T00:00:00.000Z'),
+        messagesLimitSnapshot: 30,
+        plansLimitSnapshot: 8,
+      });
+
+      await service.processNotification('uuid-1', NOW);
+
+      const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
+      expect(data.lastNotificationAt).toEqual(NOW);
+    });
+
     it('zdarzenie bez transakcji (TEST) przechodzi bez zmian stanu', async () => {
       (verifyAppleJws as jest.Mock).mockReturnValue({
         notificationUUID: 'uuid-1',
