@@ -28,10 +28,28 @@ import {
  * 4. **Transakcja z innej aplikacji albo z sandboxa.** Podpis Apple pod
  *    transakcją z CUDZEJ aplikacji jest w pełni prawdziwy — sprawdzenie
  *    `bundleId` i `environment` robi wołający (`verifyTransaction`).
+ * 5. **Prawdziwy certyfikat Apple, ale nie do podpisu App Store** (audyt
+ *    7.10.2026). Spod Apple Root CA - G3 wychodzą też certyfikaty, których
+ *    klucz prywatny ma KAŻDY płatny deweloper — np. Apple Pay (Payment
+ *    Processing) spod WWDR G2. Łańcuch i przypięty korzeń się zgadzają, więc
+ *    sam podpis przepuszczał dowolny ładunek, w tym podrobione powiadomienie
+ *    serwer-serwer z ACTIVE do 2099. Dlatego, jak `SignedDataVerifier`
+ *    z biblioteki Apple: dokładnie trzy ogniwa, pośredni ze znacznikiem WWDR
+ *    (`1.2.840.113635.100.6.2.1`), liść ze znacznikiem podpisu App Store
+ *    (`1.2.840.113635.100.6.11.1`) i klucz liścia EC P-256 (ES256).
  */
 
 /** Ile certyfikatów najwyżej przyjmiemy w `x5c` — Apple wysyła trzy. */
 const MAX_CHAIN_LENGTH = 5;
+
+/** Łańcuch podpisu App Store: liść, Apple WWDR (pośredni), Apple Root CA - G3. */
+const APPLE_SIGNING_CHAIN_LENGTH = 3;
+
+/** Znacznik certyfikatu pośredniego Apple WWDR. */
+export const APPLE_WWDR_INTERMEDIATE_OID = '1.2.840.113635.100.6.2.1';
+
+/** Znacznik liścia, którym App Store podpisuje transakcje i powiadomienia. */
+export const APPLE_APP_STORE_SIGNING_OID = '1.2.840.113635.100.6.11.1';
 
 export class AppleJwsError extends Error {
   constructor(
@@ -143,6 +161,136 @@ export function verifyCertificateChain(
   return chain[0];
 }
 
+// ─────────── Rozszerzenia certyfikatu (DER) ───────────
+//
+// `X509Certificate` z Node nie wystawia rozszerzeń, więc czytamy je z `raw`
+// najprostszym czytnikiem TLV. Szukamy tylko identyfikatorów rozszerzeń —
+// wartość znacznika Apple (NULL) nie ma znaczenia. Każdy błąd odczytu to
+// „brak znacznika", czyli odmowa: nieczytelny certyfikat nie dostaje roli.
+
+interface Tlv {
+  tag: number;
+  start: number;
+  end: number;
+}
+
+function readTlv(der: Buffer, offset: number): Tlv {
+  if (offset + 2 > der.length) throw new Error('DER: koniec danych');
+  const tag = der[offset];
+  let length = der[offset + 1];
+  let start = offset + 2;
+  if (length & 0x80) {
+    const bytes = length & 0x7f;
+    if (bytes === 0 || bytes > 4) throw new Error('DER: zła długość');
+    length = 0;
+    for (let i = 0; i < bytes; i += 1) {
+      length = length * 256 + der[start + i];
+    }
+    start += bytes;
+  }
+  const end = start + length;
+  if (end > der.length) throw new Error('DER: długość poza danymi');
+  return { tag, start, end };
+}
+
+function children(der: Buffer, parent: Tlv): Tlv[] {
+  const out: Tlv[] = [];
+  let offset = parent.start;
+  while (offset < parent.end) {
+    const child = readTlv(der, offset);
+    out.push(child);
+    offset = child.end;
+  }
+  return out;
+}
+
+function decodeOid(bytes: Buffer): string {
+  if (bytes.length === 0) throw new Error('DER: pusty OID');
+  const parts: number[] = [];
+  const first = bytes[0];
+  parts.push(
+    first < 80 ? Math.floor(first / 40) : 2,
+    first < 80 ? first % 40 : first - 80,
+  );
+  let value = 0;
+  for (let i = 1; i < bytes.length; i += 1) {
+    value = value * 128 + (bytes[i] & 0x7f);
+    if ((bytes[i] & 0x80) === 0) {
+      parts.push(value);
+      value = 0;
+    }
+  }
+  return parts.join('.');
+}
+
+/** Identyfikatory wszystkich rozszerzeń certyfikatu (`[3] extensions`). */
+export function certificateExtensionOids(cert: X509Certificate): string[] {
+  const der = cert.raw;
+  const certificate = readTlv(der, 0);
+  const [tbs] = children(der, certificate);
+  if (!tbs || tbs.tag !== 0x30) throw new Error('DER: brak tbsCertificate');
+  const explicitExtensions = children(der, tbs).find((t) => t.tag === 0xa3);
+  if (!explicitExtensions) return [];
+  const [sequence] = children(der, explicitExtensions);
+  if (!sequence || sequence.tag !== 0x30) return [];
+  return children(der, sequence).map((extension) => {
+    const [oid] = children(der, extension);
+    if (!oid || oid.tag !== 0x06) throw new Error('DER: rozszerzenie bez OID');
+    return decodeOid(der.subarray(oid.start, oid.end));
+  });
+}
+
+function hasExtension(cert: X509Certificate, oid: string): boolean {
+  try {
+    return certificateExtensionOids(cert).includes(oid);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Łańcuch, którym App Store NAPRAWDĘ podpisuje: `verifyCertificateChain`
+ * (podpisy, ważność, przypięty korzeń) plus role ogniw — patrz atak 5 na
+ * górze pliku. Oddaje liść.
+ */
+export function verifyAppleSigningChain(
+  x5c: string[],
+  now: Date,
+  pinnedRootPem: string = APPLE_ROOT_CA_G3_PEM,
+): X509Certificate {
+  const leaf = verifyCertificateChain(x5c, now, pinnedRootPem);
+  if (x5c.length !== APPLE_SIGNING_CHAIN_LENGTH) {
+    throw new AppleJwsError(
+      'CHAIN_NOT_APP_STORE',
+      'Łańcuch nie ma kształtu podpisu App Store (liść, pośredni, korzeń).',
+    );
+  }
+  const intermediate = new X509Certificate(derToPem(x5c[1]));
+  if (!hasExtension(intermediate, APPLE_WWDR_INTERMEDIATE_OID)) {
+    throw new AppleJwsError(
+      'INTERMEDIATE_NOT_WWDR',
+      'Certyfikat pośredni nie jest certyfikatem Apple WWDR.',
+    );
+  }
+  if (!hasExtension(leaf, APPLE_APP_STORE_SIGNING_OID)) {
+    throw new AppleJwsError(
+      'LEAF_NOT_APP_STORE',
+      'Certyfikat podpisu nie służy do podpisywania App Store.',
+    );
+  }
+  const key = leaf.publicKey;
+  if (
+    key.asymmetricKeyType !== 'ec' ||
+    key.asymmetricKeyDetails?.namedCurve !== 'prime256v1'
+  ) {
+    throw new AppleJwsError(
+      'LEAF_KEY_NOT_ES256',
+      'Klucz certyfikatu podpisu nie jest kluczem EC P-256.',
+    );
+  }
+  return leaf;
+}
+
 /**
  * Sprawdza podpis JWS i oddaje jego treść.
  *
@@ -183,7 +331,7 @@ export function verifyAppleJws(
     );
   }
 
-  const leaf = verifyCertificateChain(
+  const leaf = verifyAppleSigningChain(
     (header.x5c ?? []) as string[],
     now,
     options.rootPem,

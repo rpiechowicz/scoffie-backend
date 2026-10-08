@@ -1,13 +1,27 @@
 import { createPrivateKey, sign } from 'node:crypto';
+import { X509Certificate } from 'node:crypto';
 import {
+  APPLE_APP_STORE_SIGNING_OID,
+  APPLE_WWDR_INTERMEDIATE_OID,
   AppleJwsError,
+  certificateExtensionOids,
   checkTransactionPayload,
   verifyAppleJws,
 } from './apple-jws.verifier';
 import {
+  TEST_INTERMEDIATE_PEM,
+  TEST_LEAF_PEM,
   TEST_LEAF_PRIVATE_KEY_PEM,
+  TEST_LEAF_UNDER_UNMARKED_PEM,
+  TEST_LEAF_UNDER_UNMARKED_PRIVATE_KEY_PEM,
+  TEST_P384_LEAF_PEM,
+  TEST_P384_LEAF_PRIVATE_KEY_PEM,
   TEST_ROOT_PEM,
+  TEST_UNMARKED_INTERMEDIATE_PEM,
+  TEST_UNMARKED_LEAF_PEM,
+  TEST_UNMARKED_LEAF_PRIVATE_KEY_PEM,
   TEST_X5C,
+  derOf,
 } from './apple-jws-chain.spec-helper';
 import { readBillingEnv, type BillingEnv } from './billing-env';
 
@@ -40,14 +54,14 @@ const b64url = (input: Buffer | string): string =>
 /** Prawdziwy JWS: nagłówek z `x5c`, treść i podpis ES256 w postaci r||s. */
 function signJws(
   payload: Record<string, unknown>,
-  over: { alg?: string; x5c?: string[] } = {},
+  over: { alg?: string; x5c?: string[]; key?: string } = {},
 ): string {
   const header = b64url(
     JSON.stringify({ alg: over.alg ?? 'ES256', x5c: over.x5c ?? TEST_X5C }),
   );
   const body = b64url(JSON.stringify(payload));
   const signature = sign('sha256', Buffer.from(`${header}.${body}`, 'ascii'), {
-    key: createPrivateKey(TEST_LEAF_PRIVATE_KEY_PEM),
+    key: createPrivateKey(over.key ?? TEST_LEAF_PRIVATE_KEY_PEM),
     dsaEncoding: 'ieee-p1363',
   });
   return `${header}.${body}.${b64url(signature)}`;
@@ -147,6 +161,69 @@ describe('verifyAppleJws — ścieżka udana', () => {
         }),
       ),
     ).toBe('CERT_EXPIRED');
+  });
+});
+
+describe('verifyAppleJws — role certyfikatów Apple (audyt 7.10.2026)', () => {
+  // Każdy z tych łańcuchów ma PRAWDZIWE podpisy aż do przypiętego korzenia —
+  // tak wygląda certyfikat Apple Pay albo inny certyfikat dewelopera spod
+  // Apple Root CA - G3. Odmowę daje wyłącznie sprawdzenie ról ogniw.
+  const notification = {
+    notificationType: 'DID_RENEW',
+    signedDate: Date.parse('2099-01-01T00:00:00.000Z'),
+  };
+  const verify = (token: string) =>
+    codeOf(() => verifyAppleJws(token, { now: NOW, rootPem: TEST_ROOT_PEM }));
+
+  it('odczytuje znaczniki ról z rozszerzeń certyfikatu', () => {
+    expect(
+      certificateExtensionOids(new X509Certificate(TEST_LEAF_PEM)),
+    ).toContain(APPLE_APP_STORE_SIGNING_OID);
+    expect(
+      certificateExtensionOids(new X509Certificate(TEST_INTERMEDIATE_PEM)),
+    ).toContain(APPLE_WWDR_INTERMEDIATE_OID);
+    expect(
+      certificateExtensionOids(new X509Certificate(TEST_UNMARKED_LEAF_PEM)),
+    ).not.toContain(APPLE_APP_STORE_SIGNING_OID);
+  });
+
+  it('liść bez znacznika podpisu App Store — odmowa, choć podpis i łańcuch są prawdziwe', () => {
+    const token = signJws(notification, {
+      x5c: [TEST_UNMARKED_LEAF_PEM, TEST_INTERMEDIATE_PEM, TEST_ROOT_PEM].map(
+        derOf,
+      ),
+      key: TEST_UNMARKED_LEAF_PRIVATE_KEY_PEM,
+    });
+    expect(verify(token)).toBe('LEAF_NOT_APP_STORE');
+  });
+
+  it('pośredni bez znacznika Apple WWDR — odmowa', () => {
+    const token = signJws(notification, {
+      x5c: [
+        TEST_LEAF_UNDER_UNMARKED_PEM,
+        TEST_UNMARKED_INTERMEDIATE_PEM,
+        TEST_ROOT_PEM,
+      ].map(derOf),
+      key: TEST_LEAF_UNDER_UNMARKED_PRIVATE_KEY_PEM,
+    });
+    expect(verify(token)).toBe('INTERMEDIATE_NOT_WWDR');
+  });
+
+  it('liść z kluczem innym niż P-256 — odmowa', () => {
+    const token = signJws(notification, {
+      x5c: [TEST_P384_LEAF_PEM, TEST_INTERMEDIATE_PEM, TEST_ROOT_PEM].map(
+        derOf,
+      ),
+      key: TEST_P384_LEAF_PRIVATE_KEY_PEM,
+    });
+    expect(verify(token)).toBe('LEAF_KEY_NOT_ES256');
+  });
+
+  it('łańcuch bez pośredniego (liść podpisany wprost korzeniem) — odmowa', () => {
+    const token = signJws(notification, {
+      x5c: [TEST_INTERMEDIATE_PEM, TEST_ROOT_PEM].map(derOf),
+    });
+    expect(verify(token)).toBe('CHAIN_NOT_APP_STORE');
   });
 });
 

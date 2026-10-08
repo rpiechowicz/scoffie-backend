@@ -11,7 +11,11 @@ import {
   isSerializableConflict,
   runSerializable,
 } from '../weekly-plans/utils/transaction-runner.util';
-import { AgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
+import {
+  AgentEnv,
+  TURN_TIMEOUT_GRACE_MS,
+  trialDailyBudgetUsd,
+} from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
@@ -26,6 +30,7 @@ import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentQuotaMailService } from './agent-quota-mail.service';
 import {
   AiUsageCountersService,
+  freeQuotaRefusal,
   GLOBAL_SCOPE,
 } from './ai-usage-counters.service';
 import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
@@ -164,7 +169,8 @@ export { TURN_TIMEOUT_GRACE_MS };
  *    a po nich instalacji — z rezerwacją za tury w biegu. Odmowy bez kosztu.
  * 6. transakcja: lease rozmowy (409) → semafor domu (409) → sufity domu
  *    z rezerwacją za jego tury w biegu (503) → blisko sufitu: instalacja
- *    jeszcze raz, atomowo (503) → kwota (429) → wiadomość + tura.
+ *    jeszcze raz, atomowo (503) → na próbie zawsze sufit prób, atomowo (503)
+ *    → kwota (429) → wiadomość + tura.
  *
  * Kwota schodzi NA STARCIE, nie po odpowiedzi modelu: inaczej wystarczyłoby
  * zrywać połączenie, żeby dostać nielimitowanego asystenta. Nieudana tura
@@ -366,6 +372,24 @@ export class AgentTurnsService {
     const plan = await this.counters.resolvePlan(conversation.householdId, {
       userId,
     });
+    // Próba ma własny, niższy sufit w budżecie instalacji — fala nowych kont
+    // nie może zgasić asystenta płacącym (audyt 7.10.2026). Tu szybka odmowa;
+    // rachunek powtarza transakcja startu ZAWSZE, nie tylko w pasie przy
+    // suficie jak dla instalacji — fala startów z daleka od sufitu przeszłaby
+    // odczyt naraz (Codex, 8.10.2026). Koszt: starty prób z różnych domów
+    // szereguje SSI (P2034 → ponowienie). Płacących to nie dotyka, bo daleko
+    // od swojego sufitu nie czytają tur instalacji. W trakcie tury pilnuje go
+    // werdykt księgi.
+    const trialCeilingUsd =
+      plan.tier === 'TRIAL' ? trialDailyBudgetUsd(env) : null;
+    if (trialCeilingUsd !== null) {
+      const headroom = await this.installationHeadroomMicroUsd(
+        this.prisma,
+        env,
+        trialCeilingUsd,
+      );
+      if (headroom <= 0) this.refuseTrialBudget(env, trialCeilingUsd);
+    }
     const periodKey = plan.periodKey;
     // Zakres kwoty: `sub:<id>` przy subskrypcji, `trial:<hasz>` na próbie,
     // UUID domu przy nadaniu. Zapisujemy go przy turze, bo zwrot ma wrócić
@@ -511,6 +535,17 @@ export class AgentTurnsService {
             this.refuseInstallationBudget(env.globalDailyBudgetUsd);
           }
         }
+        // Próba: sufit prób z migawki transakcji, przy każdym starcie. Bez
+        // tego równoległe starty prób przechodziły odczyt przed transakcją
+        // naraz i wjeżdżały w pieniądze płacących (Codex, 8.10.2026).
+        if (trialCeilingUsd !== null) {
+          const headroom = await this.installationHeadroomMicroUsd(
+            tx,
+            env,
+            trialCeilingUsd,
+          );
+          if (headroom <= 0) this.refuseTrialBudget(env, trialCeilingUsd);
+        }
 
         const consumed = await this.counters.tryConsume(
           tx,
@@ -524,7 +559,7 @@ export class AgentTurnsService {
           throw new AppException(
             'AI_QUOTA_EXCEEDED',
             plan.tier === 'TRIAL'
-              ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
+              ? freeQuotaRefusal('messages', plan)
               : // „W tym miesiącu" byłoby nieprawdą: od 4.09.2026 pula wraca
                 // w dniu odnowienia subskrypcji, a nie pierwszego. Datę niesie
                 // `resetsAt` w `details` — telefon pokazuje ją wprost.
@@ -954,6 +989,21 @@ export class AgentTurnsService {
       'AI_BUDGET_PAUSED',
       'Asystent jest dziś niedostępny. Spróbuj jutro.',
       HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  /** Odmowa tury na darmowej puli: próby doszły do swojej części budżetu. */
+  private refuseTrialBudget(env: AgentEnv, trialCeilingUsd: number): never {
+    this.metrics.recordRejected('budget');
+    void this.alerts.notify(
+      `ai-trial-budget-paused:${this.counters.dayKey()}`,
+      `próby wydały dziś ${Math.round(env.trialBudgetShare * 100)} % budżetu dobowego ($${trialCeilingUsd.toFixed(2)}) — konta na próbie dostają 503 AI_BUDGET_PAUSED do północy UTC, płacący dalej działają`,
+    );
+    throw new AppException(
+      'AI_BUDGET_PAUSED',
+      'Darmowy Asystent ma dziś dużo chętnych. Spróbuj jutro.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+      [`resetsAt:${this.counters.dayResetsAt().toISOString()}`],
     );
   }
 

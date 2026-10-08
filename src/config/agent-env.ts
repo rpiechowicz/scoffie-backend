@@ -102,12 +102,18 @@ export type AgentEnv = {
   messagesPerMonth: number;
   plansPerMonth: number;
   /**
-   * Pula na próbę (plan TRIAL): jednorazowa, bez odnowienia — licznik żyje
-   * pod kluczem okresu `trial`. Projekt „Limity asystenta" (3.09.2026):
-   * 5 wiadomości i 1 zapis planu.
+   * Darmowa pula (plan TRIAL): 5 wiadomości i 1 zapis planu — projekt
+   * „Limity asystenta" (3.09.2026). Od 7.10.2026 odnawia się co
+   * `trialRenewDays` dni od pierwszego użycia (`freeCycle`).
    */
   trialMessages: number;
   trialPlans: number;
+  /**
+   * Co ile dni wraca darmowa pula (`AI_TRIAL_RENEW_DAYS`, domyślnie 30).
+   * 0 = jednorazowa, jak przed 7.10.2026 — wyłącznik bez deployu (panel →
+   * Sterowanie), gdyby darmowe tury zaczęły za dużo kosztować.
+   */
+  trialRenewDays: number;
   /**
    * `AI_TIER_OVERRIDE=PRO` — każde gospodarstwo liczone jak PRO, niezależnie
    * od subskrypcji. DOMYŚLNIE `PRO`: do czasu wdrożenia subskrypcji w App
@@ -224,6 +230,15 @@ export type AgentEnv = {
    */
   turnCostReserveUsd: number;
   /**
+   * Jaką część dobowego budżetu instalacji wolno wydać turom na PRÓBIE
+   * (0 < x ≤ 1). Budżet jest wspólny, więc w dniu premiery fala nowych kont
+   * (albo nalot kont-słupów) wyczerpywała go do zera i PŁACĄCY dostawali
+   * 503 do północy UTC (audyt 7.10.2026). Przy 0,6 próba staje, gdy wydane
+   * + rezerwacje dojdą do 60 % budżetu — reszta zostaje płacącym. `1` =
+   * jak dotąd (jeden wspólny sufit).
+   */
+  trialBudgetShare: number;
+  /**
    * Ile ms po SIGTERM czekamy, aż tury w biegu domkną się same, zanim
    * przerwiemy resztę (`AI_PROVIDER_ERROR`, koszt zostaje w księdze).
    * Ma sens tylko, gdy platforma daje procesowi ten czas przed SIGKILL.
@@ -316,6 +331,7 @@ export const AGENT_ENV_DEFAULTS = {
   plansPerMonth: SUBSCRIPTION_PRODUCTS[SMALLEST_PAID_PRODUCT].plansPerMonth,
   trialMessages: 5,
   trialPlans: 1,
+  trialRenewDays: 30,
   tierOverride: null as 'PRO' | null,
   maxConcurrentTurnsPerHousehold: 2,
   /**
@@ -378,6 +394,7 @@ export const AGENT_ENV_DEFAULTS = {
    * za INNE tury w biegu — a dwie równoległe tuż pod sufitem już zatrzymuje.
    */
   turnCostReserveUsd: 0.25,
+  trialBudgetShare: 0.6,
   shutdownGraceMs: 8_000,
 } as const;
 
@@ -406,6 +423,7 @@ type NumericKey =
   | 'AI_LIMIT_PLANS_PER_MONTH'
   | 'AI_TRIAL_MESSAGES'
   | 'AI_TRIAL_PLANS'
+  | 'AI_TRIAL_RENEW_DAYS'
   | 'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
@@ -418,12 +436,24 @@ function readNumber(
   env: NodeJS.ProcessEnv,
   key: NumericKey,
   fallback: number,
-  { min = 0, integer = true }: { min?: number; integer?: boolean } = {},
+  {
+    min = 0,
+    max = Number.POSITIVE_INFINITY,
+    integer = true,
+  }: { min?: number; max?: number; integer?: boolean } = {},
 ): number {
   const raw = (env[key] ?? '').trim();
   if (!raw) return fallback;
-  return parseNumberStrict(raw, { min, integer }) ?? fallback;
+  return parseNumberStrict(raw, { min, max, integer }) ?? fallback;
 }
+
+/**
+ * Górna granica `AI_TRIAL_RENEW_DAYS` (10 lat). Bez niej „nigdy” wpisane
+ * jako 100000000 dawało `resetsAt` poza zakresem `Date` — `toISOString`
+ * rzucał i `resolvePlan` oddawał 500 każdemu na darmowej puli. Pula
+ * jednorazowa to `0`, nie wielka liczba.
+ */
+export const MAX_TRIAL_RENEW_DAYS = 3650;
 
 /**
  * Ścisłe parsery wartości — te same dla env i dla nadpisań z panelu
@@ -433,7 +463,11 @@ function readNumber(
  */
 export function parseNumberStrict(
   raw: string,
-  { min = 0, integer = true }: { min?: number; integer?: boolean } = {},
+  {
+    min = 0,
+    max = Number.POSITIVE_INFINITY,
+    integer = true,
+  }: { min?: number; max?: number; integer?: boolean } = {},
 ): number | undefined {
   const value = raw.trim();
   if (!value) return undefined;
@@ -441,6 +475,7 @@ export function parseNumberStrict(
   if (
     !Number.isFinite(parsed) ||
     parsed < min ||
+    parsed > max ||
     (integer && !Number.isInteger(parsed))
   ) {
     return undefined;
@@ -564,6 +599,12 @@ export function readAgentEnv(
       'AI_TRIAL_PLANS',
       AGENT_ENV_DEFAULTS.trialPlans,
     ),
+    trialRenewDays: readNumber(
+      env,
+      'AI_TRIAL_RENEW_DAYS',
+      AGENT_ENV_DEFAULTS.trialRenewDays,
+      { max: MAX_TRIAL_RENEW_DAYS },
+    ),
     tierOverride: readTierOverride(env),
     maxConcurrentTurnsPerHousehold: readNumber(
       env,
@@ -626,6 +667,7 @@ export function readAgentEnv(
       'AI_TURN_COST_RESERVE_USD',
       AGENT_ENV_DEFAULTS.turnCostReserveUsd,
     ),
+    trialBudgetShare: readTrialBudgetShare(env),
     plannerPerUserPortions:
       (env.AI_PLANNER_PER_USER_PORTIONS ?? '').trim().toLowerCase() === 'true',
     partialServerText:
@@ -649,6 +691,31 @@ function readNonNegativeUsd(
   if (!raw) return fallback;
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Udział prób w budżecie dobowym: (0, 1], śmieci = domyślne. */
+function readTrialBudgetShare(env: NodeJS.ProcessEnv): number {
+  const raw = (env.AI_TRIAL_BUDGET_SHARE ?? '').trim();
+  if (!raw) return AGENT_ENV_DEFAULTS.trialBudgetShare;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 && value <= 1
+    ? value
+    : AGENT_ENV_DEFAULTS.trialBudgetShare;
+}
+
+/**
+ * Dobowy sufit tur na darmowej puli: `AI_TRIAL_BUDGET_SHARE` z budżetu
+ * instalacji. `null` = bez osobnego sufitu (brak budżetu albo udział 1),
+ * wtedy próbę trzyma ten sam sufit co wszystkich. Jedna funkcja dla startu
+ * tury i werdyktu księgi, żeby oba liczyły ten sam próg.
+ */
+export function trialDailyBudgetUsd(
+  env: Pick<AgentEnv, 'globalDailyBudgetUsd'> &
+    Partial<Pick<AgentEnv, 'trialBudgetShare'>>,
+): number | null {
+  const share = env.trialBudgetShare ?? 1;
+  if (env.globalDailyBudgetUsd === null || share >= 1) return null;
+  return env.globalDailyBudgetUsd * share;
 }
 
 /** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */

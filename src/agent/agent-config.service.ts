@@ -52,7 +52,8 @@ export class AgentConfigService {
    * zostają otwarte — prawo do własnych danych nie zależy od listy ani zgody.
    *
    * Dwa sprawdzenia, w tej kolejności:
-   * 1. `AI_ALLOWED_USERS` (pusta = wszyscy). Konto spoza listy dostaje to samo
+   * 1. `AI_ALLOWED_USERS` (pusta = wszyscy; id konta albo POTWIERDZONY
+   *    e-mail). Konto spoza listy dostaje to samo
    *    503 `AI_DISABLED`, co wyłączony asystent — celowo: wydany build iOS ma
    *    dla tego kodu kopię i blokadę pola. `details` rozróżnia powód w logach.
    * 2. Przy `AI_CONSENT_REQUIRED=true` — ważna zgoda AI_ASSISTANT tej osoby
@@ -63,9 +64,13 @@ export class AgentConfigService {
     if (env.allowedUsers.length > 0) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, email: true },
+        select: { id: true, email: true, emailVerified: true },
       });
-      const candidates = [user?.id, user?.email]
+      // E-mail liczy się WYŁĄCZNIE potwierdzony przez dostawcę tożsamości —
+      // inaczej konto z cudzym, niepotwierdzonym adresem wchodziłoby na
+      // listę za kogoś innego (audyt 5.09.2026, 2.3.3). Id dopasowuje zawsze.
+      const verifiedEmail = user?.emailVerified === true ? user.email : null;
+      const candidates = [user?.id, verifiedEmail]
         .filter((value): value is string => typeof value === 'string')
         .map((value) => value.toLowerCase());
       if (!candidates.some((value) => env.allowedUsers.includes(value))) {

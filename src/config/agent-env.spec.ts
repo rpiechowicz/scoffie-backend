@@ -24,6 +24,7 @@ describe('readAgentEnv', () => {
       plansPerMonth: AGENT_ENV_DEFAULTS.plansPerMonth,
       trialMessages: AGENT_ENV_DEFAULTS.trialMessages,
       trialPlans: AGENT_ENV_DEFAULTS.trialPlans,
+      trialRenewDays: AGENT_ENV_DEFAULTS.trialRenewDays,
       // Domyślnie PRO dla wszystkich — do czasu subskrypcji zachowanie jak dotąd.
       // BRAK ZMIENNEJ NIE ZNACZY „PRO DLA WSZYSTKICH". Do 4.09.2026 znaczyło:
       // skasowanie `AI_TIER_OVERRIDE` w Railway (czyli to, co człowiek robi,
@@ -58,11 +59,23 @@ describe('readAgentEnv', () => {
       cacheWarmHours: AGENT_ENV_DEFAULTS.cacheWarmHours,
       // Rezerwacja za turę w biegu i łaska przy SIGTERM (Etap 1 workstreamu).
       turnCostReserveUsd: 0.25,
+      // Próby najwyżej do 60 % budżetu dobowego (audyt 7.10.2026).
+      trialBudgetShare: 0.6,
       shutdownGraceMs: 8_000,
       // Porcje per osoba w planerze — włączane po wydaniu iOS (Etap 2.2).
       plannerPerUserPortions: false,
       partialServerText: false,
     });
+  });
+
+  it('AI_TRIAL_BUDGET_SHARE: udział (0, 1], śmieci = domyślne 0,6', () => {
+    const share = (value: string) =>
+      readAgentEnv({ AI_TRIAL_BUDGET_SHARE: value }).trialBudgetShare;
+    expect(share('0.4')).toBe(0.4);
+    expect(share('1')).toBe(1);
+    expect(share('0')).toBe(0.6);
+    expect(share('1.5')).toBe(0.6);
+    expect(share('dużo')).toBe(0.6);
   });
 
   it('AI_TURN_COST_RESERVE_USD: 0 wyłącza rezerwację, śmieci = domyślna', () => {
@@ -85,6 +98,14 @@ describe('readAgentEnv', () => {
     expect(readAgentEnv({ AI_SHUTDOWN_GRACE_MS: '1.5' }).shutdownGraceMs).toBe(
       8_000,
     );
+  });
+
+  it('AI_TRIAL_RENEW_DAYS: 0–3650, ponad granicą = domyślne (bez daty poza zakresem)', () => {
+    const days = (value: string) =>
+      readAgentEnv({ AI_TRIAL_RENEW_DAYS: value }).trialRenewDays;
+    expect(days('0')).toBe(0);
+    expect(days('3650')).toBe(3650);
+    expect(days('100000000')).toBe(30);
   });
 
   it('AI_CATALOG_MODE: digest jawnie, literówka = search', () => {

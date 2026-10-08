@@ -65,6 +65,7 @@ describe('nadpisania env z panelu', () => {
         'AI_LIMIT_PLANS_PER_MONTH',
         'AI_TRIAL_MESSAGES',
         'AI_TRIAL_PLANS',
+        'AI_TRIAL_RENEW_DAYS',
         'AI_ALLOWED_USERS',
         'AI_CARDS_MODE',
         'AI_CATALOG_MODE',
@@ -128,6 +129,13 @@ describe('nadpisania env z panelu', () => {
       ok: false,
     });
     expect(check('AI_TRIAL_PLANS', '')).toMatchObject({ ok: false });
+    expect(check('AI_TRIAL_RENEW_DAYS', '3650')).toEqual({
+      ok: true,
+      value: '3650',
+    });
+    expect(check('AI_TRIAL_RENEW_DAYS', '100000000')).toMatchObject({
+      ok: false,
+    });
     expect(
       check(
         'AI_ALLOWED_USERS',

@@ -40,10 +40,14 @@ import {
   HouseholdSplitPortion,
   SwapCardSide,
 } from '../cards/agent-cards';
-import { AiUsageCountersService } from '../ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  freeQuotaRefusal,
+} from '../ai-usage-counters.service';
 import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
+import { withoutGeneratedImages } from '../../recipes/recipe-image-generator';
 
 /**
  * Kcal talerza w karcie podziału dania (Etap 6.1.1): z porcji osoby, nie
@@ -1383,7 +1387,7 @@ export class AgentProposalsService {
         throw new AppException(
           'AI_PLAN_QUOTA_EXCEEDED',
           plan.tier === 'TRIAL'
-            ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
+            ? freeQuotaRefusal('plans', plan)
             : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany.`,
           HttpStatus.TOO_MANY_REQUESTS,
           this.counters.quotaDetailsFor('plans', plan),
@@ -1734,6 +1738,9 @@ export class AgentProposalsService {
     },
     client: Prisma.TransactionClient = this.prisma,
   ): Promise<MessageView> {
+    // Karta bywa pochodną starej (np. dzień z karty tygodnia) — bez adresów
+    // generatora, zanim trafi do bazy i do telefonu.
+    const card = withoutGeneratedImages(input.card);
     const message = await client.agentMessage.create({
       data: {
         conversationId: input.conversationId,
@@ -1742,7 +1749,7 @@ export class AgentProposalsService {
         text: input.text,
         // `turnId` celowo puste: to nie jest odpowiedź modelu, więc klient
         // odpytujący starą turę nie ma nagle dostawać drugiej wiadomości.
-        ...(input.card ? { card: input.card } : {}),
+        ...(card ? { card } : {}),
       },
     });
     await client.agentConversation.update({
@@ -1758,7 +1765,9 @@ export class AgentProposalsService {
       clientMessageId: message.clientMessageId,
       turnId: message.turnId,
       createdAt: message.createdAt.toISOString(),
-      card: (message.card ?? null) as MessageView['card'],
+      card: withoutGeneratedImages(
+        (message.card ?? null) as MessageView['card'],
+      ),
     };
   }
 
@@ -1832,7 +1841,9 @@ export class AgentProposalsService {
       clientMessageId: message?.clientMessageId ?? null,
       turnId: message?.turnId ?? null,
       createdAt: (message?.createdAt ?? new Date()).toISOString(),
-      card: (message?.card ?? null) as MessageView['card'],
+      card: withoutGeneratedImages(
+        (message?.card ?? null) as MessageView['card'],
+      ),
     };
   }
 }

@@ -41,6 +41,7 @@ const ENV: AgentEnv = {
   plansPerMonth: 30,
   trialMessages: 5,
   trialPlans: 1,
+  trialRenewDays: 30,
   tierOverride: 'PRO',
   maxConcurrentTurnsPerHousehold: 2,
   globalDailyBudgetUsd: null,
@@ -56,6 +57,7 @@ const ENV: AgentEnv = {
   catalogMode: 'search',
   cacheWarmHours: 0,
   turnCostReserveUsd: 0.25,
+  trialBudgetShare: 1,
   shutdownGraceMs: 8_000,
   plannerPerUserPortions: false,
   partialServerText: false,
@@ -309,6 +311,43 @@ describe('AgentTurnsService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('próba ma niższy sufit w budżecie dobowym — płacący przechodzą dalej', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        globalDailyBudgetUsd: 10,
+        trialBudgetShare: 0.6,
+        turnCostReserveUsd: 0,
+      });
+      // Wydane $6,50: ponad 60 % z $10, ale pod całym budżetem.
+      counters.read.mockResolvedValue(6_500_000);
+      counters.resolvePlan.mockResolvedValue({
+        tier: 'TRIAL',
+        source: 'TRIAL',
+        quotaScopeId: 'trial:hasz',
+        periodKey: 'trial',
+        renews: false,
+        resetsAt: null,
+        messagesLimit: 5,
+        plansLimit: 1,
+      });
+      expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+
+      // Ten sam stan budżetu, ale dom płaci — przechodzi do transakcji.
+      counters.resolvePlan.mockResolvedValue({
+        tier: 'PRO',
+        source: 'SUBSCRIPTION',
+        quotaScopeId: 'sub:1',
+        periodKey: '2026-08',
+        renews: true,
+        resetsAt: '2026-09-01T00:00:00.000Z',
+        messagesLimit: 200,
+        plansLimit: 30,
+      });
+      await codeOf(post());
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
     it('zamykany proces (SIGTERM): tura PRZYJĘTA — trwała, wykona ją nowa instancja (Etap 5)', async () => {
       runner.isDraining.mockReturnValue(true);
       await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
@@ -375,6 +414,60 @@ describe('AgentTurnsService', () => {
           ...ENV,
           globalDailyBudgetUsd: 100,
           turnCostReserveUsd: 0.25,
+        });
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
+      });
+
+      // Codex 8.10.2026: sufit prób sprawdzany przed transakcją (a potem
+      // tylko w pasie przy suficie) przepuszczał falę równoległych startów.
+      it('próba: sufit prób w transakcji przy każdym starcie, także daleko od niego', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 5,
+          trialBudgetShare: 0.6,
+          turnCostReserveUsd: 0.25,
+        });
+        // Wydane $1,99 z $3 dla prób — poza pasem atomowym ($1); przed
+        // transakcją żadnej żywej tury.
+        counters.read.mockResolvedValue(1_990_000);
+        prisma.agentTurn.count.mockResolvedValue(0);
+        // W migawce transakcji pięć tur równoległych startów: 1,99 + 5 × 0,25.
+        tx.agentTurn.count.mockImplementation((args: { where?: object }) =>
+          Promise.resolve(isInstallationCount(args) ? 5 : 0),
+        );
+        counters.resolvePlan.mockResolvedValue({
+          tier: 'TRIAL',
+          source: 'TRIAL',
+          quotaScopeId: 'trial:hasz',
+          periodKey: 'trial',
+          renews: false,
+          resetsAt: null,
+          messagesLimit: 5,
+          plansLimit: 1,
+        });
+
+        const error = await post().catch((caught: unknown) => caught);
+        expect((error as AppException).code).toBe('AI_BUDGET_PAUSED');
+        expect((error as AppException).message).toContain('Darmowy Asystent');
+        expect(tx.agentTurn.create).not.toHaveBeenCalled();
+
+        // Ten sam stan, ale dom płaci: do pełnego sufitu daleko — przechodzi
+        // i nie czyta tur instalacji w transakcji (nie zderza się z próbami).
+        tx.agentTurn.count.mockClear();
+        counters.resolvePlan.mockResolvedValue({
+          tier: 'PRO',
+          source: 'SUBSCRIPTION',
+          quotaScopeId: 'sub:1',
+          periodKey: '2026-08',
+          renews: true,
+          resetsAt: '2026-09-01T00:00:00.000Z',
+          messagesLimit: 200,
+          plansLimit: 30,
         });
         await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
         expect(

@@ -41,7 +41,7 @@ export interface Pool {
   scopeId: string;
   messages: { used: number; limit: number };
   plans: { used: number; limit: number };
-  /** próba nie odnawia się — `null` */
+  /** darmowa pula — data końca cyklu domownika z pulą; `null` przed użyciem */
   resetsAt: IsoDate | null;
 }
 

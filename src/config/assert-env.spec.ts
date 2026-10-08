@@ -1,4 +1,8 @@
-import { assertRuntimeEnv, inspectRuntimeEnv } from './assert-env';
+import {
+  assertRuntimeEnv,
+  inspectRuntimeEnv,
+  isLocalDatabase,
+} from './assert-env';
 
 // 32 B w base64 — taki sam kształt jak w CI (`backend-ci.yml`).
 const ENCRYPTION_KEY = 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
@@ -18,6 +22,9 @@ const productionEnv = (
     OPS_TOKEN: 'o'.repeat(40),
     AUTH_DEV_LOGIN_ENABLED: 'false',
     COOKIDOO_SERVICE_URL: 'http://cookidoo.railway.internal:8000',
+    APPLE_TEAM_ID: 'TEAM123456',
+    APPLE_KEY_ID: 'KEY1234567',
+    APPLE_PRIVATE_KEY: 'klucz-p8',
     ...overrides,
   };
   for (const key of Object.keys(env)) {
@@ -30,6 +37,16 @@ describe('inspectRuntimeEnv', () => {
   it('produkcja z kompletem zmiennych przechodzi bez naruszeń', () => {
     const report = inspectRuntimeEnv(productionEnv());
     expect(report).toEqual({ production: true, violations: [], warnings: [] });
+  });
+
+  it('brak klucza Sign in with Apple to ostrzeżenie, nie blokada startu', () => {
+    const report = inspectRuntimeEnv(
+      productionEnv({ APPLE_PRIVATE_KEY: undefined }),
+    );
+    expect(report.violations).toEqual([]);
+    expect(report.warnings.join(' | ')).toMatch(
+      /APPLE_PRIVATE_KEY puste — usunięcie konta nie unieważni/,
+    );
   });
 
   it.each([
@@ -162,6 +179,170 @@ describe('inspectRuntimeEnv', () => {
       expect.stringMatching(/OPS_TOKEN ma 12 znaków/),
     ]);
     expect(report.warnings.join('\n')).not.toContain('oooooooooooo');
+  });
+});
+
+// AUDYT 5.09.2026, 2.3.9: poza produkcją sekrety z repo blokowały start przy
+// nielokalnej bazie, ale dev-login (token dla DOWOLNEGO konta) już nie. Do
+// tego Railway trzyma bazę pod `*.railway.internal`, który host-check uznaje
+// za lokalny — więc staging z `NODE_ENV=development` przechodził w całości.
+describe('poza produkcją: dev-login i baza w chmurze', () => {
+  const devEnv = (
+    overrides: Record<string, string | undefined>,
+  ): NodeJS.ProcessEnv => ({
+    NODE_ENV: 'development',
+    JWT_SECRET: STRONG,
+    REFRESH_TOKEN_PEPPER: OTHER_STRONG,
+    AUTH_DEV_LOGIN_ENABLED: 'true',
+    ...overrides,
+  });
+  const DEV_LOGIN = /AUTH_DEV_LOGIN_ENABLED=true przy nielokalnej bazie/;
+
+  it.each<[string, Record<string, string | undefined>, boolean]>([
+    [
+      'zdalna baza po publicznym hoście',
+      { DATABASE_URL: 'postgresql://u:p@proxy.example.net:41234/app' },
+      true,
+    ],
+    [
+      'Railway z bazą w sieci prywatnej (*.internal)',
+      {
+        DATABASE_URL: 'postgresql://u:p@postgres.railway.internal:5432/app',
+        RAILWAY_ENVIRONMENT: 'staging',
+      },
+      true,
+    ],
+    [
+      'Railway rozpoznany po RAILWAY_ENVIRONMENT_NAME',
+      {
+        DATABASE_URL: 'postgresql://u:p@postgres.railway.internal:5432/app',
+        RAILWAY_ENVIRONMENT_NAME: 'staging',
+      },
+      true,
+    ],
+    [
+      'Railway z bazą pod localhost (np. sidecar)',
+      {
+        DATABASE_URL: 'postgresql://u:p@localhost:5432/app',
+        RAILWAY_ENVIRONMENT: 'staging',
+      },
+      true,
+    ],
+    [
+      'CI (localhost)',
+      { DATABASE_URL: 'postgresql://u:p@localhost:5432/app' },
+      false,
+    ],
+    [
+      'docker-compose (host db)',
+      { DATABASE_URL: 'postgresql://scoffie:scoffie@db:5432/scoffie' },
+      false,
+    ],
+    [
+      'sieć dockera *.internal poza Railwayem',
+      { DATABASE_URL: 'postgresql://u:p@db.internal:5432/app' },
+      false,
+    ],
+    ['brak DATABASE_URL', { DATABASE_URL: undefined }, false],
+  ])('%s → naruszenie: %s', (_label, overrides, violation) => {
+    const report = inspectRuntimeEnv(devEnv(overrides));
+    expect(report.production).toBe(false);
+    expect(report.violations.some((v) => DEV_LOGIN.test(v))).toBe(violation);
+    expect(report.warnings.some((w) => /AUTH_DEV_LOGIN/.test(w))).toBe(false);
+  });
+
+  it('dev-login wyłączony na zdalnej bazie nie jest naruszeniem', () => {
+    const report = inspectRuntimeEnv(
+      devEnv({
+        AUTH_DEV_LOGIN_ENABLED: 'false',
+        DATABASE_URL: 'postgresql://u:p@postgres.railway.internal:5432/app',
+        RAILWAY_ENVIRONMENT: 'staging',
+      }),
+    );
+    expect(report.violations).toEqual([]);
+  });
+
+  it('sekret z repo na Railwayu (*.internal) blokuje start jak na zdalnej bazie', () => {
+    const report = inspectRuntimeEnv(
+      devEnv({
+        AUTH_DEV_LOGIN_ENABLED: undefined,
+        JWT_SECRET: 'dev-secret-change-me',
+        DATABASE_URL: 'postgresql://u:p@postgres.railway.internal:5432/app',
+        RAILWAY_ENVIRONMENT: 'staging',
+      }),
+    );
+    expect(report.violations).toEqual([
+      expect.stringMatching(/JWT_SECRET ma publiczną.*baza nielokalna/),
+    ]);
+  });
+
+  it('assertRuntimeEnv odmawia startu poza produkcją', () => {
+    expect(() =>
+      assertRuntimeEnv(
+        devEnv({ DATABASE_URL: 'postgresql://u:p@proxy.example.net:5432/app' }),
+        { warn: () => undefined },
+      ),
+    ).toThrow(/Odmowa startu \(NODE_ENV=development\)[\s\S]*AUTH_DEV_LOGIN/);
+  });
+
+  it('isLocalDatabase: host lokalny, ale Railway = zdalna', () => {
+    const url = 'postgresql://u:p@postgres.railway.internal:5432/app';
+    expect(isLocalDatabase({ DATABASE_URL: url })).toBe(true);
+    expect(
+      isLocalDatabase({ DATABASE_URL: url, RAILWAY_ENVIRONMENT: 'production' }),
+    ).toBe(false);
+  });
+
+  it('produkcja na Railwayu bez PURCHASE_IDENTITY_PEPPER dostaje ostrzeżenie', () => {
+    // Dotąd host `*.railway.internal` uciszał to ostrzeżenie właśnie tam,
+    // gdzie pepper chroni prawdziwe hasze.
+    const report = inspectRuntimeEnv(
+      productionEnv({ RAILWAY_ENVIRONMENT: 'production' }),
+    );
+    expect(report.violations).toEqual([]);
+    expect(report.warnings).toEqual([
+      expect.stringMatching(/PURCHASE_IDENTITY_PEPPER jest pusty/),
+    ]);
+  });
+});
+
+// AUDYT 5.09.2026, 2.1.2: token dostępu żyje po wylogowaniu do końca swojej
+// ważności. Kod domyślnie daje 1h; dłuższa wartość na Railwayu to ostrzeżenie
+// w logu startu (jak krótki OPS_TOKEN), nie blokada deployu.
+describe('JWT_EXPIRES_IN na produkcji', () => {
+  it.each<[string | undefined, RegExp | null]>([
+    [undefined, null],
+    ['', null],
+    ['1h', null],
+    ['60m', null],
+    ['3600', null],
+    ['900', null],
+    ['15 minutes', null],
+    ['3601', /ponad godzinę/],
+    ['2h', /ponad godzinę/],
+    ['1.5h', /ponad godzinę/],
+    ['30d', /JWT_EXPIRES_IN=30d to ponad godzinę/],
+    ['1y', /ponad godzinę/],
+    ['abc', /nie jest czasem/],
+    ['1 fortnight', /nie jest czasem/],
+  ])('%p → %p', (value, pattern) => {
+    const report = inspectRuntimeEnv(productionEnv({ JWT_EXPIRES_IN: value }));
+    expect(report.violations).toEqual([]);
+    if (pattern) {
+      expect(report.warnings).toEqual([expect.stringMatching(pattern)]);
+    } else {
+      expect(report.warnings).toEqual([]);
+    }
+  });
+
+  it('poza produkcją długi token nie ostrzega', () => {
+    const report = inspectRuntimeEnv({
+      NODE_ENV: 'development',
+      JWT_SECRET: STRONG,
+      REFRESH_TOKEN_PEPPER: OTHER_STRONG,
+      JWT_EXPIRES_IN: '30d',
+    });
+    expect(report).toEqual({ production: false, violations: [], warnings: [] });
   });
 });
 

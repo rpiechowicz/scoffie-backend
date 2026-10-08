@@ -11,6 +11,7 @@ import { AgentCard } from './cards/agent-cards';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
+import { withoutGeneratedImages } from '../recipes/recipe-image-generator';
 
 export type OwnedConversation = {
   id: string;
@@ -112,7 +113,8 @@ export function toMessageView(m: AgentMessage): MessageView {
     clientMessageId: m.clientMessageId,
     turnId: m.turnId,
     createdAt: m.createdAt.toISOString(),
-    card: (m.card ?? null) as AgentCard | null,
+    // Stare karty mogą nieść adres generatora z treścią przepisu domu.
+    card: withoutGeneratedImages((m.card ?? null) as AgentCard | null),
   };
 }
 

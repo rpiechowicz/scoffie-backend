@@ -169,6 +169,9 @@ etapami i mierzenie efektu zmian.
   a nie przy każdym użyciu. Następca zgaszony wylogowaniem nie jest dowodem kopii (401 bez kasowania), chyba że
   poprzednik był ratowany (RECOVERED — istnieje para spoza łańcucha). `POST /auth/logout-everywhere`: Bearer
   access token, bez ciała, 200 `{revokedSessions}`.
+- Absolutny kres sesji (od 7.10.2026, dowód: `test/auth-absolute-session.e2e-spec.ts`): `RefreshToken.sessionStartedAt`
+  = chwila logowania, rotacja i ratunek ją KOPIUJĄ (nowy kod wydający token następcy musi zrobić to samo). Po
+  `REFRESH_ABSOLUTE_DAYS` (180, stała) `/auth/refresh` = to samo 401 co wygasły token, bez kasowania rodziny.
 - Lista zakupów ma DWA źródła (od 21.09.2026): `PlanItem` i `ShoppingListExtra` — „brakuje mi"
   ze szczegółu przepisu (`weeklyPlans:addRecipeExtras` / `removeShoppingExtra`). Telefon wysyła
   tylko `recipeId`, `servings` i id `RecipeIngredient`; ilość, jednostkę i klucz liczy serwer tak
@@ -233,6 +236,17 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   nie kosztowała — `retryable` decyduje już tylko o bezpieczniku (`AgentTurnRunner.classify`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
   warunkowo (`updateMany` po `status: 'RUNNING'`). W logach asystenta nie ma treści wiadomości —
   tylko `turnId`, `requestId` i kod.
+- Darmowa pula asystenta (od 7.10.2026) wraca co `AI_TRIAL_RENEW_DAYS` (30; 0 = jednorazowa, max 3650, panel →
+  Sterowanie) dni od PIERWSZEGO UŻYCIA osoby. Kotwica `AiFreeQuotaCycle(scopeId = trial:<hasz>, anchoredAt)` — przy
+  tożsamości, nie koncie, więc nowe konto nie przesuwa cyklu. Okres: cykl 0 = stary klucz `trial`, kolejne
+  `free:<YYYY-MM-DD początku>` (`freeCycle`, czysta funkcja wspólna z panelem). Kotwicę wbija `tryConsume` przy
+  PIERWSZYM UDANYM pobraniu z zakresu `trial:` — w tej samej transakcji (`skipDuplicates`), także przy odnawianiu
+  wyłączonym. NIE z `updatedAt` licznika: przesuwa się przy każdym naliczeniu i zwrocie (Codex, 8.10.2026). Zużyty
+  licznik `trial` bez kotwicy = zużycie sprzed odnawiania → `legacyFreeAnchor` (cykl wstecz, świeża pula od razu),
+  wbijana przez `resolvePlan` poza transakcją; panel liczy z tej samej reguły bez zapisu. Migracja `20261007150000`
+  dała tę samą kotwicę wszystkim, którzy już używali próby. Zmiana `AI_TRIAL_RENEW_DAYS` przesuwa granice cykli —
+  najwyżej jedna dodatkowa pula na osobę na zmianę. `scripts/reset-trial.ts` zeruje liczniki WSZYSTKICH cykli osoby.
+  `tier` zostaje `TRIAL` (kontrakt z klientami), zmieniają się `renews`/`resetsAt`; zdania 429 — `freeQuotaRefusal`.
 - Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
   dostawcy, zapisany zaraz po nim przez `onUsage` → `AgentUsageLedger.record` (klucz idempotencji
   `AiUsage.callKey` = `turn:<turnId>:<callIndex>`, NOT NULL UNIQUE i niezależny od FK — działa też po

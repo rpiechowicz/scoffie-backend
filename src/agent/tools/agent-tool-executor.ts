@@ -19,7 +19,10 @@ import {
 } from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgentMemoryService } from '../agent-memory.service';
-import { AiUsageCountersService } from '../ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  freePoolBackOn,
+} from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { EXECUTABLE_TOOL_NAMES } from './agent-tools';
@@ -104,6 +107,7 @@ import {
   SEARCH_SORTS,
   SearchSort,
 } from '../search/catalog-search';
+import { isGeneratedRecipeImageUrl } from '../../recipes/recipe-image-generator';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -2390,7 +2394,12 @@ export class AgentToolExecutor {
         title: recipe.title,
         kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
         prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
-        imageUrl: recipe.imageUrl ?? null,
+        // Karta zostaje w historii — bez adresu generatora (treść przepisu
+        // w ścieżce), także dla katalogu bez zdjęcia.
+        imageUrl:
+          recipe.imageUrl && !isGeneratedRecipeImageUrl(recipe.imageUrl)
+            ? recipe.imageUrl
+            : null,
         description: recipe.description?.trim() || null,
         proteinGrams: perServing(recipe.nutritionProtein ?? 0),
         carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
@@ -3083,11 +3092,13 @@ export class AgentToolExecutor {
               throw new AppException(
                 'AI_PLAN_QUOTA_EXCEEDED',
                 (plan.tier === 'TRIAL'
-                  ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
+                  ? `Darmowy zapis planu (${limit}) jest wykorzystany. `
                   : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
                   'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
                   (plan.tier === 'TRIAL'
-                    ? ' bez wybrania planu.'
+                    ? freePoolBackOn(plan)
+                      ? ` przed ${freePoolBackOn(plan)} bez wybrania planu.`
+                      : ' bez wybrania planu.'
                     : ' do odnowienia planu.'),
                 HttpStatus.TOO_MANY_REQUESTS,
                 this.counters.quotaDetailsFor('plans', plan),

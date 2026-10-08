@@ -282,6 +282,7 @@ export class UsersService {
           displayName: user.displayName,
           trialMessages: trial.trialMessages,
           trialPlans: trial.trialPlans,
+          trialRenewDays: trial.trialRenewDays,
         },
       });
     }
@@ -618,13 +619,6 @@ export class UsersService {
         });
       }
 
-      // Poświadczenia Cookidoo podane przez TĘ osobę znikają z jej kontem
-      // (polityka §12), nawet gdy dom zostaje — reszta domu połączy się
-      // własnym hasłem. `connectedBy` jest SetNull, więc kaskada by ich nie
-      // ruszyła.
-      await tx.cookidooIntegration.deleteMany({
-        where: { connectedById: userId },
-      });
       // Subskrypcja NIE ginie z kontem. `Subscription.purchaserUserId` jest
       // `SetNull`, a właścicielem jest `identityHash` — bo Apple pobiera
       // pieniądze niezależnie od tego, czy konto u nas istnieje. Dzięki temu
@@ -745,6 +739,16 @@ export class UsersService {
           },
         });
       }
+
+      // Poświadczenia Cookidoo podane przez TĘ osobę znikają z jej kontem
+      // (polityka §12), nawet gdy dom zostaje — reszta domu połączy się
+      // własnym hasłem. `connectedBy` jest SetNull, więc kaskada by ich nie
+      // ruszyła. PO usunięciu członkostw: zapis poświadczeń blokuje wiersz
+      // `Membership` (`FOR SHARE`), więc tamten DELETE czeka na jego commit,
+      // a to sprzątanie widzi już zapisany wiersz (review 7.10.2026).
+      await tx.cookidooIntegration.deleteMany({
+        where: { connectedById: userId },
+      });
 
       await tx.user.delete({ where: { id: userId } });
     });

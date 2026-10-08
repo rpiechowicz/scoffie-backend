@@ -97,7 +97,14 @@ describe('AgentUsageService.usage', () => {
           .fn()
           .mockResolvedValue([{ id: 'u-1', displayName: 'Ania' }]),
       },
+      aiFreeQuotaCycle: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       aiUsageCounter: {
+        // Licznik `trial` bez kotwicy = użycie sprzed odnawiania; zwykle kotwicę
+        // wbija migracja, tu — `resolvePlan` przy pierwszym odczycie.
+        findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockImplementation(({ where }: any) => {
           const kind = where.scopeId_periodKey_kind.kind as string;
           return Promise.resolve(
@@ -170,13 +177,19 @@ describe('AgentUsageService.usage', () => {
     );
   });
 
-  it('bez AI_TIER_OVERRIDE gospodarstwo bez subskrypcji jest na próbie: pula `trial`, bez odnowienia', async () => {
+  it('bez AI_TIER_OVERRIDE gospodarstwo bez subskrypcji jest na darmowej puli: pierwszy cykl `trial`', async () => {
     process.env.AI_TIER_OVERRIDE = '';
+    (
+      prisma.aiFreeQuotaCycle as { findUnique: jest.Mock }
+    ).findUnique.mockResolvedValue({
+      anchoredAt: new Date('2026-08-20T10:00:00.000Z'),
+    });
     const view = await service.usage(USER, HOUSEHOLD, NOW);
     expect(view).toMatchObject({
       period: 'trial',
-      resetsAt: null,
-      renews: false,
+      // Kotwica 20.08 + 30 dni — pula wraca w rocznicę pierwszego użycia.
+      resetsAt: '2026-09-19T10:00:00.000Z',
+      renews: true,
       tier: 'TRIAL',
       source: 'TRIAL',
       messages: { used: 12, limit: 5, remaining: 0 },

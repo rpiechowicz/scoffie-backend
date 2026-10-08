@@ -9026,16 +9026,16 @@
         "properties": {
           "householdId": { "type": "string" },
           "period": {
-            "description": "`YYYY-MM` UTC (PRO) albo `trial` — okres, którego dotyczą liczby.",
+            "description": "Okres, którego dotyczą liczby: `okres:<data>` / `YYYY-MM` (PRO) albo\n`trial` / `free:<YYYY-MM-DD>` (cykle darmowej puli).",
             "type": "string"
           },
           "resetsAt": {
-            "description": "ISO — kiedy kwota wraca; `null` na próbie (pula się nie odnawia).",
+            "description": "ISO — kiedy kwota wraca. Na darmowej puli od 7.10.2026 też (co\n`AI_TRIAL_RENEW_DAYS` dni od pierwszego użycia); `null` przed pierwszym\nużyciem i przy odnawianiu wyłączonym.",
             "type": "string",
             "nullable": true
           },
           "renews": {
-            "description": "Czy pula wraca co miesiąc.",
+            "description": "Czy pula wraca (PRO — zawsze; darmowa — gdy `AI_TRIAL_RENEW_DAYS` > 0).",
             "type": "boolean"
           },
           "tier": { "$ref": "#/components/schemas/HouseholdPlanTier" },
@@ -11073,13 +11073,20 @@
             "description": "Czy integracja jest w ogóle dostępna (`COOKIDOO_INTEGRATION_ENABLED`).\n`false` = klient chowa wiersz w Ustawieniach; poświadczenia zostają,\n`disconnect` nadal działa.",
             "type": "boolean"
           },
-          "login": { "type": "string" },
+          "login": {
+            "description": "E-mail konta Cookidoo. Pełny tylko dla osoby, która konto podłączyła,\ni właściciela domu; pozostali domownicy dostają maskę (`r•••@g•••.com`).",
+            "type": "string"
+          },
           "status": { "type": "string" },
           "connectedById": { "type": "string", "nullable": true },
           "lastVerifiedAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "canManage": {
+            "description": "Czy pytający może nadpisać albo rozłączyć to połączenie: osoba, która je\npodłączyła, albo właściciel domu. Tylko przy `connected: true`.",
+            "type": "boolean"
           },
           "subscription": {
             "type": "object",
@@ -11119,13 +11126,20 @@
             "description": "Czy integracja jest w ogóle dostępna (`COOKIDOO_INTEGRATION_ENABLED`).\n`false` = klient chowa wiersz w Ustawieniach; poświadczenia zostają,\n`disconnect` nadal działa.",
             "type": "boolean"
           },
-          "login": { "type": "string" },
+          "login": {
+            "description": "E-mail konta Cookidoo. Pełny tylko dla osoby, która konto podłączyła,\ni właściciela domu; pozostali domownicy dostają maskę (`r•••@g•••.com`).",
+            "type": "string"
+          },
           "status": { "type": "string" },
           "connectedById": { "type": "string", "nullable": true },
           "lastVerifiedAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "canManage": {
+            "description": "Czy pytający może nadpisać albo rozłączyć to połączenie: osoba, która je\npodłączyła, albo właściciel domu. Tylko przy `connected: true`.",
+            "type": "boolean"
           }
         },
         "required": ["connected", "enabled"]
@@ -11266,7 +11280,11 @@
           },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia — strona pokazuje kartę marki zamiast\nobrazka z generatora (ten niósłby treść prywatnego przepisu w adresie).",
+            "type": "string",
+            "nullable": true
+          },
           "mealType": { "$ref": "#/components/schemas/MealType" },
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
@@ -11326,7 +11344,11 @@
           },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia — strona pokazuje kartę marki zamiast\nobrazka z generatora (ten niósłby treść prywatnego przepisu w adresie).",
+            "type": "string",
+            "nullable": true
+          },
           "mealType": { "$ref": "#/components/schemas/MealType" },
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
@@ -11427,7 +11449,11 @@
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
           "servings": { "type": "number" },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+            "type": "string",
+            "nullable": true
+          },
           "nutritionKcal": { "type": "number" },
           "nutritionProtein": { "type": "number" },
           "nutritionFat": { "type": "number" },
@@ -13278,7 +13304,11 @@
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
           "servings": { "type": "number" },
-          "imageUrl": { "type": "string" },
+          "imageUrl": {
+            "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+            "type": "string",
+            "nullable": true
+          },
           "nutritionKcal": { "type": "number" },
           "nutritionProtein": { "type": "number" },
           "nutritionFat": { "type": "number" },
@@ -13439,7 +13469,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
@@ -13536,7 +13566,11 @@
                 "difficulty": { "$ref": "#/components/schemas/Difficulty" },
                 "prepTimeMinutes": { "type": "number" },
                 "servings": { "type": "number" },
-                "imageUrl": { "type": "string" },
+                "imageUrl": {
+                  "description": "`null` = przepis domu bez zdjęcia (klient pokazuje zaślepkę).",
+                  "type": "string",
+                  "nullable": true
+                },
                 "nutritionKcal": { "type": "number" },
                 "nutritionProtein": { "type": "number" },
                 "nutritionFat": { "type": "number" },
@@ -13670,7 +13704,7 @@
               "difficulty": { "$ref": "#/components/schemas/Difficulty" },
               "prepTimeMinutes": { "type": "number" },
               "servings": { "type": "number" },
-              "imageUrl": { "type": "string" },
+              "imageUrl": { "type": "string", "nullable": true },
               "nutritionKcal": { "type": "number" },
               "nutritionProtein": { "type": "number" },
               "nutritionFat": { "type": "number" },
@@ -13863,7 +13897,7 @@
                 "type": "array",
                 "items": { "$ref": "#/components/schemas/MealType" }
               },
-              "imageUrl": { "type": "string" },
+              "imageUrl": { "type": "string", "nullable": true },
               "isFavorite": { "type": "boolean" },
               "title": { "type": "string" },
               "description": { "type": "string", "nullable": true },
@@ -13998,7 +14032,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
@@ -14143,7 +14177,7 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MealType" }
           },
-          "imageUrl": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },

@@ -629,6 +629,39 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
     expect(order[0]).toBeLessThan(order[1]);
   });
 
+  it('hasło Cookidoo kasowane PO usunięciu członkostw (review 7.10.2026)', async () => {
+    // Zapis poświadczeń trzyma `FOR SHARE` na `Membership` — DELETE członkostwa
+    // czeka na jego commit, a dopiero późniejsze sprzątanie widzi ten wiersz.
+    const HH = '22222222-2222-4222-8222-222222222222';
+    prisma.membership = {
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([{ householdId: HH, role: 'OWNER' }])
+        .mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue({}),
+    };
+    prisma.household = {
+      ...(prisma.household ?? {}),
+      update: jest.fn().mockResolvedValue({ id: HH }),
+      delete: jest.fn().mockResolvedValue({ id: HH }),
+    };
+    // Przepisy autora: 0; przepisy katalogu w pustym domu: 0 → dom znika.
+    prisma.recipe.count = jest.fn().mockResolvedValue(0);
+
+    await service.deleteAccount(mockUserId);
+
+    expect(prisma.membership.delete).toHaveBeenCalled();
+    expect(prisma.cookidooIntegration.deleteMany).toHaveBeenCalledWith({
+      where: { connectedById: mockUserId },
+    });
+    expect(
+      prisma.cookidooIntegration.deleteMany.mock.invocationCallOrder[0],
+    ).toBeGreaterThan(prisma.membership.delete.mock.invocationCallOrder[0]);
+    expect(
+      prisma.cookidooIntegration.deleteMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.user.delete.mock.invocationCallOrder[0]);
+  });
+
   it('konto bez przepisów nie zakłada bota', async () => {
     prisma.recipe.count.mockResolvedValue(0);
     await service.deleteAccount(mockUserId);

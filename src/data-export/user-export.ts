@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { unitsToServings } from '../weekly-plans/utils/plan-portions.util';
+import { withoutGeneratedImages } from '../recipes/recipe-image-generator';
 
 /**
  * Paczka danych osoby — RODO art. 15 (dostęp) i art. 20 (przenoszenie).
@@ -390,7 +391,9 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
         ...conversation,
         messages: conversation.messages.map((message) => ({
           ...message,
-          card: redactOthersFromCard(message.card, userId),
+          card: withoutGeneratedImages(
+            redactOthersFromCard(message.card, userId),
+          ),
         })),
       })),
       reports,
@@ -422,22 +425,77 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
 }
 
 /**
- * Art. 15 ust. 4: paczka jednej osoby nie oddaje danych innych. Karta
- * porcji (HOUSEHOLD_SPLIT) niesie cel kaloryczny, dietę i alergeny KAŻDEGO
- * domownika — zostaje tylko wiersz właściciela paczki.
+ * Art. 15 ust. 4: paczka jednej osoby nie oddaje danych innych.
+ *
+ * - Karta porcji (HOUSEHOLD_SPLIT) niesie cel kaloryczny, dietę i alergeny
+ *   KAŻDEGO domownika — zostaje tylko wiersz właściciela paczki.
+ * - Karty planu (PLAN_WEEK: `days[].slots[]`, PLAN_DAY: `slots[]`) niosą przy
+ *   każdym daniu `participantIds` i `portions` wszystkich domowników (audyt
+ *   5.09.2026, 2.3.7). Zostaje własne id i własna porcja; o pozostałych tylko
+ *   LICZBA (`otherParticipants`), bo pusta lista uczestników znaczy „całe
+ *   gospodarstwo" — bez liczby danie cudze wyglądałoby na wspólne.
+ *
+ * Rozpoznanie po kształcie, nie po `kind`: karta zapisana starszą wersją
+ * też ma zostać przycięta.
  */
-function redactOthersFromCard(card: unknown, userId: string): unknown {
-  if (!card || typeof card !== 'object') return card;
-  const record = card as Record<string, unknown>;
-  if (!Array.isArray(record.portions)) return card;
+export function redactOthersFromCard(card: unknown, userId: string): unknown {
+  if (!isRecord(card)) return card;
+  const days = asList(card.days);
+  if (days) {
+    return {
+      ...card,
+      days: days.map((day) => {
+        if (!isRecord(day)) return day;
+        const daySlots = asList(day.slots);
+        return daySlots
+          ? { ...day, slots: daySlots.map((slot) => redactSlot(slot, userId)) }
+          : day;
+      }),
+      participantsRedacted: true,
+    };
+  }
+  const slots = asList(card.slots);
+  if (slots) {
+    return {
+      ...card,
+      slots: slots.map((slot) => redactSlot(slot, userId)),
+      participantsRedacted: true,
+    };
+  }
+  const portions = asList(card.portions);
+  if (!portions) return card;
   return {
-    ...record,
-    portions: record.portions.filter(
-      (portion) =>
-        portion &&
-        typeof portion === 'object' &&
-        (portion as { userId?: unknown }).userId === userId,
-    ),
+    ...card,
+    portions: ownPortions(portions, userId),
     portionsRedacted: true,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function asList(value: unknown): unknown[] | null {
+  return Array.isArray(value) ? (value as unknown[]) : null;
+}
+
+function ownPortions(portions: unknown[], userId: string): unknown[] {
+  return portions.filter(
+    (portion) => isRecord(portion) && portion.userId === userId,
+  );
+}
+
+/** Danie w karcie planu: własne id i porcja zostają, reszta jako liczba. */
+function redactSlot(slot: unknown, userId: string): unknown {
+  if (!isRecord(slot)) return slot;
+  const out: Record<string, unknown> = { ...slot };
+  const ids = asList(slot.participantIds);
+  if (ids) {
+    out.participantIds = ids.includes(userId) ? [userId] : [];
+    const others = ids.filter((id) => id !== userId).length;
+    if (others > 0) out.otherParticipants = others;
+  }
+  const portions = asList(slot.portions);
+  if (portions) out.portions = ownPortions(portions, userId);
+  return out;
 }
