@@ -1,10 +1,15 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AiUsageCountersService } from '../../agent/ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  legacyFreeAnchor,
+  TRIAL_PERIOD_KEY,
+} from '../../agent/ai-usage-counters.service';
 import { AppException } from '../../common/app-exception';
 import { effectiveAvatarColor } from '../../common/avatar-color.util';
 import { catalogHouseholdId } from '../../common/catalog-owner';
 import { readAgentEnv } from '../../config/agent-env';
+import { trialScopeId } from '../../config/purchase-identity';
 import type { SubscriptionCandidate } from '../../config/subscription-lifetime';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
@@ -402,6 +407,45 @@ export class AdminHouseholdsService {
       byHash.set(subscription.identityHash, list);
     }
 
+    // Kotwice cykli darmowej puli — jedno zapytanie o zakresy wszystkich
+    // domowników (zbędne przy PRO, ale to garstka kluczy głównych).
+    const trialScopes = new Set<string>();
+    for (const household of households) {
+      for (const membership of household.memberships) {
+        const member = planMember(membership);
+        trialScopes.add(
+          trialScopeId(memberIdentityHash(member), member.userId),
+        );
+      }
+    }
+    const freeAnchors = new Map(
+      (trialScopes.size
+        ? await tx.aiFreeQuotaCycle.findMany({
+            where: { scopeId: { in: [...trialScopes] } },
+            select: { scopeId: true, anchoredAt: true },
+          })
+        : []
+      ).map((row) => [row.scopeId, row.anchoredAt]),
+    );
+    // Zużyty licznik `trial` bez kotwicy: zużycie sprzed odnawiania, które
+    // jeszcze nie wróciło z żądaniem. `resolvePlan` wbije mu kotwicę
+    // `legacyFreeAnchor` — panel liczy z tej samej reguły, tylko bez zapisu,
+    // więc oba pokazują ten sam cykl.
+    const unanchored = [...trialScopes].filter((id) => !freeAnchors.has(id));
+    if (unanchored.length > 0 && env.trialRenewDays > 0) {
+      const legacyUses = await tx.aiUsageCounter.groupBy({
+        by: ['scopeId'],
+        where: {
+          scopeId: { in: unanchored },
+          periodKey: TRIAL_PERIOD_KEY,
+          kind: { in: ['messages', 'plans'] },
+          value: { gt: 0 },
+        },
+      });
+      const legacyAnchor = legacyFreeAnchor(now, env.trialRenewDays);
+      for (const row of legacyUses) freeAnchors.set(row.scopeId, legacyAnchor);
+    }
+
     const resolutions = households.map((household) => ({
       id: household.id,
       resolution: resolveHouseholdPlan(
@@ -414,6 +458,7 @@ export class AdminHouseholdsService {
         env,
         calendar,
         now,
+        freeAnchors,
       ),
     }));
 

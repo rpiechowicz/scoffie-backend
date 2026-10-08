@@ -1458,6 +1458,17 @@ model AiUsageCounter {
   @@id([scopeId, periodKey, kind])
 }
 
+/// Początek cykli darmowej puli asystenta (od 7.10.2026). Jeden wiersz na
+/// zakres puli próbnej (`trial:<hasz tożsamości>`), więc — jak sama pula —
+/// należy do OSOBY i przeżywa skasowanie konta: nowe konto nie przesuwa
+/// cyklu ani nie daje świeżej puli. Cykl n zaczyna się `anchoredAt + n ×
+/// AI_TRIAL_RENEW_DAYS`; pierwszy liczy się pod starym kluczem `trial`,
+/// kolejne pod `free:<YYYY-MM-DD początku>` (`freeCycle`).
+model AiFreeQuotaCycle {
+  scopeId    String   @id
+  anchoredAt DateTime
+}
+
 model RecipeIngredient {
   id               String   @id @default(uuid()) @db.Uuid
   recipeId         String   @db.Uuid

@@ -24,6 +24,7 @@ describe('readAgentEnv', () => {
       plansPerMonth: AGENT_ENV_DEFAULTS.plansPerMonth,
       trialMessages: AGENT_ENV_DEFAULTS.trialMessages,
       trialPlans: AGENT_ENV_DEFAULTS.trialPlans,
+      trialRenewDays: AGENT_ENV_DEFAULTS.trialRenewDays,
       // Domyślnie PRO dla wszystkich — do czasu subskrypcji zachowanie jak dotąd.
       // BRAK ZMIENNEJ NIE ZNACZY „PRO DLA WSZYSTKICH". Do 4.09.2026 znaczyło:
       // skasowanie `AI_TIER_OVERRIDE` w Railway (czyli to, co człowiek robi,
@@ -97,6 +98,14 @@ describe('readAgentEnv', () => {
     expect(readAgentEnv({ AI_SHUTDOWN_GRACE_MS: '1.5' }).shutdownGraceMs).toBe(
       8_000,
     );
+  });
+
+  it('AI_TRIAL_RENEW_DAYS: 0–3650, ponad granicą = domyślne (bez daty poza zakresem)', () => {
+    const days = (value: string) =>
+      readAgentEnv({ AI_TRIAL_RENEW_DAYS: value }).trialRenewDays;
+    expect(days('0')).toBe(0);
+    expect(days('3650')).toBe(3650);
+    expect(days('100000000')).toBe(30);
   });
 
   it('AI_CATALOG_MODE: digest jawnie, literówka = search', () => {

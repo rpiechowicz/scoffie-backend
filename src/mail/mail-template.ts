@@ -63,6 +63,9 @@ export type WelcomePayload = {
    *  bo obie wartości są zmienną środowiskową i już raz się zmieniły. */
   trialMessages: number;
   trialPlans: number;
+  /** `AI_TRIAL_RENEW_DAYS` z chwili zapisu; 0 albo brak (mail zakolejkowany
+   *  przed 7.10.2026) = pula jednorazowa. */
+  trialRenewDays?: number;
 };
 
 /** B — karta gospodarstwa: nazwa i domownicy z ich kolorem awatara. */
@@ -88,6 +91,9 @@ export type AiTrialExhaustedPayload = {
   messagesLimit: number;
   plansUsed: number;
   plansLimit: number;
+  /** Kiedy wraca darmowa pula (ISO). `null`/brak = nie wraca (pula
+   *  jednorazowa albo mail zakolejkowany przed 7.10.2026). */
+  renewsAtIso?: string | null;
 };
 
 /**

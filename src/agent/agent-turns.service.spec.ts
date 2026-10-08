@@ -41,6 +41,7 @@ const ENV: AgentEnv = {
   plansPerMonth: 30,
   trialMessages: 5,
   trialPlans: 1,
+  trialRenewDays: 30,
   tierOverride: 'PRO',
   maxConcurrentTurnsPerHousehold: 2,
   globalDailyBudgetUsd: null,

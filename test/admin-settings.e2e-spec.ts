@@ -119,6 +119,7 @@ describe('Panel — sterowanie (/admin/settings) i odpowiedzi na recenzje', () =
       'AI_LIMIT_PLANS_PER_MONTH',
       'AI_TRIAL_MESSAGES',
       'AI_TRIAL_PLANS',
+      'AI_TRIAL_RENEW_DAYS',
       'AI_ALLOWED_USERS',
       'AI_CARDS_MODE',
       'AI_CATALOG_MODE',

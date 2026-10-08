@@ -47,44 +47,60 @@ const CO_DZIALA = [
 ];
 
 /**
- * C1 — wyczerpana pula próbna.
+ * C1 — wyczerpana darmowa pula.
  *
  * Wiadomości i zapisy planu to DWA niezależne liczniki, więc mail mówi
  * o tym, który naprawdę padł. Makieta twierdziła „5 z 5 wiadomości i 1 z 1
  * planu" niezależnie od stanu.
+ *
+ * Od 7.10.2026 darmowa pula wraca co `AI_TRIAL_RENEW_DAYS` dni — wtedy mail
+ * podaje datę (`renewsAtIso`). Bez daty (odnawianie wyłączone albo mail
+ * zakolejkowany wcześniej) zostaje dawne „przysługuje raz".
  */
 export function renderAiTrialExhausted(
   c: MailCtx,
   d: AiTrialExhaustedPayload,
 ): RenderedMail {
   const messagesOut = d.exhausted === 'messages';
+  const back = formatDay(d.renewsAtIso);
   const subject = clipSubject(
-    messagesOut
-      ? 'Próbne wiadomości się skończyły'
-      : 'Próbny zapis planu wykorzystany',
+    back
+      ? messagesOut
+        ? `Darmowe wiadomości wrócą ${back}`
+        : `Darmowy zapis planu wróci ${back}`
+      : messagesOut
+        ? 'Darmowe wiadomości się skończyły'
+        : 'Darmowy zapis planu wykorzystany',
   );
   const preheader = messagesOut
-    ? 'Plan, lista i przepisy działają dalej. Asystent czeka na plan.'
+    ? back
+      ? `Asystent wróci ${back}. Plan, lista i przepisy działają dalej.`
+      : 'Plan, lista i przepisy działają dalej. Asystent czeka na plan.'
     : 'Rozmawiać z asystentem możesz dalej. Zapisać jego plan — już nie.';
 
   const wiad = `${d.messagesUsed} z ${d.messagesLimit} wiadomości`;
   const zapisy = `${d.plansUsed} z ${d.plansLimit} ${plural(d.plansLimit, 'zapisu', 'zapisów', 'zapisów')} planu`;
   const left = Math.max(0, d.messagesLimit - d.messagesUsed);
 
+  const renewal = back
+    ? `Darmowa pula wróci ${back}.`
+    : 'Darmowa pula przysługuje raz i nie odnawia się.';
   const warnBody = messagesOut
-    ? 'Dostęp próbny przysługuje raz i nie odnawia się.'
+    ? renewal
     : left > 0
-      ? `Zostało Ci ${left} ${plural(left, 'wiadomość', 'wiadomości', 'wiadomości')} — asystent ułoży tydzień i pokaże go w odpowiedzi, ale do kalendarza już go nie zapisze.`
-      : 'Wiadomości próbne też są wykorzystane. Dostęp próbny przysługuje raz.';
+      ? `${plural(left, 'Została', 'Zostały', 'Zostało')} Ci ${left} ${plural(left, 'wiadomość', 'wiadomości', 'wiadomości')} — asystent ułoży tydzień i pokaże go w odpowiedzi, ale do kalendarza już go nie zapisze. ${renewal}`
+      : `Darmowe wiadomości też są wykorzystane. ${renewal}`;
+  const title = messagesOut
+    ? 'Skończyły się darmowe wiadomości'
+    : 'Darmowy zapis planu wykorzystany';
+  const pitch = back
+    ? `Nie chcesz czekać? Plan daje pulę na każdy miesiąc, wspólną dla całego domu.`
+    : 'Asystent pamięta, czego nie jadacie, układa cały tydzień pod jedne zakupy i podmienia obiad, gdy plany się zmienią.';
+  const reason = 'bo darmowa pula asystenta w Twoim koncie się skończyła.';
 
   const body =
     head(c, { name: false }) +
-    h1(
-      c,
-      messagesOut
-        ? 'Skończyły się wiadomości próbne'
-        : 'Próbny zapis planu wykorzystany',
-    ) +
+    h1(c, title) +
     warn(c, {
       title: `Wykorzystane: ${esc(messagesOut ? wiad : zapisy)}`,
       body: esc(warnBody),
@@ -94,11 +110,7 @@ export function renderAiTrialExhausted(
       'Reszta aplikacji działa bez zmian: plan tygodnia układasz ręcznie bez limitu, lista zakupów dalej robi się z planu, przepisy są tam, gdzie były.',
       { pt: 20 },
     ) +
-    p(
-      c,
-      'Asystent pamięta, czego nie jadacie, układa cały tydzień pod jedne zakupy i podmienia obiad, gdy plany się zmienią.',
-      { pt: 14 },
-    ) +
+    p(c, esc(pitch), { pt: 14 }) +
     plans(c, { items: planCards(), pt: 28 }) +
     btn(c, { label: 'Zobacz cennik', href: `${c.site}/#cennik` }) +
     p(
@@ -106,10 +118,7 @@ export function renderAiTrialExhausted(
       `Plan włączasz w aplikacji: ${b(IN_APP_PATH)}. Płatność prowadzi App Store — zmienisz go albo wyłączysz w każdej chwili.`,
       { small: true, soft: true, pt: 22 },
     ) +
-    foot(c, {
-      reason:
-        'bo dostęp próbny do asystenta w Twoim koncie został wykorzystany.',
-    });
+    foot(c, { reason });
 
   const planLines = planCards()
     .map(
@@ -118,13 +127,13 @@ export function renderAiTrialExhausted(
     )
     .join('\n');
 
-  const text = `${messagesOut ? 'Skończyły się wiadomości próbne.' : 'Próbny zapis planu wykorzystany.'}
+  const text = `${title}.
 
 Wykorzystane: ${messagesOut ? wiad : zapisy}. ${warnBody}
 
 Reszta aplikacji działa bez zmian: plan tygodnia układasz ręcznie bez limitu, lista zakupów dalej robi się z planu, przepisy są tam, gdzie były.
 
-Asystent pamięta, czego nie jadacie, układa cały tydzień pod jedne zakupy i podmienia obiad, gdy plany się zmienią.
+${pitch}
 
 PLANY
 ${planLines}
@@ -135,7 +144,7 @@ Zobacz cennik: ${c.site}/#cennik
 Plan włączasz w aplikacji: ${IN_APP_PATH}.
 
 --
-To wiadomość dotycząca Twojego konta w Scoffie. Dostajesz ją, bo dostęp próbny do asystenta w Twoim koncie został wykorzystany.
+To wiadomość dotycząca Twojego konta w Scoffie. Dostajesz ją, ${reason}
 Regulamin: ${c.site}/terms/ · Polityka prywatności: ${c.site}/privacy/ · Pomoc: ${c.site}/support/
 Scoffie · scoffie.app`;
 

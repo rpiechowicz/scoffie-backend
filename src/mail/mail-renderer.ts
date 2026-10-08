@@ -132,6 +132,10 @@ export class MailRenderer {
       displayName: this.str(p, 'displayName'),
       trialMessages: this.num(p, 'trialMessages'),
       trialPlans: this.num(p, 'trialPlans'),
+      trialRenewDays:
+        p.trialRenewDays === undefined || p.trialRenewDays === null
+          ? undefined
+          : this.num(p, 'trialRenewDays'),
     };
   }
 
@@ -163,6 +167,7 @@ export class MailRenderer {
       messagesLimit: this.num(p, 'messagesLimit'),
       plansUsed: this.num(p, 'plansUsed'),
       plansLimit: this.num(p, 'plansLimit'),
+      renewsAtIso: this.strOrNull(p, 'renewsAtIso'),
     };
   }
 
