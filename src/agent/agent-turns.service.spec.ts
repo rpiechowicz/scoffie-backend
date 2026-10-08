@@ -422,6 +422,52 @@ describe('AgentTurnsService', () => {
         ).toBe(false);
       });
 
+      // Codex 8.10.2026: sufit prób sprawdzany tylko przed transakcją
+      // przepuszczał równoległe starty prób tuż pod nim.
+      it('próba blisko swojego sufitu: rachunek powtarza transakcja startu', async () => {
+        config.assertEnabled.mockReturnValue({
+          ...ENV,
+          globalDailyBudgetUsd: 5,
+          trialBudgetShare: 0.6,
+          turnCostReserveUsd: 0.25,
+        });
+        // Wydane $2,90 z $3 dla prób; przed transakcją żadnej żywej tury.
+        counters.read.mockResolvedValue(2_900_000);
+        prisma.agentTurn.count.mockResolvedValue(0);
+        // W migawce transakcji jest już tura równoległego startu: 2,90 + 0,25.
+        tx.agentTurn.count.mockImplementation((args: { where?: object }) =>
+          Promise.resolve(isInstallationCount(args) ? 1 : 0),
+        );
+        counters.resolvePlan.mockResolvedValue({
+          tier: 'TRIAL',
+          source: 'TRIAL',
+          quotaScopeId: 'trial:hasz',
+          periodKey: 'trial',
+          renews: false,
+          resetsAt: null,
+          messagesLimit: 5,
+          plansLimit: 1,
+        });
+
+        const error = await post().catch((caught: unknown) => caught);
+        expect((error as AppException).code).toBe('AI_BUDGET_PAUSED');
+        expect((error as AppException).message).toContain('Darmowy Asystent');
+        expect(tx.agentTurn.create).not.toHaveBeenCalled();
+
+        // Ten sam stan, ale dom płaci: do pełnego sufitu daleko — przechodzi.
+        counters.resolvePlan.mockResolvedValue({
+          tier: 'PRO',
+          source: 'SUBSCRIPTION',
+          quotaScopeId: 'sub:1',
+          periodKey: '2026-08',
+          renews: true,
+          resetsAt: '2026-09-01T00:00:00.000Z',
+          messagesLimit: 200,
+          plansLimit: 30,
+        });
+        await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+      });
+
       it('pas atomowy: 20 % budżetu, ale od 4 do 20 rezerw', () => {
         expect(installationAtomicBandMicroUsd(5, 0.25)).toBe(1_000_000);
         expect(installationAtomicBandMicroUsd(1, 0.25)).toBe(1_000_000);

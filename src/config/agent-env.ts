@@ -672,6 +672,21 @@ function readTrialBudgetShare(env: NodeJS.ProcessEnv): number {
     : AGENT_ENV_DEFAULTS.trialBudgetShare;
 }
 
+/**
+ * Dobowy sufit tur na darmowej puli: `AI_TRIAL_BUDGET_SHARE` z budżetu
+ * instalacji. `null` = bez osobnego sufitu (brak budżetu albo udział 1),
+ * wtedy próbę trzyma ten sam sufit co wszystkich. Jedna funkcja dla startu
+ * tury i werdyktu księgi, żeby oba liczyły ten sam próg.
+ */
+export function trialDailyBudgetUsd(
+  env: Pick<AgentEnv, 'globalDailyBudgetUsd'> &
+    Partial<Pick<AgentEnv, 'trialBudgetShare'>>,
+): number | null {
+  const share = env.trialBudgetShare ?? 1;
+  if (env.globalDailyBudgetUsd === null || share >= 1) return null;
+  return env.globalDailyBudgetUsd * share;
+}
+
 /** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */
 export function parseCatalogModeStrict(raw: string): AiCatalogMode | undefined {
   const value = raw.trim().toLowerCase();
