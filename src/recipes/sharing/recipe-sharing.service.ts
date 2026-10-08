@@ -69,6 +69,14 @@ export type PublicRecipe = {
   thermomix: boolean;
 };
 
+/**
+ * Spis katalogu dla mapy strony (`GET /public/recipes/catalog`): sam slug
+ * i data zmiany — to samo, co robot i tak znajdzie, otwierając strony po kolei.
+ */
+export type PublicCatalogIndex = {
+  recipes: { slug: string; updatedAt: string }[];
+};
+
 /** Kolejność składników przepisu = `[createdAt, id]` (zob. CLAUDE.md). */
 const ingredientOrder: Prisma.RecipeIngredientOrderByWithRelationInput[] = [
   { createdAt: 'asc' },
@@ -416,6 +424,25 @@ export class RecipeSharingService {
     });
     if (!row) throw recipeLinkNotFound();
     return this.toPublic(row, 'CATALOG');
+  }
+
+  /**
+   * Aktywne przepisy KATALOGU ze slugiem — do mapy strony (8.10.2026: katalog
+   * idzie do wyszukiwarek, przepisy domów nie). Przepisy gospodarstw nie mają
+   * slugu i nigdy tu nie trafią; filtr `isCatalog` trzyma to też wprost.
+   */
+  async publicCatalogIndex(): Promise<PublicCatalogIndex> {
+    const rows = await this.prisma.recipe.findMany({
+      where: { isCatalog: true, isActive: true, slug: { not: null } },
+      select: { slug: true, updatedAt: true },
+      orderBy: { slug: 'asc' },
+    });
+    return {
+      recipes: rows.map((row) => ({
+        slug: row.slug!,
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+    };
   }
 
   /** Dane przepisu dla strony po tokenie linku gospodarstwa. */

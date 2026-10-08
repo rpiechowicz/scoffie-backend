@@ -5,6 +5,11 @@ Decyzje Rafała z 29.09.2026: katalog i przepisy własne od razu; strona pokazuj
 zdjęcie, opis i składniki, KROKI tylko w aplikacji; `noindex`; Universal Links
 (iOS) i App Links (Android) razem z przepisami przenoszą też zaproszenia.
 
+**Zmiana 8.10.2026 (Rafał, marketing):** przepisy KATALOGU idą do wyszukiwarek —
+strona bez `noindex`, z danymi strukturalnymi `Recipe` i mapą
+`scoffie.app/przepis/sitemap.xml` (z `GET /public/recipes/catalog`). Przepisy
+gospodarstw (`/przepis/u/<token>`) zostają `noindex` i nigdy nie trafiają do mapy.
+
 ## Adresy
 
 | Co                                      | Adres                                      | Kto widzi                                             |
@@ -108,9 +113,13 @@ Nadaje `recipes:changed` (`action: "CREATED"`) do domu pytającego.
 ## REST publiczny (bez logowania) — dla strony
 
 ```
+GET /public/recipes/catalog        → 200 PublicCatalogIndex
 GET /public/recipes/slug/:slug     → 200 PublicRecipe | 404
 GET /public/recipes/shared/:token  → 200 PublicRecipe | 404
 ```
+
+`PublicCatalogIndex { recipes: { slug: string, updatedAt: string /* ISO */ }[] }` —
+aktywne przepisy katalogu ze slugiem, po slugu; do mapy strony. `public, max-age=3600`.
 
 `:slug` przyjmuje też UUID i alias. 404 ma ciało aplikacji `{ code: "RECIPE_NOT_FOUND", … }`.
 
@@ -134,7 +143,7 @@ PublicRecipe {
 ```
 
 - Nie ma autora, domu, id przepisu ani kroków.
-- `Cache-Control`: katalog `public, max-age=300`; link własny `public, max-age=60`.
+- `Cache-Control`: katalog `public, max-age=300`; link własny `public, max-age=60`; spis katalogu `public, max-age=3600`.
 - Limit: `THROTTLE_PUBLIC_LIMIT` na IP (domyślnie 60/min). Worker strony wysyła
   nagłówek `x-scoffie-web-secret` = `WEB_RENDER_SECRET` i wtedy limitu nie ma
   (wszyscy odwiedzający przychodzą z kilku adresów Cloudflare).

@@ -248,6 +248,34 @@
         "security": [{ "bearer": [] }]
       }
     },
+    "/public/recipes/catalog": {
+      "get": {
+        "operationId": "publicRecipesCatalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecipesCatalogResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "summary": "Slugi aktywnego katalogu do `sitemap.xml` strony; godzina cache wystarczy.",
+        "tags": ["PublicRecipes"]
+      }
+    },
     "/public/recipes/slug/{slug}": {
       "get": {
         "operationId": "publicRecipesBySlug",
@@ -11395,6 +11423,24 @@
           "thermomix",
           "title"
         ]
+      },
+      "PublicRecipesCatalogResponse": {
+        "description": "Spis katalogu dla mapy strony (`GET /public/recipes/catalog`): sam slug\ni data zmiany — to samo, co robot i tak znajdzie, otwierając strony po kolei.",
+        "type": "object",
+        "properties": {
+          "recipes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": { "type": "string" },
+                "updatedAt": { "type": "string" }
+              },
+              "required": ["slug", "updatedAt"]
+            }
+          }
+        },
+        "required": ["recipes"]
       },
       "RateMessageDto": {
         "type": "object",

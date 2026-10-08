@@ -276,6 +276,20 @@ describe('Udostępnianie przepisów E2E', () => {
       expect((body.ingredients as unknown[]).length).toBeGreaterThan(0);
     });
 
+    it('spis katalogu do mapy strony: tylko aktywny katalog, sam slug i data', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/public/recipes/catalog')
+        .expect(200);
+      expect(res.headers['cache-control']).toBe('public, max-age=3600');
+      const { recipes } = res.body as {
+        recipes: { slug: string; updatedAt: string }[];
+      };
+      const entry = recipes.find((r) => r.slug === catalog.slug);
+      expect(entry).toBeDefined();
+      expect(Object.keys(entry!).sort()).toEqual(['slug', 'updatedAt']);
+      expect(Number.isNaN(Date.parse(entry!.updatedAt))).toBe(false);
+    });
+
     it('zmiana slugu: stary adres dalej prowadzi do przepisu, odpowiedź niesie nowy', async () => {
       const newSlug = `${catalog.slug.slice(0, 60)}-nowy-adres`;
       await prisma.recipe.update({

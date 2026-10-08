@@ -149,6 +149,8 @@ etapami i mierzenie efektu zmian.
   404 `RECIPE_NOT_FOUND` (też w publicznym `GET /public/recipes/*` bez logowania). Obcy dom widzi przepis
   z linku przez `recipes:openShared` (`origin: SHARED`, `householdId: null`), `findById` dalej daje mu 404;
   „Zapisz u siebie” = `recipes:saveShared` (kopia z `copiedFromRecipeId`, idempotentna pod zamkiem doradczym).
+  Od 8.10.2026 katalog jest w wyszukiwarkach: `GET /public/recipes/catalog` (slugi + `updatedAt` aktywnego
+  katalogu) karmi `scoffie.app/przepis/sitemap.xml`; przepisy domów zostają `noindex` i poza spisem.
   Dowód: `test/recipe-sharing.e2e-spec.ts`.
 - Trasy `/ops/*` (poza `/ops/health`): `OpsTokenGuard` jest fail-closed — pusty `OPS_TOKEN` = 403 w KAŻDYM
   środowisku (dev, staging, prod); jedyny wyjątek to dokładnie `NODE_ENV=test`. Tokenu nie logujemy.
