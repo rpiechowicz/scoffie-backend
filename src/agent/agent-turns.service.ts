@@ -168,7 +168,7 @@ export { TURN_TIMEOUT_GRACE_MS };
  *    a po nich instalacji — z rezerwacją za tury w biegu. Odmowy bez kosztu.
  * 6. transakcja: lease rozmowy (409) → semafor domu (409) → sufity domu
  *    z rezerwacją za jego tury w biegu (503) → blisko sufitu: instalacja
- *    jeszcze raz, atomowo (503), a na próbie także sufit prób (503)
+ *    jeszcze raz, atomowo (503) → na próbie zawsze sufit prób, atomowo (503)
  *    → kwota (429) → wiadomość + tura.
  *
  * Kwota schodzi NA STARCIE, nie po odpowiedzi modelu: inaczej wystarczyłoby
@@ -372,13 +372,15 @@ export class AgentTurnsService {
       userId,
     });
     // Próba ma własny, niższy sufit w budżecie instalacji — fala nowych kont
-    // nie może zgasić asystenta płacącym (audyt 7.10.2026). Ten sam układ co
-    // sufit instalacji wyżej: tu szybka odmowa, blisko sufitu prób rachunek
-    // powtarza transakcja startu (równoległe starty prób szereguje SSI),
-    // a w trakcie tury pilnuje go werdykt księgi.
+    // nie może zgasić asystenta płacącym (audyt 7.10.2026). Tu szybka odmowa;
+    // rachunek powtarza transakcja startu ZAWSZE, nie tylko w pasie przy
+    // suficie jak dla instalacji — fala startów z daleka od sufitu przeszłaby
+    // odczyt naraz (Codex, 8.10.2026). Koszt: starty prób z różnych domów
+    // szereguje SSI (P2034 → ponowienie). Płacących to nie dotyka, bo daleko
+    // od swojego sufitu nie czytają tur instalacji. W trakcie tury pilnuje go
+    // werdykt księgi.
     const trialCeilingUsd =
       plan.tier === 'TRIAL' ? trialDailyBudgetUsd(env) : null;
-    let trialNearCeiling = false;
     if (trialCeilingUsd !== null) {
       const headroom = await this.installationHeadroomMicroUsd(
         this.prisma,
@@ -386,9 +388,6 @@ export class AgentTurnsService {
         trialCeilingUsd,
       );
       if (headroom <= 0) this.refuseTrialBudget(env, trialCeilingUsd);
-      trialNearCeiling =
-        headroom <
-        installationAtomicBandMicroUsd(trialCeilingUsd, env.turnCostReserveUsd);
     }
     const periodKey = plan.periodKey;
     // Zakres kwoty: `sub:<id>` przy subskrypcji, `trial:<hasz>` na próbie,
@@ -535,10 +534,10 @@ export class AgentTurnsService {
             this.refuseInstallationBudget(env.globalDailyBudgetUsd);
           }
         }
-        // Próba blisko SWOJEGO sufitu: ten sam rachunek z migawki transakcji.
-        // Bez tego równoległe starty prób przechodziły odczyt przed transakcją
+        // Próba: sufit prób z migawki transakcji, przy każdym starcie. Bez
+        // tego równoległe starty prób przechodziły odczyt przed transakcją
         // naraz i wjeżdżały w pieniądze płacących (Codex, 8.10.2026).
-        if (trialNearCeiling && trialCeilingUsd !== null) {
+        if (trialCeilingUsd !== null) {
           const headroom = await this.installationHeadroomMicroUsd(
             tx,
             env,

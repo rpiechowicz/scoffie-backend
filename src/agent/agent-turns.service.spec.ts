@@ -422,21 +422,22 @@ describe('AgentTurnsService', () => {
         ).toBe(false);
       });
 
-      // Codex 8.10.2026: sufit prób sprawdzany tylko przed transakcją
-      // przepuszczał równoległe starty prób tuż pod nim.
-      it('próba blisko swojego sufitu: rachunek powtarza transakcja startu', async () => {
+      // Codex 8.10.2026: sufit prób sprawdzany przed transakcją (a potem
+      // tylko w pasie przy suficie) przepuszczał falę równoległych startów.
+      it('próba: sufit prób w transakcji przy każdym starcie, także daleko od niego', async () => {
         config.assertEnabled.mockReturnValue({
           ...ENV,
           globalDailyBudgetUsd: 5,
           trialBudgetShare: 0.6,
           turnCostReserveUsd: 0.25,
         });
-        // Wydane $2,90 z $3 dla prób; przed transakcją żadnej żywej tury.
-        counters.read.mockResolvedValue(2_900_000);
+        // Wydane $1,99 z $3 dla prób — poza pasem atomowym ($1); przed
+        // transakcją żadnej żywej tury.
+        counters.read.mockResolvedValue(1_990_000);
         prisma.agentTurn.count.mockResolvedValue(0);
-        // W migawce transakcji jest już tura równoległego startu: 2,90 + 0,25.
+        // W migawce transakcji pięć tur równoległych startów: 1,99 + 5 × 0,25.
         tx.agentTurn.count.mockImplementation((args: { where?: object }) =>
-          Promise.resolve(isInstallationCount(args) ? 1 : 0),
+          Promise.resolve(isInstallationCount(args) ? 5 : 0),
         );
         counters.resolvePlan.mockResolvedValue({
           tier: 'TRIAL',
@@ -454,7 +455,9 @@ describe('AgentTurnsService', () => {
         expect((error as AppException).message).toContain('Darmowy Asystent');
         expect(tx.agentTurn.create).not.toHaveBeenCalled();
 
-        // Ten sam stan, ale dom płaci: do pełnego sufitu daleko — przechodzi.
+        // Ten sam stan, ale dom płaci: do pełnego sufitu daleko — przechodzi
+        // i nie czyta tur instalacji w transakcji (nie zderza się z próbami).
+        tx.agentTurn.count.mockClear();
         counters.resolvePlan.mockResolvedValue({
           tier: 'PRO',
           source: 'SUBSCRIPTION',
@@ -466,6 +469,11 @@ describe('AgentTurnsService', () => {
           plansLimit: 30,
         });
         await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+        expect(
+          tx.agentTurn.count.mock.calls.some(([args]) =>
+            isInstallationCount(args as { where?: object }),
+          ),
+        ).toBe(false);
       });
 
       it('pas atomowy: 20 % budżetu, ale od 4 do 20 rezerw', () => {
