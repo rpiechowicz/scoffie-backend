@@ -129,6 +129,13 @@ describe('nadpisania env z panelu', () => {
       ok: false,
     });
     expect(check('AI_TRIAL_PLANS', '')).toMatchObject({ ok: false });
+    expect(check('AI_TRIAL_RENEW_DAYS', '3650')).toEqual({
+      ok: true,
+      value: '3650',
+    });
+    expect(check('AI_TRIAL_RENEW_DAYS', '100000000')).toMatchObject({
+      ok: false,
+    });
     expect(
       check(
         'AI_ALLOWED_USERS',

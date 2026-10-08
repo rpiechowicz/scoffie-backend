@@ -100,6 +100,14 @@ describe('readAgentEnv', () => {
     );
   });
 
+  it('AI_TRIAL_RENEW_DAYS: 0–3650, ponad granicą = domyślne (bez daty poza zakresem)', () => {
+    const days = (value: string) =>
+      readAgentEnv({ AI_TRIAL_RENEW_DAYS: value }).trialRenewDays;
+    expect(days('0')).toBe(0);
+    expect(days('3650')).toBe(3650);
+    expect(days('100000000')).toBe(30);
+  });
+
   it('AI_CATALOG_MODE: digest jawnie, literówka = search', () => {
     expect(readAgentEnv({ AI_CATALOG_MODE: 'digest' }).catalogMode).toBe(
       'digest',

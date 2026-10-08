@@ -7,6 +7,7 @@ import {
   AI_CARDS_MODES,
   AI_CATALOG_MODES,
   AgentEnv,
+  MAX_TRIAL_RENEW_DAYS,
   parseAllowedUsers,
   parseCardsModeStrict,
   parseCatalogModeStrict,
@@ -184,7 +185,19 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
   AI_TRIAL_RENEW_DAYS: {
     label: 'Darmowa pula wraca co … dni (0 = jednorazowa)',
     kind: 'number',
-    normalize: count('AI_TRIAL_RENEW_DAYS'),
+    normalize: (raw) => {
+      const parsed = parseNumberStrict(raw, {
+        min: 0,
+        max: MAX_TRIAL_RENEW_DAYS,
+        integer: true,
+      });
+      return parsed === undefined
+        ? {
+            ok: false,
+            error: `AI_TRIAL_RENEW_DAYS: liczba całkowita od 0 do ${MAX_TRIAL_RENEW_DAYS}`,
+          }
+        : { ok: true, value: String(parsed) };
+    },
     effective: (agent) => String(agent.trialRenewDays),
   },
   AI_ALLOWED_USERS: {

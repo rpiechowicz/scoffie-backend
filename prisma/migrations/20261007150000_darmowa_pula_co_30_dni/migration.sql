@@ -9,9 +9,11 @@ CREATE TABLE "AiFreeQuotaCycle" (
 
 -- Kto już używał jednorazowej próby, dostaje świeżą pulę OD RAZU (decyzja
 -- Rafała 7.10.2026): kotwica 30 dni wstecz = dziś zaczyna się drugi cykl.
--- Kolejne odnowienie — za 30 dni od wdrożenia.
+-- Kolejne odnowienie — za 30 dni od wdrożenia. `AT TIME ZONE 'UTC'`: kolumna
+-- to TIMESTAMP bez strefy w UTC (Prisma), a gołe CURRENT_TIMESTAMP zależy od
+-- strefy sesji.
 INSERT INTO "AiFreeQuotaCycle" ("scopeId", "anchoredAt")
-SELECT DISTINCT "scopeId", CURRENT_TIMESTAMP - INTERVAL '30 days'
+SELECT DISTINCT "scopeId", (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '30 days'
 FROM "AiUsageCounter"
 WHERE "periodKey" = 'trial' AND "scopeId" LIKE 'trial:%'
 ON CONFLICT DO NOTHING;

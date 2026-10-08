@@ -8,10 +8,13 @@
  *   pnpm exec tsx scripts/reset-trial.ts rpiechowicz@icloud.com
  *
  * Pula próbna to licznik `AiUsageCounter` o kluczu `trial:<identityHash>`
- * (albo `trial:user:<id>`, gdy hasz był pusty), okres `trial`, rodzaje
- * `messages` i `plans` — patrz `ai-usage-counters.service.ts`. Rozmowy,
- * plan i księga użycia zostają nietknięte. Bez argumentu wypisuje stan,
- * niczego nie zmienia.
+ * (albo `trial:user:<id>`, gdy hasz był pusty), rodzaje `messages`
+ * i `plans` — patrz `ai-usage-counters.service.ts`. Od 7.10.2026 pula wraca
+ * co `AI_TRIAL_RENEW_DAYS` dni, a każdy cykl ma własny okres: `trial`
+ * (pierwszy), potem `free:<YYYY-MM-DD>`. Zerujemy WSZYSTKIE cykle — bieżący
+ * zależy od kotwicy i od ustawienia w panelu, a zerowanie zamkniętych nic nie
+ * daje ani nie psuje. Kotwica cyklu zostaje. Rozmowy, plan i księga użycia
+ * zostają nietknięte.
  */
 import { PrismaClient } from '@prisma/client';
 
@@ -36,15 +39,18 @@ async function main() {
   const scopes = [`trial:user:${user.id}`];
   if (user.identityHash) scopes.push(`trial:${user.identityHash}`);
 
-  const before = await prisma.aiUsageCounter.findMany({
-    where: { periodKey: 'trial', scopeId: { in: scopes } },
-  });
+  const where = {
+    scopeId: { in: scopes },
+    kind: { in: ['messages', 'plans'] },
+    OR: [{ periodKey: 'trial' }, { periodKey: { startsWith: 'free:' } }],
+  };
+  const before = await prisma.aiUsageCounter.findMany({ where });
   for (const row of before) {
-    console.log(`${row.scopeId} ${row.kind}: ${row.value}`);
+    console.log(`${row.scopeId} ${row.periodKey} ${row.kind}: ${row.value}`);
   }
 
   const result = await prisma.aiUsageCounter.updateMany({
-    where: { periodKey: 'trial', scopeId: { in: scopes } },
+    where,
     data: { value: 0 },
   });
   console.log(

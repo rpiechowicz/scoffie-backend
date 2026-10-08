@@ -436,12 +436,24 @@ function readNumber(
   env: NodeJS.ProcessEnv,
   key: NumericKey,
   fallback: number,
-  { min = 0, integer = true }: { min?: number; integer?: boolean } = {},
+  {
+    min = 0,
+    max = Number.POSITIVE_INFINITY,
+    integer = true,
+  }: { min?: number; max?: number; integer?: boolean } = {},
 ): number {
   const raw = (env[key] ?? '').trim();
   if (!raw) return fallback;
-  return parseNumberStrict(raw, { min, integer }) ?? fallback;
+  return parseNumberStrict(raw, { min, max, integer }) ?? fallback;
 }
+
+/**
+ * Górna granica `AI_TRIAL_RENEW_DAYS` (10 lat). Bez niej „nigdy” wpisane
+ * jako 100000000 dawało `resetsAt` poza zakresem `Date` — `toISOString`
+ * rzucał i `resolvePlan` oddawał 500 każdemu na darmowej puli. Pula
+ * jednorazowa to `0`, nie wielka liczba.
+ */
+export const MAX_TRIAL_RENEW_DAYS = 3650;
 
 /**
  * Ścisłe parsery wartości — te same dla env i dla nadpisań z panelu
@@ -451,7 +463,11 @@ function readNumber(
  */
 export function parseNumberStrict(
   raw: string,
-  { min = 0, integer = true }: { min?: number; integer?: boolean } = {},
+  {
+    min = 0,
+    max = Number.POSITIVE_INFINITY,
+    integer = true,
+  }: { min?: number; max?: number; integer?: boolean } = {},
 ): number | undefined {
   const value = raw.trim();
   if (!value) return undefined;
@@ -459,6 +475,7 @@ export function parseNumberStrict(
   if (
     !Number.isFinite(parsed) ||
     parsed < min ||
+    parsed > max ||
     (integer && !Number.isInteger(parsed))
   ) {
     return undefined;
@@ -586,6 +603,7 @@ export function readAgentEnv(
       env,
       'AI_TRIAL_RENEW_DAYS',
       AGENT_ENV_DEFAULTS.trialRenewDays,
+      { max: MAX_TRIAL_RENEW_DAYS },
     ),
     tierOverride: readTierOverride(env),
     maxConcurrentTurnsPerHousehold: readNumber(

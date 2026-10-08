@@ -109,6 +109,9 @@ export function legacyFreeAnchor(now: Date, renewDays: number): Date {
  * użycie), a nie od 1. dnia miesiąca: kto zaczął 28-go, nie dostaje nowej puli
  * po trzech dniach. Klucz cyklu to data jego POCZĄTKU, nie numer — zmiana
  * `AI_TRIAL_RENEW_DAYS` w panelu nie trafia wtedy w licznik innego okna.
+ * Przesuwa za to granice cykli: osoba w trakcie cyklu może dostać świeży
+ * klucz wcześniej, niż wypadłby po staremu — najwyżej jedna dodatkowa pula
+ * na osobę na każdą zmianę ustawienia.
  *
  *   • brak kotwicy (nikt nic jeszcze nie zużył) → `trial`, bez daty odnowienia,
  *   • `renewDays <= 0` → `trial` na zawsze (pula jednorazowa jak dawniej),
