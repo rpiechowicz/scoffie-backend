@@ -42,6 +42,12 @@ export const CONSENT_ACTION_VALUES: string[] = [...CONSENT_ACTIONS];
 
 /** Bieżąca wersja każdego dokumentu (to klient wysyła w zdarzeniu). */
 export const LEGAL_DOCUMENT_VERSIONS: Record<ConsentKind, string> = {
+  // Wersja 1.3 (ogłoszona 8.10.2026, obowiązuje od 22.10.2026 — 14 dni
+  // z regulaminu, sekcja 14): darmowa pula asystenta odnawia się co 30 dni,
+  // Usługodawca może zmienić jej wielkość i okres, w polityce liczniki
+  // i data rozpoczęcia puli w śladzie tożsamości zakupowej. Zmiana na korzyść
+  // użytkownika — minimum bez zmian, nikt nie klika od nowa.
+  //
   // Wersja 1.2 z 2.10.2026: Resend (poczta o koncie) w polityce prywatności,
   // nocna kopia bazy na Railwayu zamiast GitHub Actions. Jedna data dla
   // wszystkich rodzajów, bo iOS wysyła JEDNĄ wersję (`LegalDocMeta`) przy
@@ -49,12 +55,12 @@ export const LEGAL_DOCUMENT_VERSIONS: Record<ConsentKind, string> = {
   // (wersja z przyszłości = odmowa zapisu zgody). Minimum bez zmian: Resend
   // wysyła pocztę od 11.09 w ramach umowy (bez nowej zgody), a starszy build
   // dalej wysyła 2026-09-23 i nie może dostać odmowy.
-  TERMS: '2026-10-02',
-  PRIVACY: '2026-10-02',
-  AI_ASSISTANT: '2026-10-02',
-  COOKIDOO: '2026-10-02',
-  AGE_16: '2026-10-02',
-  HEALTH_DATA: '2026-10-02',
+  TERMS: '2026-10-22',
+  PRIVACY: '2026-10-22',
+  AI_ASSISTANT: '2026-10-22',
+  COOKIDOO: '2026-10-22',
+  AGE_16: '2026-10-22',
+  HEALTH_DATA: '2026-10-22',
 };
 
 /**
