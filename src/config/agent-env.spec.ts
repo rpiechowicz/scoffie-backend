@@ -59,11 +59,23 @@ describe('readAgentEnv', () => {
       cacheWarmHours: AGENT_ENV_DEFAULTS.cacheWarmHours,
       // Rezerwacja za turę w biegu i łaska przy SIGTERM (Etap 1 workstreamu).
       turnCostReserveUsd: 0.25,
+      // Próby najwyżej do 60 % budżetu dobowego (audyt 7.10.2026).
+      trialBudgetShare: 0.6,
       shutdownGraceMs: 8_000,
       // Porcje per osoba w planerze — włączane po wydaniu iOS (Etap 2.2).
       plannerPerUserPortions: false,
       partialServerText: false,
     });
+  });
+
+  it('AI_TRIAL_BUDGET_SHARE: udział (0, 1], śmieci = domyślne 0,6', () => {
+    const share = (value: string) =>
+      readAgentEnv({ AI_TRIAL_BUDGET_SHARE: value }).trialBudgetShare;
+    expect(share('0.4')).toBe(0.4);
+    expect(share('1')).toBe(1);
+    expect(share('0')).toBe(0.6);
+    expect(share('1.5')).toBe(0.6);
+    expect(share('dużo')).toBe(0.6);
   });
 
   it('AI_TURN_COST_RESERVE_USD: 0 wyłącza rezerwację, śmieci = domyślna', () => {

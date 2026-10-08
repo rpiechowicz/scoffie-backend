@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AgentEnv } from '../config/agent-env';
+import { AgentEnv, trialDailyBudgetUsd } from '../config/agent-env';
+import { TRIAL_SCOPE_PREFIX } from '../config/purchase-identity';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiUsageCountersService,
@@ -43,11 +44,15 @@ export type LedgerTurn = {
   provider: string;
   /** Próba wykonania tury (Etap 5); brak = 1. */
   attempt?: number;
-  /** Konfiguracja z przyjęcia tury — sufity kosztu do werdyktu budżetu. */
+  /**
+   * Konfiguracja z przyjęcia tury — sufity kosztu do werdyktu budżetu.
+   * `trialBudgetShare` obniża sufit instalacji turom na darmowej puli.
+   */
   env: Pick<
     AgentEnv,
     'householdDailyCostUsd' | 'householdMonthlyCostUsd' | 'globalDailyBudgetUsd'
-  >;
+  > &
+    Partial<Pick<AgentEnv, 'trialBudgetShare'>>;
 };
 
 /**
@@ -159,7 +164,13 @@ export class AgentUsageLedger {
         'costMicroUsd',
         cost,
       );
-      return { budgetExceeded: await this.overBudget(tx, turn) };
+      return {
+        budgetExceeded: await this.overBudget(
+          tx,
+          turn,
+          current?.quotaScopeId ?? null,
+        ),
+      };
     });
   }
 
@@ -255,11 +266,19 @@ export class AgentUsageLedger {
     return true;
   }
 
-  /** Czy po tym wywołaniu któryś sufit kosztu jest już osiągnięty. */
+  /**
+   * Czy po tym wywołaniu któryś sufit kosztu jest już osiągnięty. Tura na
+   * darmowej puli (`trial:…`) staje na sufit prób, nie na pełnym budżecie —
+   * inaczej tury przyjęte tuż pod nim wydawałyby dalej pieniądze płacących.
+   */
   private async overBudget(
     client: UsageCounterClient,
     turn: LedgerTurn,
+    quotaScopeId: string | null,
   ): Promise<boolean> {
+    const trialCeilingUsd = quotaScopeId?.startsWith(TRIAL_SCOPE_PREFIX)
+      ? trialDailyBudgetUsd(turn.env)
+      : null;
     const ceilings: Array<[string, string, number | null]> = [
       [
         turn.householdId,
@@ -271,7 +290,11 @@ export class AgentUsageLedger {
         this.counters.monthKey(),
         turn.env.householdMonthlyCostUsd,
       ],
-      [GLOBAL_SCOPE, this.counters.dayKey(), turn.env.globalDailyBudgetUsd],
+      [
+        GLOBAL_SCOPE,
+        this.counters.dayKey(),
+        trialCeilingUsd ?? turn.env.globalDailyBudgetUsd,
+      ],
     ];
     for (const [scopeId, periodKey, limitUsd] of ceilings) {
       if (limitUsd === null) continue;

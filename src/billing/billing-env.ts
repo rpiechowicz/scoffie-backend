@@ -176,9 +176,16 @@ export function readBillingEnv(): BillingEnv {
     // Włączone tylko wtedy, gdy JEST czym rozmawiać z Apple. Sam
     // `BILLING_ENABLED=true` bez klucza dałby paywall, który przyjmuje
     // pieniądze i nie umie potwierdzić ani jednej transakcji.
+    //
+    // I tylko z produkcyjnym App Store na produkcji. Domyślne `Sandbox`
+    // (zapomniana zmienna) dawało paywall, który sprzedaje, a każdą
+    // prawdziwą transakcję odrzuca jako BILLING_ENVIRONMENT_MISMATCH —
+    // klient płaci i nie dostaje nic (audyt 7.10.2026). Recenzja i TestFlight
+    // idą przez `APPLE_ACCEPT_SANDBOX=true` przy `Production`, nie przez to.
     enabled:
       readBool('BILLING_ENABLED', false) &&
-      Boolean(issuerId && keyId && privateKey),
+      Boolean(issuerId && keyId && privateKey) &&
+      !(process.env.NODE_ENV === 'production' && environment !== 'Production'),
     bundleId: process.env.APPLE_BUNDLE_ID?.trim() || 'app.scoffie.ios',
     appAppleId: readInt('APPLE_APP_APPLE_ID', 0),
     environment,

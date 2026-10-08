@@ -184,6 +184,23 @@ describe('środowisko App Store', () => {
     });
   });
 
+  it('na produkcji zakupy włączają się TYLKO z produkcyjnym App Store', () => {
+    // Zapomniane APPLE_ENVIRONMENT = Sandbox: paywall sprzedawał, a każdą
+    // prawdziwą transakcję odrzucał jako BILLING_ENVIRONMENT_MISMATCH.
+    process.env.NODE_ENV = 'production';
+    process.env.BILLING_ENABLED = 'true';
+    process.env.APPLE_ISSUER_ID = 'issuer';
+    process.env.APPLE_BILLING_KEY_ID = 'key';
+    process.env.APPLE_BILLING_PRIVATE_KEY = 'QUJD';
+    delete process.env.APPLE_ENVIRONMENT;
+    expect(readBillingEnv().enabled).toBe(false);
+    process.env.APPLE_ENVIRONMENT = 'Production';
+    expect(readBillingEnv().enabled).toBe(true);
+    process.env.NODE_ENV = 'development';
+    delete process.env.APPLE_ENVIRONMENT;
+    expect(readBillingEnv().enabled).toBe(true);
+  });
+
   it('Chmura Rodzinna jest domyślnie WYŁĄCZONA', () => {
     delete process.env.APPLE_ACCEPT_FAMILY_SHARED;
     expect(readBillingEnv().acceptFamilyShared).toBe(false);
