@@ -103,7 +103,15 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     else process.env.COOKIDOO_ENCRYPTION_KEY = original.key;
   });
 
-  it('brak zmiennej = włączona, jak dotąd; status niesie enabled', async () => {
+  it('brak zmiennej = wyłączona (schowana do zgody Vorwerka)', async () => {
+    await expect(service.status(USER)).resolves.toEqual({
+      connected: false,
+      enabled: false,
+    });
+  });
+
+  it('literalne true włącza; status niesie enabled', async () => {
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     await expect(service.status(USER)).resolves.toEqual({
       connected: false,
       enabled: true,
@@ -160,10 +168,10 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     });
   });
 
-  it('tylko literalne false wyłącza', async () => {
-    process.env.COOKIDOO_INTEGRATION_ENABLED = 'no';
+  it('tylko literalne true włącza', async () => {
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'yes';
     await expect(service.status(USER)).resolves.toMatchObject({
-      enabled: true,
+      enabled: false,
     });
   });
 });
@@ -208,7 +216,8 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
 
   beforeEach(() => {
     process.env.COOKIDOO_ENCRYPTION_KEY = KEY;
-    delete process.env.COOKIDOO_INTEGRATION_ENABLED;
+    // Integracja jest domyślnie wyłączona (do zgody Vorwerka) — tu ją włączamy.
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     prisma = {
       membership: { findFirst: jest.fn() },
       $transaction: jest.fn(),
@@ -516,6 +525,7 @@ describe('CookidooIntegrationService — kto zarządza połączeniem domu (audyt
 
 describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozłączeniu (review 7.10.2026)', () => {
   const originalKey = process.env.COOKIDOO_ENCRYPTION_KEY;
+  const originalFlag = process.env.COOKIDOO_INTEGRATION_ENABLED;
   let prisma: Record<string, any>;
   let service: CookidooIntegrationService;
 
@@ -541,6 +551,7 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
 
   beforeEach(() => {
     process.env.COOKIDOO_ENCRYPTION_KEY = KEY;
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     prisma = {
       membership: { findFirst: jest.fn() },
       $queryRaw: jest.fn(),
@@ -572,6 +583,9 @@ describe('CookidooIntegrationService — dziennik zgód przy nadpisaniu i rozł�
   afterEach(() => {
     if (originalKey === undefined) delete process.env.COOKIDOO_ENCRYPTION_KEY;
     else process.env.COOKIDOO_ENCRYPTION_KEY = originalKey;
+    if (originalFlag === undefined)
+      delete process.env.COOKIDOO_INTEGRATION_ENABLED;
+    else process.env.COOKIDOO_INTEGRATION_ENABLED = originalFlag;
   });
 
   // Wpisy W TRANSAKCJI zapisu (`tx.consentEvent.create`), nie po niej.

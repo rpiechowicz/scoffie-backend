@@ -172,7 +172,8 @@ describe('Cookidoo: zapis poświadczeń kontra usunięcie z domu (e2e, dwie tran
 
   beforeAll(async () => {
     process.env.THROTTLE_AUTH_LIMIT = '10000';
-    delete process.env.COOKIDOO_INTEGRATION_ENABLED;
+    // Integracja jest domyślnie wyłączona (do zgody Vorwerka) — suita ją włącza.
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     process.env.COOKIDOO_ENCRYPTION_KEY ??=
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
 
