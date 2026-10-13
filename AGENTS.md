@@ -191,7 +191,9 @@ etapami i mierzenie efektu zmian.
   leży w jednostce listy (`kg`/`l` → `g`/`ml`, gramy produktu z masą sztuki → `szt`), sumuje się
   z planem. Stan listy niesie `manual {amount, unit, addedById}` i `recentProducts`; katalog dla
   telefonu to `weeklyPlans:shoppingProducts` z rewizją (ta sama = `products: null`). Dopisanie
-  wysyła push przez bufor („dopisał/a N produktów”), „Brakuje mi” dalej nie. Dowód:
+  wysyła push przez bufor („dopisał/a N produktów”), „Brakuje mi” dalej nie. Każdy zapis dopisanych (oba źródła)
+  bierze NAJPIERW wiersz `Membership` pytającego FOR SHARE (`lockMembershipInTx`) — zapisy listy nie mają zamka tygodnia,
+  a bez tego domownik usunięty po bramce wejściowej dopisywał jeszcze do domu. Dowód:
   `test/shopping-manual.e2e-spec.ts`.
 - „Czego nie jem” WYCOFANE (2.10.2026; ekran zniknął z iOS 23.09, #179): `UserPreference.excludedIngredientIds`
   i `maxPrepTimeMinutes` NIE są czytane (walidator planu, planer, wyszukiwarka i prompt asystenta) ani zapisywane

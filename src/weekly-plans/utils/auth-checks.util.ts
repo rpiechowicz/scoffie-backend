@@ -84,6 +84,36 @@ export async function ensureMembership(
 /// `participantIds` to ta sama reguła dla osób WPISYWANYCH do posiłku: bez
 /// niej zapis, który przeczekał usunięcie, odtwarzał wiersz uczestnika dla
 /// kogoś, kogo `onMemberLeft` dopiero co z planu wyczyścił.
+/// Członkostwo pytającego W transakcji zapisu listy zakupów, z blokadą
+/// wiersza `Membership` (`FOR SHARE`) — ten sam wzór, co zapis poświadczeń
+/// Cookidoo (review Codexa 13.10.2026).
+///
+/// Bramka na wejściu metody biegnie przed transakcją: domownik usunięty tuż
+/// po niej dopisywał jeszcze do listy domu. Zapisy listy nie biorą zamka
+/// tygodnia (nie ruszają `PlanItem`), więc `ensureMembershipInTx` by ich nie
+/// uszeregował. Blokada wiersza robi to wprost: `DELETE` członkostwa czeka
+/// na koniec zapisu, a zapis, który przyszedł po usunięciu, nie widzi wiersza
+/// (w SERIALIZABLE — po ponowieniu na świeżej migawce). Pierwsza blokada
+/// transakcji; sprzątanie po odejściu bierze `Household` jako `NO KEY UPDATE`,
+/// zgodne z `KEY SHARE` kluczy obcych nowych wierszy, więc nie ma cyklu.
+export async function lockMembershipInTx(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  householdId: string,
+): Promise<void> {
+  const rows = await tx.$queryRaw<{ one: number }[]>`
+    SELECT 1 AS one FROM "Membership"
+    WHERE "userId" = ${userId}::uuid AND "householdId" = ${householdId}::uuid
+    FOR SHARE`;
+  if (rows.length === 0) {
+    throw new AppException(
+      'NOT_HOUSEHOLD_MEMBER',
+      'User is not a member of this household',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
 export async function ensureMembershipInTx(
   tx: Prisma.TransactionClient,
   userId: string,

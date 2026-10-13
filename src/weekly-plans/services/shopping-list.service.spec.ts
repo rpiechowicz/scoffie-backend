@@ -144,6 +144,8 @@ const makePrismaMock = () => {
       delete: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Blokada członkostwa w transakcji (`lockMembershipInTx`) — domyślnie jest.
+    $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
     $transaction: jest.fn().mockImplementation((cbOrOps: any) => {
       if (typeof cbOrOps === 'function') {
         return cbOrOps(mock);
@@ -1777,6 +1779,34 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       await expect(
         add([{ name: 'Jajko', amount: 150, unit: 'szt' }]),
       ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+    });
+
+    it('UUID wielkimi literami trafia w produkt katalogu', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(MILK_ID, 'mleko', 'Nabiał'),
+      ]);
+
+      await expect(
+        add([{ ingredientId: MILK_ID.toUpperCase() }]),
+      ).resolves.toEqual({ added: 1 });
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ ingredientId: MILK_ID }),
+        }),
+      );
+    });
+
+    it('domownik usunięty przed transakcją → NOT_HOUSEHOLD_MEMBER, nic się nie zapisuje', async () => {
+      // Bramka na wejściu przeszła, ale w transakcji wiersza członkostwa już
+      // nie ma (zatwierdzone `removeMember`).
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(add([{ name: 'Karma dla kota' }])).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+      expect(prisma.shoppingListArchiveState.deleteMany).not.toHaveBeenCalled();
     });
 
     it('nieznany ingredientId → INGREDIENT_NOT_FOUND', async () => {

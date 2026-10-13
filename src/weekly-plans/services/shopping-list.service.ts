@@ -50,7 +50,10 @@ import {
   withShoppingKitchenMeasure,
   toShoppingUnit,
 } from '../utils/shopping-items.util';
-import { ensureMembership } from '../utils/auth-checks.util';
+import {
+  ensureMembership,
+  lockMembershipInTx,
+} from '../utils/auth-checks.util';
 import { runSerializable } from '../utils/transaction-runner.util';
 
 /** Etykieta archiwum jest wpisywana ręcznie — górna granica jak dla nazwy gospodarstwa. */
@@ -1386,6 +1389,7 @@ export class ShoppingListService {
     // `ShoppingListItem` → `ShoppingItemCheck`. Odwrócona kończy się
     // `40P01`, którego `runSerializable` nie ponawia.
     await runSerializable(this.prisma, async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
       // Tydzień z wyczyszczoną historią ma listę schowaną (stan archiwum
       // z `currentArchiveId = null`). Świadome dopisanie znaczy „idę na
       // zakupy" — lista musi się pokazać, inaczej dopisane znikałoby
@@ -1488,6 +1492,7 @@ export class ShoppingListService {
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
       // Po kluczu w jednostce listy, nie po kluczu z bazy: wiersz „Cebula”
       // w sztukach zbiera też dopisane sprzed ujednolicenia (`cebula::g`),
       // a zdjęcie ma zabrać całą dopisaną część, którą widać na ekranie.
@@ -1621,7 +1626,8 @@ export class ShoppingListService {
     const nameKeys = entries.map((entry) => entry.nameKey);
 
     await runSerializable(this.prisma, async (tx) => {
-      // Kolejność blokad jak w `addRecipeExtras`: stan archiwum → dopisane →
+      await lockMembershipInTx(tx, userId, householdId);
+      // Kolejność blokad jak w `addRecipeExtras`: członkostwo → stan archiwum → dopisane →
       // `ShoppingList` → `ShoppingListItem` → `ShoppingItemCheck`.
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -1720,7 +1726,9 @@ export class ShoppingListService {
       }
       return {
         field,
-        ingredientId: item.ingredientId ?? null,
+        // Postgres oddaje UUID małymi literami, a `IsUUID` przepuszcza
+        // wielkie — bez tego poprawne id dawało INGREDIENT_NOT_FOUND.
+        ingredientId: item.ingredientId?.toLowerCase() ?? null,
         name,
         normalized: name ? normalizeText(name) : '',
         department: item.department,
@@ -1836,6 +1844,7 @@ export class ShoppingListService {
     const amountInput = inputAmount('amount', dto.amount, dto.unit);
 
     return runSerializable(this.prisma, async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
       const listKeys = (
         await tx.shoppingListItem.findMany({
           where: { shoppingList: { householdId, weekStart: weekStartDate } },
