@@ -197,7 +197,7 @@ etapami i mierzenie efektu zmian.
   `test/shopping-manual.e2e-spec.ts`. Dopisanie jest IDEMPOTENTNE po `clientMutationId` (telefon ponawia `emitWithAck`
   po przekroczeniu czasu): `ShoppingListAddRequest` powstaje w tej samej transakcji, ponowienie oddaje poprzedni wynik
   bez dokładania i bez drugiego pusha. Ponowienie rozpoznawane PRZED walidacją zależną od katalogu
-  (`findAddReplay` przed `resolveManualEntries`): telefon oddaje wybór do edycji tylko po `VALIDATION_ERROR`.
+  (`findAddReplay` przed `resolveManualEntries`); telefon i tak trzyma wysłany wybór zamrożony do sukcesu.
   Przebudowa migawki (`rebuildShoppingListSnapshot`) bierze wiersz `ShoppingList` (upsert) PRZED odczytem
   źródeł: zapis czeka w `markShoppingListStale` i stawia `isStale` po niej. Odwrotnie przebudowa nadpisywała
   `isStale` zapisu zatwierdzonego w trakcie jej liczenia (lista bez dopisanego do następnej zmiany).

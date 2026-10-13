@@ -1677,9 +1677,10 @@ export class ShoppingListService {
     // Ponowienie operacji, która już przeszła, rozpoznane PRZED katalogiem:
     // `resolveManualEntries` zależy od aktywnych składników i `gramsPerPiece`,
     // więc zmiana katalogu między próbami odrzucała ponowienie zapisanej
-    // operacji błędem walidacji — a telefon oddaje wybór do edycji tylko po
-    // `VALIDATION_ERROR`, pewny, że nic się nie zapisało. W transakcji
-    // sprawdzamy jeszcze raz (dwie kopie naraz).
+    // operacji błędem walidacji zamiast oddać jej wynik. W transakcji
+    // sprawdzamy jeszcze raz (dwie kopie naraz). Kopia, która przyjdzie,
+    // gdy pierwsza jeszcze trwa, może dalej dostać błąd — telefon trzyma
+    // wtedy wybór zamrożony i ponawia tym samym id, więc nic się nie dubluje.
     const replay = await this.findAddReplay(
       this.prisma,
       mutationId,

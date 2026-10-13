@@ -48,9 +48,10 @@ export type ShoppingManualPart = {
   addedById: string | null;
   /**
    * Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak
-   * `archivedAt`. Telefon porównuje z zamknięciem listy: „kup jeszcze chleb” bez ilości po zamknięciu nie
-   * zmienia sumy, a ptaszek nie może o tym decydować — domownik odhacza
-   * chleb w sklepie, a ten dalej należy do nowej rundy.
+   * `archivedAt`. Pod porównanie z zamknięciem listy („kup jeszcze chleb”
+   * bez ilości nie zmienia sumy); iOS jeszcze z niego nie korzysta — osobny
+   * wpis historii dla takiej rundy wymaga zmiany modelu archiwum (podpis
+   * treści jest unikalny).
    */
   addedAt: number;
 };
