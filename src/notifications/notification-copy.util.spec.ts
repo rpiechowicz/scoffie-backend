@@ -189,6 +189,21 @@ describe('notification-copy', () => {
       ).toBeNull();
     });
 
+    it('dopisane produkty liczą się sumą z całej paczki', () => {
+      expect(
+        buildShoppingSummary('Ania', [
+          { action: 'SET_ITEM_CHECKED', isChecked: true },
+          { action: 'ADD_SHOPPING_PRODUCTS', productCount: 2 },
+          { action: 'ADD_SHOPPING_PRODUCTS', productCount: 3 },
+        ])?.body,
+      ).toBe('Ania dopisał/a 5 produktów do listy zakupów.');
+      expect(
+        buildShoppingSummary('Ania', [
+          { action: 'ADD_SHOPPING_PRODUCTS', productCount: 1 },
+        ])?.body,
+      ).toBe('Ania dopisał/a 1 produkt do listy zakupów.');
+    });
+
     it('zamknięcie listy wygrywa z odhaczeniami', () => {
       expect(
         buildShoppingSummary('Ania', [
