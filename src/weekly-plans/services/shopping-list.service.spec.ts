@@ -114,6 +114,24 @@ const makePrismaMock = () => {
       upsert: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Wykonane dopisania (idempotencja „Dodaj N produktów”) — domyślnie brak.
+    shoppingListAddRequest: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    // Dopisane ręcznie z arkusza „Dodaj produkty” — domyślnie nic.
+    shoppingListManualItem: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    ingredient: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     recipe: {
       findFirst: jest.fn().mockResolvedValue(null),
     },
@@ -132,6 +150,8 @@ const makePrismaMock = () => {
       delete: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Blokada członkostwa w transakcji (`lockMembershipInTx`) — domyślnie jest.
+    $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
     $transaction: jest.fn().mockImplementation((cbOrOps: any) => {
       if (typeof cbOrOps === 'function') {
         return cbOrOps(mock);
@@ -1479,6 +1499,626 @@ describe('ShoppingListService — dopisane z przepisu', () => {
       expect(prisma.shoppingListExtra.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['x-stary'] } },
       });
+    });
+  });
+});
+
+const MANUAL_UPDATED_AT = new Date('2026-10-13T10:00:00.000Z');
+
+/// Wiersz `ShoppingListManualItem` tak, jak czyta go `loadManualItems`.
+const manualRow = (
+  name: string,
+  amount: number | null,
+  unit: string | null,
+  options: {
+    department?: string;
+    ingredientId?: string | null;
+    addedById?: string;
+  } = {},
+) => ({
+  id: `m-${name}`,
+  nameKey: name.toLowerCase(),
+  ingredientId: options.ingredientId ?? null,
+  name,
+  department: options.department ?? 'Inne',
+  amount,
+  unit,
+  addedById: options.addedById ?? mockUserId,
+  updatedAt: MANUAL_UPDATED_AT,
+});
+
+const MILK_ID = '7adf5ec0-e3e5-4b28-8bb4-5515c780948c';
+const ONION_ID = '22222222-2222-4222-8222-222222222222';
+
+/// Składnik katalogu tak, jak czyta go `resolveManualEntries`.
+const catalogRow = (
+  id: string,
+  name: string,
+  category: string,
+  gramsPerPiece: number | null = null,
+  aliases: string[] = [],
+) => ({
+  id,
+  name,
+  normalizedName: name.toLowerCase(),
+  category,
+  gramsPerPiece,
+  aliases: aliases.map((normalizedAlias) => ({ normalizedAlias })),
+});
+
+describe('ShoppingListService — dopisane ręcznie', () => {
+  let service: ShoppingListService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ShoppingListService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get<ShoppingListService>(ShoppingListService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  const list = () =>
+    service.getShoppingList(mockUserId, mockHouseholdId, mockWeekStart);
+  const add = (items: object[]) =>
+    service.addShoppingProducts(mockUserId, mockHouseholdId, mockWeekStart, {
+      items,
+    });
+
+  describe('agregacja', () => {
+    it('z ilością w jednostce planu sumuje się w jeden wiersz', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'BREAKFAST', [
+            ingredient('mleko', 300, 'ml', 'Nabiał'),
+          ]),
+        ]),
+      );
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml', { department: 'Nabiał' }),
+      ]);
+
+      const items = await list();
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        productKey: 'mleko::ml',
+        totalAmount: 1300,
+      });
+    });
+
+    it('bez ilości przykleja się do wiersza z planu i nie zmienia ilości', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 2, 'szt', 'Warzywa'),
+          ]),
+        ]),
+      );
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Cebula', null, null, { department: 'Warzywa' }),
+      ]);
+
+      const items = await list();
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        productKey: 'cebula::szt',
+        totalAmount: 2,
+      });
+    });
+
+    it('bez ilości i bez planu — własny wiersz bez jednostki', async () => {
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Chleb żytni', null, null, { department: 'Piekarnia' }),
+      ]);
+      prisma.shoppingListManualItem.findFirst.mockResolvedValue({ id: 'm-1' });
+
+      const items = await list();
+
+      expect(items).toEqual([
+        expect.objectContaining({
+          productKey: 'chleb żytni::',
+          name: 'Chleb żytni',
+          unit: '',
+          totalAmount: 0,
+          department: 'Piekarnia',
+        }),
+      ]);
+    });
+
+    it('stan listy niesie dopisaną część i ostatnio dopisywane', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'BREAKFAST', [
+            ingredient('mleko', 300, 'ml', 'Nabiał'),
+          ]),
+        ]),
+      );
+      const rows = [
+        manualRow('Mleko', 1000, 'ml', { department: 'Nabiał' }),
+        manualRow('Karma dla kota', 2, 'szt'),
+      ];
+      prisma.shoppingListManualItem.findMany.mockImplementation((args: any) =>
+        args.where.weekStart ? rows : [...rows].reverse(),
+      );
+      prisma.shoppingListArchive.findMany = jest.fn().mockResolvedValue([]);
+      prisma.shoppingListArchiveState.findMany = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      const state = await service.getShoppingListState(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      const milk = state.items.find((item) => item.productKey === 'mleko::ml');
+      expect(milk?.manual).toEqual({
+        amount: 1000,
+        unit: 'ml',
+        addedById: mockUserId,
+        addedAt: MANUAL_UPDATED_AT.getTime(),
+      });
+      expect(state.recentProducts.map((product) => product.name)).toEqual([
+        'Karma dla kota',
+        'Mleko',
+      ]);
+    });
+  });
+
+  describe('dopisywanie', () => {
+    it('własna nazwa z katalogu idzie jako produkt z katalogu, w gramach → w sztukach', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(ONION_ID, 'cebula', 'Warzywa', 110),
+      ]);
+
+      await expect(
+        add([{ name: '  Cebula ', amount: 0.22, unit: 'kg' }]),
+      ).resolves.toEqual({ added: 1, replayed: false });
+
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            householdId_weekStart_nameKey: expect.objectContaining({
+              nameKey: 'cebula',
+            }),
+          },
+          create: expect.objectContaining({
+            ingredientId: ONION_ID,
+            name: 'Cebula',
+            department: 'Warzywa',
+            amount: 2,
+            unit: 'szt',
+            addedById: mockUserId,
+          }),
+        }),
+      );
+    });
+
+    it('ponowne dopisanie w tej samej jednostce dokłada ilość', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(MILK_ID, 'mleko', 'Nabiał'),
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        { nameKey: 'mleko', amount: 1000, unit: 'ml' },
+      ]);
+
+      await add([{ ingredientId: MILK_ID, amount: 0.5, unit: 'l' }]);
+
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ amount: 1500, unit: 'ml' }),
+        }),
+      );
+    });
+
+    it('bez ilości nie kasuje ilości dopisanej wcześniej', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(MILK_ID, 'mleko', 'Nabiał'),
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        { nameKey: 'mleko', amount: 1000, unit: 'ml' },
+      ]);
+
+      await add([{ ingredientId: MILK_ID }]);
+
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ amount: 1000, unit: 'ml' }),
+        }),
+      );
+    });
+
+    it('własny produkt spoza katalogu dostaje swój dział, kupione wraca do kupienia', async () => {
+      await add([
+        { name: 'Karma dla kota', department: 'Inne', amount: 2, unit: 'szt' },
+      ]);
+
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            ingredientId: null,
+            name: 'Karma dla kota',
+            department: 'Inne',
+            amount: 2,
+            unit: 'szt',
+          }),
+        }),
+      );
+      expect(prisma.shoppingListItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          shoppingList: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+          },
+          OR: [{ productKey: { startsWith: 'karma dla kota::' } }],
+        },
+        data: { isChecked: false },
+      });
+      expect(prisma.shoppingListArchiveState.deleteMany).toHaveBeenCalled();
+    });
+
+    it('ten sam produkt dwa razy w jednym żądaniu → jedna pozycja z sumą', async () => {
+      await add([
+        { name: 'Baterie AA', amount: 4, unit: 'szt' },
+        { name: 'baterie  aa', amount: 2, unit: 'szt' },
+      ]);
+
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledTimes(1);
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ amount: 6, unit: 'szt' }),
+        }),
+      );
+    });
+
+    it('ilość bez jednostki → VALIDATION_ERROR, nic się nie zapisuje', async () => {
+      await expect(add([{ name: 'Chleb', amount: 2 }])).rejects.toMatchObject({
+        response: { code: 'VALIDATION_ERROR' },
+      });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
+    it('sufit po przeliczeniu: 300 g czosnku (3 g sztuka) = 100 szt → VALIDATION_ERROR', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(ONION_ID, 'czosnek', 'Warzywa', 3),
+      ]);
+
+      await expect(
+        add([{ name: 'czosnek', amount: 300, unit: 'g' }]),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
+    it('dopisanie ponad sufit sumy → VALIDATION_ERROR, nie przycięcie istniejącej ilości', async () => {
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        { nameKey: 'jajko', amount: 90, unit: 'szt' },
+      ]);
+
+      await expect(
+        add([{ name: 'Jajko', amount: 20, unit: 'szt' }]),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
+    it('sufit jednostki: 150 szt → VALIDATION_ERROR', async () => {
+      await expect(
+        add([{ name: 'Jajko', amount: 150, unit: 'szt' }]),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+    });
+
+    it('UUID wielkimi literami trafia w produkt katalogu', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(MILK_ID, 'mleko', 'Nabiał'),
+      ]);
+
+      await expect(
+        add([{ ingredientId: MILK_ID.toUpperCase() }]),
+      ).resolves.toEqual({ added: 1, replayed: false });
+      expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ ingredientId: MILK_ID }),
+        }),
+      );
+    });
+
+    it('domownik usunięty przed transakcją → NOT_HOUSEHOLD_MEMBER, nic się nie zapisuje', async () => {
+      // Bramka na wejściu przeszła, ale w transakcji wiersza członkostwa już
+      // nie ma (zatwierdzone `removeMember`).
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(add([{ name: 'Karma dla kota' }])).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+      expect(prisma.shoppingListArchiveState.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('ponowienie tej samej operacji (zgubiony ACK) oddaje poprzedni wynik bez dokładania', async () => {
+      const mutationId = '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b';
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 2,
+      });
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            clientMutationId: mutationId,
+            items: [{ name: 'Karma dla kota', amount: 2, unit: 'szt' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 2, replayed: true });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+      expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('ponowienie rozpoznane przed katalogiem: składnik wycofany po zapisie nie odrzuca ponowienia', async () => {
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 1,
+      });
+      // Katalog już nie zna mleka — pierwsze wykonanie dałoby 404.
+      prisma.ingredient.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            clientMutationId: '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b',
+            items: [{ ingredientId: MILK_ID, amount: 1, unit: 'l' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 1, replayed: true });
+      expect(prisma.ingredient.findMany).not.toHaveBeenCalled();
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
+    it('ponowienie z UUID domu wielkimi literami też jest ponowieniem', async () => {
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 1,
+      });
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId.toUpperCase(),
+          mockWeekStart,
+          {
+            clientMutationId: '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b',
+            items: [{ name: 'Karma dla kota' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 1, replayed: true });
+    });
+
+    it('pierwsze wykonanie zapisuje identyfikator operacji w tej samej transakcji', async () => {
+      const mutationId = '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b';
+
+      await service.addShoppingProducts(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        {
+          clientMutationId: mutationId,
+          items: [{ name: 'Karma dla kota' }],
+        },
+      );
+
+      expect(prisma.shoppingListAddRequest.create).toHaveBeenCalledWith({
+        data: { id: mutationId, householdId: mockHouseholdId, added: 1 },
+      });
+    });
+
+    it('nieznany ingredientId → INGREDIENT_NOT_FOUND', async () => {
+      await expect(add([{ ingredientId: MILK_ID }])).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'INGREDIENT_NOT_FOUND' },
+      });
+    });
+
+    it('pusta nazwa z samych znaków niewidocznych → VALIDATION_ERROR', async () => {
+      await expect(add([{ name: '\u200b \u200b' }])).rejects.toMatchObject({
+        response: { code: 'VALIDATION_ERROR' },
+      });
+    });
+  });
+
+  describe('zmiana ilości i zdjęcie', () => {
+    it('zmienia ilość dopisanej części wiersza', async () => {
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml', { ingredientId: MILK_ID }),
+      ]);
+
+      await expect(
+        service.setShoppingProductAmount(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          { productKey: 'mleko::ml', amount: 2, unit: 'l' },
+        ),
+      ).resolves.toEqual({ productKey: 'mleko::ml' });
+      expect(prisma.shoppingListManualItem.update).toHaveBeenCalledWith({
+        where: { id: 'm-Mleko' },
+        data: { amount: 2000, unit: 'ml', addedById: mockUserId },
+      });
+    });
+
+    it('zwiększenie ilości kupionego produktu wraca go do kupienia, zmniejszenie — nie', async () => {
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml'),
+      ]);
+      const setAmount = (amount: number, unit: string) =>
+        service.setShoppingProductAmount(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          { productKey: 'mleko::ml', amount, unit },
+        );
+
+      await setAmount(3, 'l');
+      expect(prisma.shoppingListItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          shoppingList: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+          },
+          productKey: { startsWith: 'mleko::' },
+        },
+        data: { isChecked: false },
+      });
+      expect(prisma.shoppingItemCheck.updateMany).toHaveBeenCalled();
+
+      jest.clearAllMocks();
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml'),
+      ]);
+      await setAmount(500, 'ml');
+      expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('zdjęcie dopisanego biegnie w SERIALIZABLE (wybór po kluczu, kasowanie po id)', async () => {
+      // Klucze liczą się ze źródeł listy: plan ma cebulę w sztukach.
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 2, 'szt', 'Warzywa'),
+          ]),
+        ]),
+      );
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Cebula', null, null),
+      ]);
+      prisma.shoppingListManualItem.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.removeShoppingExtra(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { productKey: 'cebula::szt' },
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
+    });
+
+    it('zdjęcie wiersza zabiera dopisaną ręcznie część bez ilości', async () => {
+      // Klucze liczą się ze źródeł listy: plan ma cebulę w sztukach.
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 2, 'szt', 'Warzywa'),
+          ]),
+        ]),
+      );
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Cebula', null, null),
+      ]);
+      prisma.shoppingListManualItem.deleteMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        service.removeShoppingExtra(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            productKey: 'cebula::szt',
+          },
+        ),
+      ).resolves.toEqual({ removed: 1 });
+      expect(prisma.shoppingListManualItem.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['m-Cebula'] } },
+      });
+    });
+
+    it('dopisane z ilością w innej jednostce nie znika z cudzego wiersza', async () => {
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+        { productKey: 'mleko::szt' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 2, 'szt'),
+      ]);
+
+      await expect(
+        service.removeShoppingExtra(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            productKey: 'mleko::ml',
+          },
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'SHOPPING_ITEM_NOT_FOUND' },
+      });
+      expect(prisma.shoppingListManualItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('katalog produktów', () => {
+    it('oddaje produkty z działem listy, a przy tej samej rewizji — nic', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        {
+          id: ONION_ID,
+          name: 'cebula',
+          category: 'Warzywa',
+          gramsPerPiece: 110,
+          aliases: [{ alias: 'cebulka' }],
+        },
+        {
+          id: MILK_ID,
+          name: 'mleko',
+          category: 'Nabiał i jajko',
+          gramsPerPiece: null,
+          aliases: [],
+        },
+      ]);
+
+      const first = await service.getShoppingProductCatalog(null);
+      expect(first.products).toEqual([
+        {
+          id: ONION_ID,
+          name: 'Cebula',
+          department: 'Warzywa',
+          pieceOnly: true,
+          aliases: ['cebulka'],
+        },
+        {
+          id: MILK_ID,
+          name: 'Mleko',
+          department: 'Nabiał',
+          pieceOnly: false,
+          aliases: [],
+        },
+      ]);
+
+      const again = await service.getShoppingProductCatalog(first.revision);
+      expect(again).toEqual({ revision: first.revision, products: null });
     });
   });
 });

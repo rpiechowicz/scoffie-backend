@@ -122,7 +122,7 @@ etapami i mierzenie efektu zmian.
   SERIALIZABLE wymusza ponowienie na świeżej migawce. Nowa ścieżka zapisu bez zamka = dziura w
   „Cofnij". KOLEJNOŚĆ BLOKAD jest jedna dla wszystkich: zamek tygodnia (pierwsza blokada
   transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingListExtra` →
-  `ShoppingItemCheck`/`ShoppingList` → `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
+  `ShoppingListManualItem` → `ShoppingItemCheck`/`ShoppingList` → `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
   na P2034, więc `runSerializable` go nie ponowi i wychodzi 500 (`test/week-lock-order.e2e-spec.ts`). Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
   `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
   przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
@@ -172,7 +172,7 @@ etapami i mierzenie efektu zmian.
 - Absolutny kres sesji (od 7.10.2026, dowód: `test/auth-absolute-session.e2e-spec.ts`): `RefreshToken.sessionStartedAt`
   = chwila logowania, rotacja i ratunek ją KOPIUJĄ (nowy kod wydający token następcy musi zrobić to samo). Po
   `REFRESH_ABSOLUTE_DAYS` (180, stała) `/auth/refresh` = to samo 401 co wygasły token, bez kasowania rodziny.
-- Lista zakupów ma DWA źródła (od 21.09.2026): `PlanItem` i `ShoppingListExtra` — „brakuje mi"
+- Lista zakupów ma źródła: `PlanItem` i `ShoppingListExtra` (od 21.09.2026) — „brakuje mi"
   ze szczegółu przepisu (`weeklyPlans:addRecipeExtras` / `removeShoppingExtra`). Telefon wysyła
   tylko `recipeId`, `servings` i id `RecipeIngredient`; ilość, jednostkę i klucz liczy serwer tak
   samo jak dla planu, więc oba źródła sumują się pod jednym `productKey`. Klucz dopisanego to
@@ -180,6 +180,27 @@ etapami i mierzenie efektu zmian.
   kupione i odsłania listę schowaną po wyczyszczeniu historii. To NIE jest spiżarnia (aplikacja
   dalej nie wie, co stoi w szafce). Pozycje z `getShoppingListState` niosą `addedFrom` (tytuły
   przepisów); archiwa nie. Dowód: `test/shopping-extras.e2e-spec.ts`.
+- TRZECIE źródło listy (od 13.10.2026): `ShoppingListManualItem` — arkusz „Dodaj produkty” na iOS
+  (`weeklyPlans:addShoppingProducts` / `setShoppingProductAmount`; zdjęcie przez rozszerzone
+  `removeShoppingExtra`, które zabiera całą dopisaną część). Produkt z katalogu (`ingredientId`) albo
+  własna nazwa domu z działem; własna nazwa obecna w katalogu (nazwa albo alias) idzie JAKO katalog.
+  Jeden wpis na (dom, tydzień, `nameKey` = nazwa małymi literami, jak w `productKey`); ponowne
+  dopisanie DOKŁADA ilość (`mergeManualAmount`). Ilość NIEOBOWIĄZKOWA: bez niej pozycja przykleja się
+  do wiersza produktu, który lista już ma (`manualRowKey`, przy kilku jednostkach pierwszy
+  alfabetycznie), a bez takiego wiersza stoi jako `nazwa::` z `unit: ""` i `totalAmount: 0`. Ilość
+  leży w jednostce listy (`kg`/`l` → `g`/`ml`, gramy produktu z masą sztuki → `szt`), sumuje się
+  z planem. Stan listy niesie `manual {amount, unit, addedById, addedAt}` i `recentProducts`; katalog dla
+  telefonu to `weeklyPlans:shoppingProducts` z rewizją (ta sama = `products: null`). Dopisanie
+  wysyła push przez bufor („dopisał/a N produktów”), „Brakuje mi” dalej nie. Każdy zapis dopisanych (oba źródła)
+  bierze NAJPIERW wiersz `Membership` pytającego FOR SHARE (`lockMembershipInTx`) — zapisy listy nie mają zamka tygodnia,
+  a bez tego domownik usunięty po bramce wejściowej dopisywał jeszcze do domu. Dowód:
+  `test/shopping-manual.e2e-spec.ts`. Dopisanie jest IDEMPOTENTNE po `clientMutationId` (telefon ponawia `emitWithAck`
+  po przekroczeniu czasu): `ShoppingListAddRequest` powstaje w tej samej transakcji, ponowienie oddaje poprzedni wynik
+  bez dokładania i bez drugiego pusha. Ponowienie rozpoznawane PRZED walidacją zależną od katalogu
+  (`findAddReplay` przed `resolveManualEntries`); telefon i tak trzyma wysłany wybór zamrożony do sukcesu.
+  Przebudowa migawki (`rebuildShoppingListSnapshot`) bierze wiersz `ShoppingList` (upsert) PRZED odczytem
+  źródeł: zapis czeka w `markShoppingListStale` i stawia `isStale` po niej. Odwrotnie przebudowa nadpisywała
+  `isStale` zapisu zatwierdzonego w trakcie jej liczenia (lista bez dopisanego do następnej zmiany).
 - „Czego nie jem” WYCOFANE (2.10.2026; ekran zniknął z iOS 23.09, #179): `UserPreference.excludedIngredientIds`
   i `maxPrepTimeMinutes` NIE są czytane (walidator planu, planer, wyszukiwarka i prompt asystenta) ani zapisywane
   (`updatePreferences` przyjmuje pola od starszych buildów i je pomija). `MemberContext.restrictions` jest zawsze

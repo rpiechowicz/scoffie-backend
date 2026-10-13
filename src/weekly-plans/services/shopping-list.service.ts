@@ -8,12 +8,34 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateShoppingItemCheckDto } from '../dto/update-shopping-item-check.dto';
 import { AddRecipeExtrasDto } from '../dto/add-recipe-extras.dto';
 import { RemoveShoppingExtraDto } from '../dto/remove-shopping-extra.dto';
+import {
+  AddShoppingProductsDto,
+  SetShoppingProductAmountDto,
+} from '../dto/add-shopping-products.dto';
 import type {
   ShoppingAccumulator,
   ShoppingListItem,
   ShoppingListStateDto,
+  ShoppingManualPart,
+  ShoppingProductCatalogDto,
+  ShoppingRecentProduct,
   PrismaReadClient,
 } from '../types/shopping-types';
+import { ShoppingDepartment } from '../types/shopping-department.enum';
+import {
+  cleanProductName,
+  exceedsListLimit,
+  manualNameKey,
+  manualRowKey,
+  mergeManualAmount,
+  productKeyNamePart,
+  SHOPPING_PRODUCT_INPUT_LIMITS,
+  toManualListUnit,
+  type ManualAmount,
+  type ShoppingProductInputUnit,
+} from '../utils/shopping-manual.util';
+import { normalizeText } from '../../common/normalize-text.util';
+import { createHash } from 'node:crypto';
 import { parseWeekStart, formatWeekStart } from '../utils/week-formatting.util';
 import {
   normalizeProductKey,
@@ -29,7 +51,10 @@ import {
   withShoppingKitchenMeasure,
   toShoppingUnit,
 } from '../utils/shopping-items.util';
-import { ensureMembership } from '../utils/auth-checks.util';
+import {
+  ensureMembership,
+  lockMembershipInTx,
+} from '../utils/auth-checks.util';
 import { runSerializable } from '../utils/transaction-runner.util';
 
 /** Etykieta archiwum jest wpisywana ręcznie — górna granica jak dla nazwy gospodarstwa. */
@@ -98,6 +123,63 @@ type ShoppingExtraRow = {
   amount: number;
   recipeTitle: string;
 };
+
+/** Pozycja dopisana ręcznie — patrz `loadManualItems`. */
+type ShoppingManualRow = {
+  id: string;
+  nameKey: string;
+  ingredientId: string | null;
+  name: string;
+  department: string;
+  amount: number | null;
+  unit: string | null;
+  addedById: string | null;
+  /** Ostatnie dopisanie albo zmiana ilości (`@updatedAt`). */
+  updatedAt: Date;
+};
+
+/** Ile ostatnio dopisywanych produktów wraca ze stanem listy. */
+const MAX_RECENT_PRODUCTS = 12;
+
+/** Produkt z arkusza po rozpoznaniu: katalog albo własna nazwa, ilość w jednostce listy. */
+type ResolvedManualEntry = {
+  nameKey: string;
+  name: string;
+  department: string;
+  ingredientId: string | null;
+  amount: ManualAmount;
+};
+
+function validationError(detail: string): AppException {
+  return new AppException('VALIDATION_ERROR', detail, HttpStatus.BAD_REQUEST, [
+    detail,
+  ]);
+}
+
+/**
+ * Ilość z telefonu po sprawdzeniu par i sufitu. `undefined`/`null` w obu
+ * polach = bez ilości; samo jedno z nich to błąd, nie zgadywanie.
+ */
+function inputAmount(
+  field: string,
+  amount: number | null | undefined,
+  unit: string | null | undefined,
+): { amount: number; unit: ShoppingProductInputUnit } | null {
+  const hasAmount = amount !== undefined && amount !== null;
+  const hasUnit = unit !== undefined && unit !== null;
+  if (!hasAmount && !hasUnit) return null;
+  if (hasAmount !== hasUnit) {
+    throw validationError(`${field}: amount and unit must be sent together`);
+  }
+  const inputUnit = unit as ShoppingProductInputUnit;
+  const limit = SHOPPING_PRODUCT_INPUT_LIMITS[inputUnit];
+  if ((amount as number) > limit) {
+    throw validationError(
+      `${field}.amount must not be greater than ${limit} ${inputUnit}`,
+    );
+  }
+  return { amount: amount as number, unit: inputUnit };
+}
 
 @Injectable()
 export class ShoppingListService {
@@ -247,6 +329,45 @@ export class ShoppingListService {
       });
     }
 
+    // Trzecie źródło: dopisane ręcznie z arkusza „Dodaj produkty”. Najpierw
+    // z ilością (mają własny klucz i sumują się z planem w tej samej
+    // jednostce), potem bez ilości — te przyklejają się do wiersza, który już
+    // stoi, więc muszą widzieć wszystkie pozostałe (`manualRowKey`).
+    const manual = await this.loadManualItems(client, {
+      householdId,
+      weekStart: weekStartDate,
+    });
+    for (const row of manual) {
+      if (row.amount == null || !row.unit) continue;
+      const productKey = manualRowKey(row, []);
+      const current = aggregated.get(productKey);
+      if (current) {
+        current.totalAmount += row.amount;
+        continue;
+      }
+      aggregated.set(productKey, {
+        productKey,
+        name: row.name,
+        unit: row.unit,
+        department: row.department,
+        totalAmount: row.amount,
+      });
+    }
+    for (const row of manual) {
+      if (row.amount != null && row.unit) continue;
+      const productKey = manualRowKey(row, aggregated.keys());
+      if (aggregated.has(productKey)) continue;
+      // Wiersz bez ilości: pusta jednostka i zero — telefon nie pokazuje
+      // wtedy pigułki z ilością.
+      aggregated.set(productKey, {
+        productKey,
+        name: row.name,
+        unit: '',
+        department: row.department,
+        totalAmount: 0,
+      });
+    }
+
     if (missingNormalization.size > 0) {
       this.logger.warn(
         `Składniki bez znormalizowanej ilości, lista liczy z surowej: ${Array.from(missingNormalization).join(', ')} (householdId=${householdId}, weekStart=${formatWeekStart(weekStartDate)})`,
@@ -265,6 +386,30 @@ export class ShoppingListService {
     weekStartDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<ShoppingListItem[]> {
+    // Wiersz listy pod blokadą PRZED odczytem źródeł. Zapis, który w tym
+    // czasie dopisze produkt albo zmieni plan, czeka w `markShoppingListStale`
+    // na koniec przebudowy i dopiero wtedy stawia `isStale`. Dotąd blokada
+    // przychodziła po odczycie: zapis zdążył się zatwierdzić pomiędzy,
+    // a przebudowa nadpisywała jego `isStale` swoim `false` — lista bez
+    // dopisanego produktu wisiała do następnej zmiany (Codex, 13.10.2026).
+    // Nowy wiersz rodzi się nieaktualny: przebudowa, która nie dojdzie do
+    // końca, nie zostawia „świeżej” pustej listy.
+    await tx.shoppingList.upsert({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      update: { updatedAt: new Date() },
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+        isStale: true,
+      },
+      select: { id: true },
+    });
+
     const aggregatedItems = await this.buildShoppingListBase(
       householdId,
       weekStartDate,
@@ -507,7 +652,12 @@ export class ShoppingListService {
       where: { householdId, weekStart: weekStartDate },
       select: { id: true },
     });
-    return extra !== null;
+    if (extra !== null) return true;
+    const manual = await client.shoppingListManualItem.findFirst({
+      where: { householdId, weekStart: weekStartDate },
+      select: { id: true },
+    });
+    return manual !== null;
   }
 
   private async rebuildShoppingListSnapshotWithClient(
@@ -713,9 +863,19 @@ export class ShoppingListService {
     const shouldHideCurrentWeekList =
       currentWeekArchiveState?.currentArchiveId === null;
 
-    const addedFrom = shouldHideCurrentWeekList
-      ? new Map<string, string[]>()
-      : await this.extrasSourcesByProduct(householdId, weekStartDate);
+    const [addedFrom, manualParts, recentProducts] = await Promise.all([
+      shouldHideCurrentWeekList
+        ? new Map<string, string[]>()
+        : this.extrasSourcesByProduct(householdId, weekStartDate),
+      shouldHideCurrentWeekList
+        ? new Map<string, ShoppingManualPart>()
+        : this.manualPartsByProduct(
+            householdId,
+            weekStartDate,
+            items.map((item) => item.productKey),
+          ),
+      this.recentManualProducts(householdId),
+    ]);
 
     return {
       items: shouldHideCurrentWeekList
@@ -723,11 +883,77 @@ export class ShoppingListService {
         : items.map((item) => ({
             ...withShoppingKitchenMeasure(item),
             addedFrom: addedFrom.get(item.productKey) ?? [],
+            manual: manualParts.get(item.productKey) ?? null,
           })),
       archives: archives.map((archive) =>
         toArchiveSnapshot(archive, currentArchiveIds),
       ),
+      recentProducts,
     };
+  }
+
+  /**
+   * Dopisana ręcznie część wierszy listy — po `productKey`, tą samą regułą
+   * przyklejania, co przy przeliczaniu (`manualRowKey`), więc telefon wie,
+   * który wiersz da się zmienić albo zdjąć i ile w nim „naszego”.
+   */
+  private async manualPartsByProduct(
+    householdId: string,
+    weekStartDate: Date,
+    productKeys: string[],
+  ): Promise<Map<string, ShoppingManualPart>> {
+    const rows = await this.loadManualItems(this.prisma, {
+      householdId,
+      weekStart: weekStartDate,
+    });
+    const parts = new Map<string, ShoppingManualPart>();
+    for (const row of rows) {
+      parts.set(manualRowKey(row, productKeys), {
+        amount: row.amount,
+        unit: row.amount == null ? null : row.unit,
+        addedById: row.addedById,
+        addedAt: row.updatedAt.getTime(),
+      });
+    }
+    return parts;
+  }
+
+  /**
+   * Ostatnio dopisywane w domu (ze wszystkich tygodni), po jednym na produkt,
+   * od najświeższego. Z ostatnią ilością: powtórka w arkuszu to jedno
+   * stuknięcie. Zdjęte z listy znikają stąd razem z wierszem.
+   */
+  private async recentManualProducts(
+    householdId: string,
+  ): Promise<ShoppingRecentProduct[]> {
+    const rows = await this.prisma.shoppingListManualItem.findMany({
+      where: { householdId },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      take: MAX_RECENT_PRODUCTS * 5,
+      select: {
+        nameKey: true,
+        name: true,
+        department: true,
+        ingredientId: true,
+        amount: true,
+        unit: true,
+      },
+    });
+    const seen = new Set<string>();
+    const recent: ShoppingRecentProduct[] = [];
+    for (const row of rows) {
+      if (seen.has(row.nameKey)) continue;
+      seen.add(row.nameKey);
+      recent.push({
+        name: row.name,
+        department: row.department,
+        ingredientId: row.ingredientId,
+        amount: row.amount,
+        unit: row.amount == null ? null : row.unit,
+      });
+      if (recent.length === MAX_RECENT_PRODUCTS) break;
+    }
+    return recent;
   }
 
   async archiveShoppingList(
@@ -1191,6 +1417,7 @@ export class ShoppingListService {
     // `ShoppingListItem` → `ShoppingItemCheck`. Odwrócona kończy się
     // `40P01`, którego `runSerializable` nie ponawia.
     await runSerializable(this.prisma, async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
       // Tydzień z wyczyszczoną historią ma listę schowaną (stan archiwum
       // z `currentArchiveId = null`). Świadome dopisanie znaczy „idę na
       // zakupy" — lista musi się pokazać, inaczej dopisane znikałoby
@@ -1279,8 +1506,8 @@ export class ShoppingListService {
 
   /**
    * Zdejmuje z listy DOPISANĄ część produktu — ze wszystkich przepisów
-   * naraz. Ilość z planu zostaje; wiersz znika tylko wtedy, gdy poza
-   * dopisanym nic go nie trzymało.
+   * naraz i tę dopisaną ręcznie. Ilość z planu zostaje; wiersz znika tylko
+   * wtedy, gdy poza dopisanym nic go nie trzymało.
    */
   async removeShoppingExtra(
     userId: string,
@@ -1292,7 +1519,22 @@ export class ShoppingListService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    return this.prisma.$transaction(async (tx) => {
+    // SERIALIZABLE, nie READ COMMITTED (review Codexa 13.10.2026): wiersze do
+    // zdjęcia wybieramy po KLUCZU wiersza listy, a kasujemy po id. Ktoś mógł
+    // w tym czasie przenieść dopisane do innej jednostki („mleko::szt”) —
+    // wtedy zdjęcie „mleko::ml” zabierałoby cudzą zmianę. Konflikt = ponowienie
+    // całego wyboru na świeżej migawce.
+    return runSerializable(this.prisma, async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
+      // Klucze wierszy ze ŹRÓDEŁ listy, policzone PRZED zdjęciem czegokolwiek
+      // — tak, jak widzi je telefon. Migawka bywa nieaktualna tuż po zmianie
+      // ilości (np. „baterie aa::szt” → „baterie aa::”), a zdjęcie po kluczu
+      // z ACK tamtej zmiany ma trafić bez odczytu stanu po drodze.
+      const listKeys = await this.currentShoppingKeys(
+        householdId,
+        weekStartDate,
+        tx,
+      );
       // Po kluczu w jednostce listy, nie po kluczu z bazy: wiersz „Cebula”
       // w sztukach zbiera też dopisane sprzed ujednolicenia (`cebula::g`),
       // a zdjęcie ma zabrać całą dopisaną część, którą widać na ekranie.
@@ -1301,12 +1543,32 @@ export class ShoppingListService {
       )
         .filter((extra) => extra.productKey === dto.productKey)
         .map((extra) => extra.id);
-      const { count } =
+      const extras =
         ids.length > 0
           ? await tx.shoppingListExtra.deleteMany({
               where: { id: { in: ids } },
             })
           : { count: 0 };
+      // Dopisane ręcznie: z ilością stoi pod własnym kluczem, bez ilości —
+      // przy wierszu tego produktu, który pokazuje telefon (ta sama reguła
+      // przyklejania na kluczach migawki). Odczyt bez blokad; kolejność
+      // blokad jak w całej domenie: `ShoppingListExtra` → ręczne → lista.
+      const manualIds = (
+        await this.loadManualItems(tx, {
+          householdId,
+          weekStart: weekStartDate,
+          nameKey: productKeyNamePart(dto.productKey),
+        })
+      )
+        .filter((row) => manualRowKey(row, listKeys) === dto.productKey)
+        .map((row) => row.id);
+      const manual =
+        manualIds.length > 0
+          ? await tx.shoppingListManualItem.deleteMany({
+              where: { id: { in: manualIds } },
+            })
+          : { count: 0 };
+      const count = extras.count + manual.count;
       if (count === 0) {
         throw new AppException(
           'SHOPPING_ITEM_NOT_FOUND',
@@ -1316,6 +1578,519 @@ export class ShoppingListService {
       }
       await this.markShoppingListStale(householdId, weekStartDate, tx);
       return { removed: count };
+    });
+  }
+
+  /** Klucze wierszy listy liczone ze źródeł (plan, przepisy, ręczne). */
+  private async currentShoppingKeys(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient,
+  ): Promise<string[]> {
+    return (
+      await this.buildShoppingListBase(householdId, weekStartDate, client)
+    ).map((item) => item.productKey);
+  }
+
+  /** Pozycje dopisane ręcznie, od najstarszej. */
+  private async loadManualItems(
+    client: PrismaReadClient,
+    where: Prisma.ShoppingListManualItemWhereInput,
+  ): Promise<ShoppingManualRow[]> {
+    return client.shoppingListManualItem.findMany({
+      where,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        nameKey: true,
+        ingredientId: true,
+        name: true,
+        department: true,
+        amount: true,
+        unit: true,
+        addedById: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  /**
+   * Katalog produktów dla arkusza „Dodaj produkty” — wszystkie aktywne
+   * składniki z działem listy i aliasami. Telefon trzyma go w pamięci
+   * i szuka w nim sam (także bez zasięgu w sklepie); pyta z rewizją, którą
+   * ma, a gdy ta się zgadza, dostaje `products: null` zamiast ~530 pozycji.
+   */
+  async getShoppingProductCatalog(
+    revision?: string | null,
+  ): Promise<ShoppingProductCatalogDto> {
+    const rows = await this.prisma.ingredient.findMany({
+      where: { isActive: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        gramsPerPiece: true,
+        aliases: { select: { alias: true }, orderBy: { alias: 'asc' } },
+      },
+    });
+    const products = rows.map((row) => ({
+      id: row.id,
+      name: toTitleCase(row.name),
+      department: toShoppingDepartment(row.category),
+      pieceOnly: row.gramsPerPiece != null && row.gramsPerPiece > 0,
+      aliases: row.aliases.map((alias) => alias.alias),
+    }));
+    const nextRevision = createHash('sha256')
+      .update(JSON.stringify(products))
+      .digest('hex')
+      .slice(0, 16);
+    return {
+      revision: nextRevision,
+      products: revision === nextRevision ? null : products,
+    };
+  }
+
+  /**
+   * Arkusz „Dodaj produkty”: dopisuje do listy tygodnia produkty z katalogu
+   * albo pod własną nazwą — wszystkie naraz, w jednej transakcji.
+   *
+   * Własna nazwa, która jest w katalogu (nazwa albo alias), idzie jako
+   * produkt z katalogu — bez dubli i z jego działem. Ponowne dopisanie tego
+   * samego produktu DOKŁADA ilość (`mergeManualAmount`). Dopisany produkt,
+   * który był kupiony, wraca do kupienia, a lista schowana po wyczyszczeniu
+   * historii się pokazuje — jak przy „Brakuje mi”.
+   */
+  async addShoppingProducts(
+    userId: string,
+    householdIdInput: string,
+    weekStart: string,
+    input: AddShoppingProductsDto,
+  ): Promise<{ added: number; replayed: boolean }> {
+    const dto = await validateDto(AddShoppingProductsDto, input);
+    // Postgres oddaje UUID małymi literami — porównanie z wierszem
+    // `ShoppingListAddRequest` przy ponowieniu musi iść na tej samej postaci.
+    const householdId = householdIdInput.toLowerCase();
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+    const mutationId = dto.clientMutationId?.toLowerCase() ?? null;
+    // Ponowienie operacji, która już przeszła, rozpoznane PRZED katalogiem:
+    // `resolveManualEntries` zależy od aktywnych składników i `gramsPerPiece`,
+    // więc zmiana katalogu między próbami odrzucała ponowienie zapisanej
+    // operacji błędem walidacji zamiast oddać jej wynik. W transakcji
+    // sprawdzamy jeszcze raz (dwie kopie naraz). Kopia, która przyjdzie,
+    // gdy pierwsza jeszcze trwa, może dalej dostać błąd — telefon trzyma
+    // wtedy wybór zamrożony i ponawia tym samym id, więc nic się nie dubluje.
+    const replay = await this.findAddReplay(
+      this.prisma,
+      mutationId,
+      householdId,
+    );
+    if (replay) return replay;
+    const entries = await this.resolveManualEntries(dto);
+    const nameKeys = entries.map((entry) => entry.nameKey);
+
+    try {
+      return await runSerializable(this.prisma, (tx) =>
+        this.writeShoppingProducts(tx, {
+          userId,
+          householdId,
+          weekStartDate,
+          entries,
+          nameKeys,
+          mutationId,
+        }),
+      );
+    } catch (error) {
+      // Dwie kopie tej samej operacji naraz: przegrana trafia w klucz
+      // główny wiersza wygranej — to też ponowienie, z wynikiem wygranej.
+      if (
+        mutationId &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const done = await this.prisma.shoppingListAddRequest.findUnique({
+          where: { id: mutationId },
+          select: { householdId: true, added: true },
+        });
+        if (done && done.householdId === householdId) {
+          return { added: done.added, replayed: true };
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Wynik operacji „Dodaj produkty” o tym `clientMutationId`, jeśli już
+   * przeszła. Cudzy dom z tym samym id to błąd klienta, nie ponowienie.
+   */
+  private async findAddReplay(
+    client: PrismaReadClient,
+    mutationId: string | null,
+    householdId: string,
+  ): Promise<{ added: number; replayed: true } | null> {
+    if (!mutationId) return null;
+    const done = await client.shoppingListAddRequest.findUnique({
+      where: { id: mutationId },
+      select: { householdId: true, added: true },
+    });
+    if (!done) return null;
+    if (done.householdId !== householdId) {
+      throw validationError('clientMutationId was already used');
+    }
+    return { added: done.added, replayed: true };
+  }
+
+  private async writeShoppingProducts(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      householdId: string;
+      weekStartDate: Date;
+      entries: ResolvedManualEntry[];
+      nameKeys: string[];
+      mutationId: string | null;
+    },
+  ): Promise<{ added: number; replayed: boolean }> {
+    const {
+      userId,
+      householdId,
+      weekStartDate,
+      entries,
+      nameKeys,
+      mutationId,
+    } = input;
+    {
+      await lockMembershipInTx(tx, userId, householdId);
+
+      // Ponowienie operacji, która już przeszła (zgubiony ACK) — wynik
+      // poprzedniej, bez drugiego dokładania.
+      const replay = await this.findAddReplay(tx, mutationId, householdId);
+      if (replay) return replay;
+      // Kolejność blokad jak w `addRecipeExtras`: członkostwo → stan archiwum → dopisane →
+      // `ShoppingList` → `ShoppingListItem` → `ShoppingItemCheck`.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
+      const existing = await tx.shoppingListManualItem.findMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          nameKey: { in: nameKeys },
+        },
+        select: { nameKey: true, amount: true, unit: true },
+      });
+      const existingByKey = new Map(
+        existing.map((row) => [
+          row.nameKey,
+          row.amount != null && row.unit
+            ? { amount: row.amount, unit: row.unit }
+            : null,
+        ]),
+      );
+
+      for (const entry of entries) {
+        const amount = existingByKey.has(entry.nameKey)
+          ? mergeManualAmount(
+              existingByKey.get(entry.nameKey) ?? null,
+              entry.amount,
+            )
+          : entry.amount;
+        if (exceedsListLimit(amount)) {
+          throw validationError(
+            `${entry.name}: amount on the list would exceed the limit`,
+          );
+        }
+        const data = {
+          name: entry.name,
+          department: entry.department,
+          ingredientId: entry.ingredientId,
+          amount: amount?.amount ?? null,
+          unit: amount?.unit ?? null,
+          addedById: userId,
+        };
+        await tx.shoppingListManualItem.upsert({
+          where: {
+            householdId_weekStart_nameKey: {
+              householdId,
+              weekStart: weekStartDate,
+              nameKey: entry.nameKey,
+            },
+          },
+          update: data,
+          create: {
+            householdId,
+            weekStart: weekStartDate,
+            nameKey: entry.nameKey,
+            ...data,
+          },
+        });
+      }
+
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
+
+      // Kupione → do kupienia, w każdej jednostce tego produktu: dopisany
+      // bez ilości przykleja się do wiersza, którego klucza tu nie liczymy.
+      const byName = nameKeys.map((nameKey) => ({
+        productKey: { startsWith: `${nameKey}::` },
+      }));
+      await tx.shoppingListItem.updateMany({
+        where: {
+          shoppingList: { householdId, weekStart: weekStartDate },
+          OR: byName,
+        },
+        data: { isChecked: false },
+      });
+      await tx.shoppingItemCheck.updateMany({
+        where: { householdId, weekStart: weekStartDate, OR: byName },
+        data: { isChecked: false },
+      });
+
+      if (mutationId) {
+        await tx.shoppingListAddRequest.create({
+          data: { id: mutationId, householdId, added: entries.length },
+        });
+        // Sprzątanie: ponowienia trwają sekundy, dwa dni to zapas.
+        await tx.shoppingListAddRequest.deleteMany({
+          where: {
+            householdId,
+            createdAt: { lt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
+          },
+        });
+      }
+    }
+
+    return { added: entries.length, replayed: false };
+  }
+
+  /**
+   * Pozycje z arkusza → produkty do zapisu: katalog po id albo po nazwie
+   * (nazwa i aliasy), reszta jako własna nazwa domu. Ten sam produkt
+   * podany dwa razy w jednym żądaniu zlewa się w jedną pozycję.
+   */
+  private async resolveManualEntries(
+    dto: AddShoppingProductsDto,
+  ): Promise<ResolvedManualEntry[]> {
+    const items = dto.items.map((item, index) => {
+      const field = `items.${index}`;
+      const name = item.name !== undefined ? cleanProductName(item.name) : '';
+      if (!item.ingredientId && !name) {
+        throw validationError(`${field}: ingredientId or name is required`);
+      }
+      return {
+        field,
+        // Postgres oddaje UUID małymi literami, a `IsUUID` przepuszcza
+        // wielkie — bez tego poprawne id dawało INGREDIENT_NOT_FOUND.
+        ingredientId: item.ingredientId?.toLowerCase() ?? null,
+        name,
+        normalized: name ? normalizeText(name) : '',
+        department: item.department,
+        input: inputAmount(field, item.amount, item.unit),
+      };
+    });
+
+    const ids = [
+      ...new Set(items.map((item) => item.ingredientId).filter(Boolean)),
+    ] as string[];
+    const names = [
+      ...new Set(
+        items
+          .filter((item) => !item.ingredientId)
+          .map((item) => item.normalized),
+      ),
+    ];
+    const catalog = await this.prisma.ingredient.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { id: { in: ids } },
+          { normalizedName: { in: names } },
+          { aliases: { some: { normalizedAlias: { in: names } } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        normalizedName: true,
+        category: true,
+        gramsPerPiece: true,
+        aliases: { select: { normalizedAlias: true } },
+      },
+    });
+    const byId = new Map(catalog.map((row) => [row.id, row]));
+    const byName = new Map<string, (typeof catalog)[number]>();
+    for (const row of catalog) {
+      byName.set(row.normalizedName, row);
+      for (const alias of row.aliases) {
+        if (!byName.has(alias.normalizedAlias)) {
+          byName.set(alias.normalizedAlias, row);
+        }
+      }
+    }
+
+    const resolved = new Map<string, ResolvedManualEntry>();
+    for (const item of items) {
+      let entry: ResolvedManualEntry;
+      const ingredient = item.ingredientId
+        ? byId.get(item.ingredientId)
+        : byName.get(item.normalized);
+      if (item.ingredientId && !ingredient) {
+        throw new AppException(
+          'INGREDIENT_NOT_FOUND',
+          'Nie znaleziono produktu w katalogu.',
+          HttpStatus.NOT_FOUND,
+          [`${item.field}.ingredientId`],
+        );
+      }
+      if (ingredient) {
+        entry = {
+          nameKey: manualNameKey(ingredient.name),
+          name: toTitleCase(ingredient.name),
+          department: toShoppingDepartment(ingredient.category),
+          ingredientId: ingredient.id,
+          amount: item.input
+            ? toManualListUnit(
+                item.input.amount,
+                item.input.unit,
+                ingredient.gramsPerPiece,
+              )
+            : null,
+        };
+      } else {
+        entry = {
+          nameKey: manualNameKey(item.name),
+          name: toTitleCase(item.name),
+          department: item.department ?? ShoppingDepartment.OTHER,
+          ingredientId: null,
+          amount: item.input
+            ? toManualListUnit(item.input.amount, item.input.unit, null)
+            : null,
+        };
+      }
+      if (exceedsListLimit(entry.amount)) {
+        throw validationError(
+          `${item.field}.amount exceeds the list limit after conversion`,
+        );
+      }
+      const previous = resolved.get(entry.nameKey);
+      resolved.set(
+        entry.nameKey,
+        previous
+          ? {
+              ...entry,
+              amount: mergeManualAmount(previous.amount, entry.amount),
+            }
+          : entry,
+      );
+    }
+    return Array.from(resolved.values());
+  }
+
+  /**
+   * Nowa ilość DOPISANEJ części wiersza (arkusz „Zmień ilość”). Część z planu
+   * i z przepisów zostaje, jak była. Bez ilości = „kup to”.
+   */
+  async setShoppingProductAmount(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: SetShoppingProductAmountDto,
+  ): Promise<{ productKey: string }> {
+    const dto = await validateDto(SetShoppingProductAmountDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+    const amountInput = inputAmount('amount', dto.amount, dto.unit);
+
+    return runSerializable(this.prisma, async (tx) => {
+      await lockMembershipInTx(tx, userId, householdId);
+      // Klucze ze ŹRÓDEŁ listy w tej transakcji, nie z migawki — ta bywa
+      // nieaktualna tuż po zmianie (review Codexa).
+      const listKeys = await this.currentShoppingKeys(
+        householdId,
+        weekStartDate,
+        tx,
+      );
+      const row = (
+        await this.loadManualItems(tx, {
+          householdId,
+          weekStart: weekStartDate,
+          nameKey: productKeyNamePart(dto.productKey),
+        })
+      ).find(
+        (candidate) => manualRowKey(candidate, listKeys) === dto.productKey,
+      );
+      if (!row) {
+        throw new AppException(
+          'SHOPPING_ITEM_NOT_FOUND',
+          'Nie znaleziono pozycji listy zakupów',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const gramsPerPiece = row.ingredientId
+        ? ((
+            await tx.ingredient.findUnique({
+              where: { id: row.ingredientId },
+              select: { gramsPerPiece: true },
+            })
+          )?.gramsPerPiece ?? null)
+        : null;
+      const amount = amountInput
+        ? toManualListUnit(amountInput.amount, amountInput.unit, gramsPerPiece)
+        : null;
+      if (exceedsListLimit(amount)) {
+        throw validationError('amount exceeds the list limit after conversion');
+      }
+      await tx.shoppingListManualItem.update({
+        where: { id: row.id },
+        data: {
+          amount: amount?.amount ?? null,
+          unit: amount?.unit ?? null,
+          addedById: userId,
+        },
+      });
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
+
+      // Więcej do kupienia niż było (albo w innej jednostce) → produkt wraca
+      // do kupienia, jak przy dopisaniu. Bez tego kupiony litr mleka po
+      // zmianie na trzy dalej stał odhaczony (review Codexa 13.10.2026).
+      // Zmniejszenie i „bez ilości” zostawiają ptaszek, jak był.
+      const grows =
+        amount !== null &&
+        (row.amount === null ||
+          row.unit !== amount.unit ||
+          amount.amount > row.amount + 0.000_001);
+      if (grows) {
+        const byName = { productKey: { startsWith: `${row.nameKey}::` } };
+        await tx.shoppingListItem.updateMany({
+          where: {
+            shoppingList: { householdId, weekStart: weekStartDate },
+            ...byName,
+          },
+          data: { isChecked: false },
+        });
+        await tx.shoppingItemCheck.updateMany({
+          where: { householdId, weekStart: weekStartDate, ...byName },
+          data: { isChecked: false },
+        });
+      }
+      // Klucz wiersza PO zmianie — ze źródeł listy, nie ze starej migawki:
+      // samodzielne „baterie 4 szt” zmienione na „bez ilości” stoją już pod
+      // „baterie aa::”, a nie pod „baterie aa::szt” (review Codexa).
+      const nextKeys = (
+        await this.buildShoppingListBase(householdId, weekStartDate, tx)
+      ).map((item) => item.productKey);
+      return {
+        productKey: manualRowKey(
+          { nameKey: row.nameKey, ...(amount ?? { amount: null, unit: null }) },
+          nextKeys,
+        ),
+      };
     });
   }
 

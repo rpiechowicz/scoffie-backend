@@ -36,8 +36,13 @@ export type AppSocket = Socket<
 /** Pokój socketów bez tokenu (tryb `soft`) — dostają broadcasty jak dawniej. */
 export const LEGACY_ROOM = 'legacy';
 export const userRoom = (userId: string): string => `user:${userId}`;
+/**
+ * Małymi literami: sockety dołączają z UUID-ami z Postgresa, a payload
+ * bywa pisany wielkimi (Postgres porówna `uuid` bez względu na wielkość,
+ * więc zapis przechodzi) — broadcast trafiał wtedy do pustego pokoju.
+ */
 export const householdRoom = (householdId: string): string =>
-  `household:${householdId}`;
+  `household:${householdId.toLowerCase()}`;
 
 export type WsAuthObserver = {
   /** Handler wykonany dla socketu legacy z tożsamością z payloadu. */

@@ -23,11 +23,14 @@ export type ShoppingChangeAction =
   | 'SELECT_ARCHIVE'
   | 'DELETE_ARCHIVE'
   | 'DELETE_ALL_ARCHIVES'
+  | 'ADD_SHOPPING_PRODUCTS'
   | (string & {});
 
 export interface ShoppingChangeEvent {
   action: ShoppingChangeAction;
   isChecked?: boolean | null;
+  /** Ile produktów dopisano (`ADD_SHOPPING_PRODUCTS`). */
+  productCount?: number | null;
 }
 
 export interface PushCopy {
@@ -253,6 +256,19 @@ export function buildShoppingSummary(
 
   if (actions.includes('ARCHIVE_LIST')) {
     return { title, body: `${actor} zamknął/ęła listę zakupów.` };
+  }
+
+  // Dopisane produkty wygrywają z odhaczeniami: „kup jeszcze to” jest tym,
+  // na co domownik w sklepie ma zareagować.
+  const addedCount = events
+    .filter((e) => (e.action ?? '').toUpperCase() === 'ADD_SHOPPING_PRODUCTS')
+    .reduce((sum, e) => sum + Math.max(1, e.productCount ?? 1), 0);
+  if (addedCount > 0) {
+    const noun = polishPlural(addedCount, 'produkt', 'produkty', 'produktów');
+    return {
+      title,
+      body: `${actor} dopisał/a ${addedCount} ${noun} do listy zakupów.`,
+    };
   }
 
   const checkedCount = events.filter(

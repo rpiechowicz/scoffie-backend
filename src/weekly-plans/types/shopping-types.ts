@@ -33,11 +33,63 @@ export type ShoppingListArchiveSnapshot = {
  */
 export type ShoppingListStateItem = ShoppingListItem & {
   addedFrom: string[];
+  /**
+   * Część dopisana RĘCZNIE (`ShoppingListManualItem`), `null` = brak.
+   * `amount`/`unit` = `null` to „kup to” bez ilości; ilość jest w jednostce
+   * listy i zawiera się już w `totalAmount`.
+   */
+  manual: ShoppingManualPart | null;
+};
+
+export type ShoppingManualPart = {
+  amount: number | null;
+  unit: string | null;
+  /** Kto dopisał (ostatnio) — telefon zamienia na domownika. */
+  addedById: string | null;
+  /**
+   * Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak
+   * `archivedAt`. Pod porównanie z zamknięciem listy („kup jeszcze chleb”
+   * bez ilości nie zmienia sumy); iOS jeszcze z niego nie korzysta — osobny
+   * wpis historii dla takiej rundy wymaga zmiany modelu archiwum (podpis
+   * treści jest unikalny).
+   */
+  addedAt: number;
+};
+
+/** Ostatnio dopisywane w domu — „powtórz jednym stuknięciem” w arkuszu. */
+export type ShoppingRecentProduct = {
+  name: string;
+  department: string;
+  /** `null` = własna nazwa domu, spoza katalogu. */
+  ingredientId: string | null;
+  amount: number | null;
+  unit: string | null;
 };
 
 export type ShoppingListStateDto = {
   items: ShoppingListStateItem[];
   archives: ShoppingListArchiveSnapshot[];
+  recentProducts: ShoppingRecentProduct[];
+};
+
+/** Produkt katalogu w arkuszu „Dodaj produkty”. */
+export type ShoppingProductCatalogEntry = {
+  id: string;
+  name: string;
+  department: string;
+  /** Ma masę sztuki — na liście zawsze w sztukach (`toShoppingUnit`). */
+  pieceOnly: boolean;
+  /** Inne nazwy tego samego produktu, po których też da się go znaleźć. */
+  aliases: string[];
+};
+
+/**
+ * Katalog dla telefonu. `products: null` = telefon ma już tę rewizję
+ * i nic nie trzeba wysyłać.
+ */
+export type ShoppingProductCatalogDto = {
+  revision: string;
+  products: ShoppingProductCatalogEntry[] | null;
 };
 
 /// Lets methods accept either a transactional Prisma client or the root

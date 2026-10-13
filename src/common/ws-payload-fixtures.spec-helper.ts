@@ -58,6 +58,8 @@ export const HANDLERS_WITHOUT_SERVICE: ReadonlySet<string> = new Set([
 export const HANDLERS_WITHOUT_IDENTITY_ARG: ReadonlySet<string> = new Set([
   // Katalog składników jest jeden dla wszystkich gospodarstw.
   'ingredients:search',
+  // Katalog produktów do listy zakupów — ten sam katalog składników.
+  'weeklyPlans:shoppingProducts',
   // Publiczny katalog przepisów (Etap 4A) — ten sam dla każdego domu.
   'catalog:snapshot',
   'catalog:changes',
@@ -216,6 +218,15 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     ...hhWeek,
     data: { productKey: 'mleko::ml' },
   },
+  'weeklyPlans:addShoppingProducts': {
+    ...hhWeek,
+    data: { items: [{ name: 'Karma dla kota', amount: 2, unit: 'szt' }] },
+  },
+  'weeklyPlans:setShoppingProductAmount': {
+    ...hhWeek,
+    data: { productKey: 'mleko::ml', amount: 1, unit: 'l' },
+  },
+  'weeklyPlans:shoppingProducts': { revision: 'abc123' },
   'weeklyPlans:upsertWeekSlot': {
     ...hhWeek,
     data: {
@@ -571,6 +582,21 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:removeShoppingExtra': [
     missingData(hhWeek),
     dataNotObject(hhWeek, 'mleko::ml'),
+  ],
+  'weeklyPlans:addShoppingProducts': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'mleko'),
+  ],
+  'weeklyPlans:setShoppingProductAmount': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'mleko::ml'),
+  ],
+  'weeklyPlans:shoppingProducts': [
+    {
+      name: 'revision nie-tekst',
+      payload: { revision: 42 },
+      detail: 'revision must be a string',
+    },
   ],
   'weeklyPlans:balance': [
     badHouseholdId({ weekStart: WEEK_START }),

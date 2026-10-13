@@ -90,6 +90,9 @@ model User {
   gdprRequests       GdprRequest[]
   /// Oceny gotowania (Gotuj) — odchodzą z kontem.
   cookFeedback       CookFeedback[]
+  /// Produkty dopisane przez tę osobę do list zakupów. `SetNull`: pozycja
+  /// zostaje na liście domu, znika tylko informacja, kto ją dopisał.
+  shoppingManualItems ShoppingListManualItem[]
 
   @@index([identityHash])
   @@index([lastLoginAt])
@@ -439,6 +442,8 @@ model Ingredient {
 
   aliases           IngredientAlias[]
   recipeIngredients RecipeIngredient[]
+  /// Ręcznie dopisany do list zakupów (arkusz „Dodaj produkty”).
+  shoppingManualItems ShoppingListManualItem[]
 }
 
 model IngredientAlias {
@@ -485,6 +490,8 @@ model Household {
   shoppingListArchives      ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
   shoppingListExtras        ShoppingListExtra[]
+  shoppingManualItems       ShoppingListManualItem[]
+  shoppingAddRequests       ShoppingListAddRequest[]
   recipeFavorites           RecipeFavorite[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
@@ -1573,6 +1580,63 @@ model ShoppingListExtra {
   @@unique([householdId, weekStart, recipeId, productKey])
   @@index([householdId, weekStart])
   @@index([recipeId])
+}
+
+/// Pozycja dopisana do listy zakupów RĘCZNIE z arkusza „Dodaj produkty” —
+/// produkt z katalogu (`ingredientId`) albo własna nazwa domu.
+///
+/// Trzecie źródło listy obok `PlanItem` i `ShoppingListExtra`, sumowane pod
+/// tym samym `productKey` (`nazwa::jednostka`). Ilość jest NIEOBOWIĄZKOWA:
+/// `amount`/`unit` = `null` znaczy „kup to” — taka pozycja przykleja się do
+/// wiersza produktu, który lista już ma, a bez niego stoi jako wiersz bez
+/// ilości (`unit` = ""). Ilość leży w jednostce listy (`szt`/`g`/`ml`), więc
+/// sumuje się z planem bez przeliczania przy odczycie.
+///
+/// Jeden wpis na produkt i tydzień (`nameKey` = nazwa małymi literami, ta
+/// sama co w `productKey`): ponowne dopisanie DOKŁADA ilość. To dalej nie
+/// jest spiżarnia — aplikacja wie tylko, co ktoś świadomie dopisał.
+model ShoppingListManualItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  householdId  String   @db.Uuid
+  weekStart    DateTime
+  nameKey      String
+  ingredientId String?  @db.Uuid
+  name         String
+  department   String
+  amount       Float?
+  unit         String?
+  addedById    String?  @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  addedBy    User?       @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, weekStart, nameKey])
+  @@index([householdId, updatedAt])
+  @@index([ingredientId])
+  @@index([addedById])
+}
+
+/// Wykonane dopisanie z arkusza „Dodaj produkty” — po identyfikatorze
+/// operacji z telefonu (`clientMutationId`).
+///
+/// Dopisanie DOKŁADA ilość, a telefon ponawia `emitWithAck` po przekroczeniu
+/// czasu: zapis, który przeszedł, ale którego ACK zginął, dokładałby litr
+/// mleka drugi raz. Wiersz powstaje w tej samej transakcji co dopisanie,
+/// więc ponowienie tej samej operacji oddaje poprzedni wynik bez zmian na
+/// liście i bez drugiego pusha. Starsze niż 2 dni sprząta kolejne dopisanie
+/// w domu — ponowienia trwają sekundy.
+model ShoppingListAddRequest {
+  id          String   @id @db.Uuid
+  householdId String   @db.Uuid
+  added       Int
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, createdAt])
 }
 
 model ShoppingListArchive {
