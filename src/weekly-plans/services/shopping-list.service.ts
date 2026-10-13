@@ -1491,7 +1491,12 @@ export class ShoppingListService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    return this.prisma.$transaction(async (tx) => {
+    // SERIALIZABLE, nie READ COMMITTED (review Codexa 13.10.2026): wiersze do
+    // zdjęcia wybieramy po KLUCZU wiersza listy, a kasujemy po id. Ktoś mógł
+    // w tym czasie przenieść dopisane do innej jednostki („mleko::szt”) —
+    // wtedy zdjęcie „mleko::ml” zabierałoby cudzą zmianę. Konflikt = ponowienie
+    // całego wyboru na świeżej migawce.
+    return runSerializable(this.prisma, async (tx) => {
       await lockMembershipInTx(tx, userId, householdId);
       // Po kluczu w jednostce listy, nie po kluczu z bazy: wiersz „Cebula”
       // w sztukach zbiera też dopisane sprzed ujednolicenia (`cebula::g`),
@@ -1887,6 +1892,30 @@ export class ShoppingListService {
         },
       });
       await this.markShoppingListStale(householdId, weekStartDate, tx);
+
+      // Więcej do kupienia niż było (albo w innej jednostce) → produkt wraca
+      // do kupienia, jak przy dopisaniu. Bez tego kupiony litr mleka po
+      // zmianie na trzy dalej stał odhaczony (review Codexa 13.10.2026).
+      // Zmniejszenie i „bez ilości” zostawiają ptaszek, jak był.
+      const grows =
+        amount !== null &&
+        (row.amount === null ||
+          row.unit !== amount.unit ||
+          amount.amount > row.amount + 0.000_001);
+      if (grows) {
+        const byName = { productKey: { startsWith: `${row.nameKey}::` } };
+        await tx.shoppingListItem.updateMany({
+          where: {
+            shoppingList: { householdId, weekStart: weekStartDate },
+            ...byName,
+          },
+          data: { isChecked: false },
+        });
+        await tx.shoppingItemCheck.updateMany({
+          where: { householdId, weekStart: weekStartDate, ...byName },
+          data: { isChecked: false },
+        });
+      }
       return {
         productKey: manualRowKey(
           { nameKey: row.nameKey, ...(amount ?? { amount: null, unit: null }) },

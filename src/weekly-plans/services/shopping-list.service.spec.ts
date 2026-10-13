@@ -1846,6 +1846,67 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       });
     });
 
+    it('zwiększenie ilości kupionego produktu wraca go do kupienia, zmniejszenie — nie', async () => {
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml'),
+      ]);
+      const setAmount = (amount: number, unit: string) =>
+        service.setShoppingProductAmount(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          { productKey: 'mleko::ml', amount, unit },
+        );
+
+      await setAmount(3, 'l');
+      expect(prisma.shoppingListItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          shoppingList: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+          },
+          productKey: { startsWith: 'mleko::' },
+        },
+        data: { isChecked: false },
+      });
+      expect(prisma.shoppingItemCheck.updateMany).toHaveBeenCalled();
+
+      jest.clearAllMocks();
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'mleko::ml' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Mleko', 1000, 'ml'),
+      ]);
+      await setAmount(500, 'ml');
+      expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('zdjęcie dopisanego biegnie w SERIALIZABLE (wybór po kluczu, kasowanie po id)', async () => {
+      prisma.shoppingListItem.findMany.mockResolvedValue([
+        { productKey: 'cebula::szt' },
+      ]);
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        manualRow('Cebula', null, null),
+      ]);
+      prisma.shoppingListManualItem.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.removeShoppingExtra(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { productKey: 'cebula::szt' },
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
+    });
+
     it('zdjęcie wiersza zabiera dopisaną ręcznie część bez ilości', async () => {
       prisma.shoppingListItem.findMany.mockResolvedValue([
         { productKey: 'cebula::szt' },
