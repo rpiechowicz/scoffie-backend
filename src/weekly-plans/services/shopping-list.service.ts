@@ -24,6 +24,7 @@ import type {
 import { ShoppingDepartment } from '../types/shopping-department.enum';
 import {
   cleanProductName,
+  exceedsListLimit,
   manualNameKey,
   manualRowKey,
   mergeManualAmount,
@@ -1750,6 +1751,11 @@ export class ShoppingListService {
               entry.amount,
             )
           : entry.amount;
+        if (exceedsListLimit(amount)) {
+          throw validationError(
+            `${entry.name}: amount on the list would exceed the limit`,
+          );
+        }
         const data = {
           name: entry.name,
           department: entry.department,
@@ -1916,6 +1922,11 @@ export class ShoppingListService {
             : null,
         };
       }
+      if (exceedsListLimit(entry.amount)) {
+        throw validationError(
+          `${item.field}.amount exceeds the list limit after conversion`,
+        );
+      }
       const previous = resolved.get(entry.nameKey);
       resolved.set(
         entry.nameKey,
@@ -1981,6 +1992,9 @@ export class ShoppingListService {
       const amount = amountInput
         ? toManualListUnit(amountInput.amount, amountInput.unit, gramsPerPiece)
         : null;
+      if (exceedsListLimit(amount)) {
+        throw validationError('amount exceeds the list limit after conversion');
+      }
       await tx.shoppingListManualItem.update({
         where: { id: row.id },
         data: {

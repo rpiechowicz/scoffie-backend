@@ -1781,6 +1781,28 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
     });
 
+    it('sufit po przeliczeniu: 300 g czosnku (3 g sztuka) = 100 szt → VALIDATION_ERROR', async () => {
+      prisma.ingredient.findMany.mockResolvedValue([
+        catalogRow(ONION_ID, 'czosnek', 'Warzywa', 3),
+      ]);
+
+      await expect(
+        add([{ name: 'czosnek', amount: 300, unit: 'g' }]),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
+    it('dopisanie ponad sufit sumy → VALIDATION_ERROR, nie przycięcie istniejącej ilości', async () => {
+      prisma.shoppingListManualItem.findMany.mockResolvedValue([
+        { nameKey: 'jajko', amount: 90, unit: 'szt' },
+      ]);
+
+      await expect(
+        add([{ name: 'Jajko', amount: 20, unit: 'szt' }]),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
     it('sufit jednostki: 150 szt → VALIDATION_ERROR', async () => {
       await expect(
         add([{ name: 'Jajko', amount: 150, unit: 'szt' }]),

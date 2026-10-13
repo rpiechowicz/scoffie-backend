@@ -1,5 +1,6 @@
 import {
   cleanProductName,
+  exceedsListLimit,
   manualNameKey,
   manualRowKey,
   mergeManualAmount,
@@ -49,12 +50,21 @@ describe('shopping-manual.util', () => {
     });
     expect(mergeManualAmount(ml, null)).toEqual(ml);
     expect(mergeManualAmount(null, ml)).toEqual(ml);
+    // Bez przycinania — przekroczenie sufitu łapie `exceedsListLimit`.
     expect(
       mergeManualAmount(
         { amount: 90, unit: 'szt' },
         { amount: 20, unit: 'szt' },
       ),
-    ).toEqual({ amount: 99, unit: 'szt' });
+    ).toEqual({ amount: 110, unit: 'szt' });
+  });
+
+  it('exceedsListLimit: sufit w jednostce listy, także po przeliczeniu', () => {
+    expect(exceedsListLimit({ amount: 99, unit: 'szt' })).toBe(false);
+    expect(exceedsListLimit({ amount: 100, unit: 'szt' })).toBe(true);
+    expect(exceedsListLimit(toManualListUnit(300, 'g', 3))).toBe(true);
+    expect(exceedsListLimit({ amount: 20_000, unit: 'g' })).toBe(false);
+    expect(exceedsListLimit(null)).toBe(false);
   });
 
   it('manualRowKey: z ilością własny klucz, bez — pierwszy alfabetycznie wiersz produktu albo własny', () => {

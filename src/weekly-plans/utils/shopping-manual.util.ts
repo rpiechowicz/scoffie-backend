@@ -25,7 +25,11 @@ export const SHOPPING_PRODUCT_INPUT_LIMITS: Record<
   number
 > = { szt: 99, g: 20_000, kg: 20, ml: 20_000, l: 20 };
 
-/** Sufit SUMY w jednostce listy — kolejne dopisania nie urosną ponad niego. */
+/**
+ * Sufit ilości w jednostce LISTY — po przeliczeniu (300 g czosnku = 100 szt)
+ * i po zsumowaniu z wcześniej dopisanym. Przekroczenie to błąd bez zmian,
+ * nie przycięcie: przycięta suma potrafiła ZMNIEJSZYĆ dopisaną ilość.
+ */
 export const SHOPPING_MANUAL_LIST_LIMITS: Record<string, number> = {
   szt: 99,
   g: 20_000,
@@ -110,11 +114,17 @@ export function mergeManualAmount(
 ): ManualAmount {
   if (!next) return existing;
   if (!existing || existing.unit !== next.unit) return next;
-  const limit = SHOPPING_MANUAL_LIST_LIMITS[next.unit] ?? Infinity;
   return {
-    amount: Math.min(Number((existing.amount + next.amount).toFixed(3)), limit),
+    amount: Number((existing.amount + next.amount).toFixed(3)),
     unit: next.unit,
   };
+}
+
+/** Ilość w jednostce listy ponad sufit (`SHOPPING_MANUAL_LIST_LIMITS`). */
+export function exceedsListLimit(amount: ManualAmount): boolean {
+  if (!amount) return false;
+  const limit = SHOPPING_MANUAL_LIST_LIMITS[amount.unit] ?? Infinity;
+  return amount.amount > limit + 0.000_001;
 }
 
 /**
