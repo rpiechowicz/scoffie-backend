@@ -491,6 +491,7 @@ model Household {
   shoppingListArchiveStates ShoppingListArchiveState[]
   shoppingListExtras        ShoppingListExtra[]
   shoppingManualItems       ShoppingListManualItem[]
+  shoppingAddRequests       ShoppingListAddRequest[]
   recipeFavorites           RecipeFavorite[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
@@ -1616,6 +1617,26 @@ model ShoppingListManualItem {
   @@index([householdId, updatedAt])
   @@index([ingredientId])
   @@index([addedById])
+}
+
+/// Wykonane dopisanie z arkusza „Dodaj produkty” — po identyfikatorze
+/// operacji z telefonu (`clientMutationId`).
+///
+/// Dopisanie DOKŁADA ilość, a telefon ponawia `emitWithAck` po przekroczeniu
+/// czasu: zapis, który przeszedł, ale którego ACK zginął, dokładałby litr
+/// mleka drugi raz. Wiersz powstaje w tej samej transakcji co dopisanie,
+/// więc ponowienie tej samej operacji oddaje poprzedni wynik bez zmian na
+/// liście i bez drugiego pusha. Starsze niż 2 dni sprząta kolejne dopisanie
+/// w domu — ponowienia trwają sekundy.
+model ShoppingListAddRequest {
+  id          String   @id @db.Uuid
+  householdId String   @db.Uuid
+  added       Int
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, createdAt])
 }
 
 model ShoppingListArchive {

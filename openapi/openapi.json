@@ -1546,6 +1546,10 @@
         "description": "`weeklyPlans:addShoppingProducts` — walidowane w serwisie przez `validateDto`.",
         "type": "object",
         "properties": {
+          "clientMutationId": {
+            "description": "Identyfikator OPERACJI z telefonu (nowy na każde „Dodaj N produktów”,\nten sam przy ponowieniu). Ponowienie oddaje poprzedni wynik zamiast\ndokładać ilość drugi raz — patrz `ShoppingListAddRequest`.",
+            "type": "string"
+          },
           "items": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/ShoppingProductInputDto" }

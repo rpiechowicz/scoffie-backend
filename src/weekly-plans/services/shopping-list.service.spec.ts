@@ -114,6 +114,12 @@ const makePrismaMock = () => {
       upsert: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Wykonane dopisania (idempotencja „Dodaj N produktów”) — domyślnie brak.
+    shoppingListAddRequest: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     // Dopisane ręcznie z arkusza „Dodaj produkty” — domyślnie nic.
     shoppingListManualItem: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -1670,7 +1676,7 @@ describe('ShoppingListService — dopisane ręcznie', () => {
 
       await expect(
         add([{ name: '  Cebula ', amount: 0.22, unit: 'kg' }]),
-      ).resolves.toEqual({ added: 1 });
+      ).resolves.toEqual({ added: 1, replayed: false });
 
       expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1788,7 +1794,7 @@ describe('ShoppingListService — dopisane ręcznie', () => {
 
       await expect(
         add([{ ingredientId: MILK_ID.toUpperCase() }]),
-      ).resolves.toEqual({ added: 1 });
+      ).resolves.toEqual({ added: 1, replayed: false });
       expect(prisma.shoppingListManualItem.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({ ingredientId: MILK_ID }),
@@ -1807,6 +1813,46 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       });
       expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
       expect(prisma.shoppingListArchiveState.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('ponowienie tej samej operacji (zgubiony ACK) oddaje poprzedni wynik bez dokładania', async () => {
+      const mutationId = '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b';
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 2,
+      });
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            clientMutationId: mutationId,
+            items: [{ name: 'Karma dla kota', amount: 2, unit: 'szt' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 2, replayed: true });
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+      expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('pierwsze wykonanie zapisuje identyfikator operacji w tej samej transakcji', async () => {
+      const mutationId = '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b';
+
+      await service.addShoppingProducts(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        {
+          clientMutationId: mutationId,
+          items: [{ name: 'Karma dla kota' }],
+        },
+      );
+
+      expect(prisma.shoppingListAddRequest.create).toHaveBeenCalledWith({
+        data: { id: mutationId, householdId: mockHouseholdId, added: 1 },
+      });
     });
 
     it('nieznany ingredientId → INGREDIENT_NOT_FOUND', async () => {

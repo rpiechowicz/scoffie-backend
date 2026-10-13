@@ -1623,15 +1623,82 @@ export class ShoppingListService {
     householdId: string,
     weekStart: string,
     input: AddShoppingProductsDto,
-  ): Promise<{ added: number }> {
+  ): Promise<{ added: number; replayed: boolean }> {
     const dto = await validateDto(AddShoppingProductsDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     const entries = await this.resolveManualEntries(dto);
     const nameKeys = entries.map((entry) => entry.nameKey);
+    const mutationId = dto.clientMutationId?.toLowerCase() ?? null;
 
-    await runSerializable(this.prisma, async (tx) => {
+    try {
+      return await runSerializable(this.prisma, (tx) =>
+        this.writeShoppingProducts(tx, {
+          userId,
+          householdId,
+          weekStartDate,
+          entries,
+          nameKeys,
+          mutationId,
+        }),
+      );
+    } catch (error) {
+      // Dwie kopie tej samej operacji naraz: przegrana trafia w klucz
+      // główny wiersza wygranej — to też ponowienie, z wynikiem wygranej.
+      if (
+        mutationId &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const done = await this.prisma.shoppingListAddRequest.findUnique({
+          where: { id: mutationId },
+          select: { householdId: true, added: true },
+        });
+        if (done && done.householdId === householdId) {
+          return { added: done.added, replayed: true };
+        }
+      }
+      throw error;
+    }
+  }
+
+  private async writeShoppingProducts(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      householdId: string;
+      weekStartDate: Date;
+      entries: ResolvedManualEntry[];
+      nameKeys: string[];
+      mutationId: string | null;
+    },
+  ): Promise<{ added: number; replayed: boolean }> {
+    const {
+      userId,
+      householdId,
+      weekStartDate,
+      entries,
+      nameKeys,
+      mutationId,
+    } = input;
+    {
       await lockMembershipInTx(tx, userId, householdId);
+
+      // Ponowienie operacji, która już przeszła (zgubiony ACK) — wynik
+      // poprzedniej, bez drugiego dokładania. Cudzy dom z tym samym id to
+      // błąd klienta, nie ponowienie.
+      if (mutationId) {
+        const done = await tx.shoppingListAddRequest.findUnique({
+          where: { id: mutationId },
+          select: { householdId: true, added: true },
+        });
+        if (done) {
+          if (done.householdId !== householdId) {
+            throw validationError('clientMutationId was already used');
+          }
+          return { added: done.added, replayed: true };
+        }
+      }
       // Kolejność blokad jak w `addRecipeExtras`: członkostwo → stan archiwum → dopisane →
       // `ShoppingList` → `ShoppingListItem` → `ShoppingItemCheck`.
       await tx.shoppingListArchiveState.deleteMany({
@@ -1710,9 +1777,22 @@ export class ShoppingListService {
         where: { householdId, weekStart: weekStartDate, OR: byName },
         data: { isChecked: false },
       });
-    });
 
-    return { added: entries.length };
+      if (mutationId) {
+        await tx.shoppingListAddRequest.create({
+          data: { id: mutationId, householdId, added: entries.length },
+        });
+        // Sprzątanie: ponowienia trwają sekundy, dwa dni to zapas.
+        await tx.shoppingListAddRequest.deleteMany({
+          where: {
+            householdId,
+            createdAt: { lt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
+          },
+        });
+      }
+    }
+
+    return { added: entries.length, replayed: false };
   }
 
   /**
@@ -1916,10 +1996,16 @@ export class ShoppingListService {
           data: { isChecked: false },
         });
       }
+      // Klucz wiersza PO zmianie — ze źródeł listy, nie ze starej migawki:
+      // samodzielne „baterie 4 szt” zmienione na „bez ilości” stoją już pod
+      // „baterie aa::”, a nie pod „baterie aa::szt” (review Codexa).
+      const nextKeys = (
+        await this.buildShoppingListBase(householdId, weekStartDate, tx)
+      ).map((item) => item.productKey);
       return {
         productKey: manualRowKey(
           { nameKey: row.nameKey, ...(amount ?? { amount: null, unit: null }) },
-          listKeys,
+          nextKeys,
         ),
       };
     });

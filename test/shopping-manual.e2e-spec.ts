@@ -390,6 +390,53 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
     expect(batteries.totalAmount).toBe(6);
   });
 
+  it('ponowienie tej samej operacji (zgubiony ACK) nie dokłada ilości drugi raz', async () => {
+    const clientMutationId = '5d0c1f2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f';
+    const send = () =>
+      ack<{ added: number }>(socket, 'weeklyPlans:addShoppingProducts', {
+        householdId,
+        weekStart: EMPTY_WEEK,
+        data: {
+          clientMutationId,
+          items: [{ name: 'Woda niegazowana', amount: 6, unit: 'szt' }],
+        },
+      });
+
+    expect(okData(await send())).toEqual({ added: 1 });
+    expect(okData(await send())).toEqual({ added: 1 });
+
+    const water = (await itemOf(EMPTY_WEEK, 'woda niegazowana::szt'))!;
+    expect(water.totalAmount).toBe(6);
+  });
+
+  it('samodzielny produkt zmieniony na „bez ilości” oddaje klucz wiersza po zmianie', async () => {
+    const result = okData(
+      await ack<{ productKey: string }>(
+        socket,
+        'weeklyPlans:setShoppingProductAmount',
+        {
+          householdId,
+          weekStart: EMPTY_WEEK,
+          data: { productKey: 'baterie aa::szt' },
+        },
+      ),
+    );
+    expect(result).toEqual({ productKey: 'baterie aa::' });
+    expect(await itemOf(EMPTY_WEEK, 'baterie aa::')).toMatchObject({
+      unit: '',
+      manual: { amount: null, unit: null },
+    });
+
+    okData(
+      await ack(socket, 'weeklyPlans:removeShoppingExtra', {
+        householdId,
+        weekStart: EMPTY_WEEK,
+        data: { productKey: result.productKey },
+      }),
+    );
+    expect(await itemOf(EMPTY_WEEK, 'baterie aa::')).toBeUndefined();
+  });
+
   it('lista schowana po wyczyszczeniu historii pokazuje się po dopisaniu', async () => {
     okData(
       await ack(socket, 'weeklyPlans:deleteAllShoppingListArchives', {

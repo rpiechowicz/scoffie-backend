@@ -683,22 +683,26 @@ export class WeeklyPlansGateway
         payload.data,
       );
 
-      this.emitShoppingListChanged({
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'ADD_SHOPPING_PRODUCTS',
-        changedByUserId: userId,
-        changedByDisplayName,
-      });
-      this.notifyShoppingListChanged({
-        householdId: payload.householdId,
-        changedByUserId: userId,
-        changedByDisplayName,
-        action: 'ADD_SHOPPING_PRODUCTS',
-        productCount: result.added,
-      });
+      // Ponowienie operacji, która już przeszła, nie zmieniło listy — bez
+      // drugiego rozgłoszenia i drugiego pusha.
+      if (!result.replayed) {
+        this.emitShoppingListChanged({
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'ADD_SHOPPING_PRODUCTS',
+          changedByUserId: userId,
+          changedByDisplayName,
+        });
+        this.notifyShoppingListChanged({
+          householdId: payload.householdId,
+          changedByUserId: userId,
+          changedByDisplayName,
+          action: 'ADD_SHOPPING_PRODUCTS',
+          productCount: result.added,
+        });
+      }
 
-      return result;
+      return { added: result.added };
     });
   }
 

@@ -67,6 +67,16 @@ export class ShoppingProductInputDto {
 
 /** `weeklyPlans:addShoppingProducts` — walidowane w serwisie przez `validateDto`. */
 export class AddShoppingProductsDto {
+  /**
+   * Identyfikator OPERACJI z telefonu (nowy na każde „Dodaj N produktów”,
+   * ten sam przy ponowieniu). Ponowienie oddaje poprzedni wynik zamiast
+   * dokładać ilość drugi raz — patrz `ShoppingListAddRequest`.
+   */
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  clientMutationId?: string;
+
   @ApiProperty({ type: [ShoppingProductInputDto] })
   @IsArray()
   @ArrayMinSize(1)

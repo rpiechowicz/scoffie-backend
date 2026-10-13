@@ -36,3 +36,20 @@ FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE SET NULL ON
 ALTER TABLE "ShoppingListManualItem"
 ADD CONSTRAINT "ShoppingListManualItem_addedById_fkey"
 FOREIGN KEY ("addedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Wykonane dopisania po identyfikatorze operacji z telefonu — ponowienie po
+-- zgubionym ACK oddaje poprzedni wynik zamiast dokładać ilość drugi raz.
+CREATE TABLE "ShoppingListAddRequest" (
+    "id" UUID NOT NULL,
+    "householdId" UUID NOT NULL,
+    "added" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ShoppingListAddRequest_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "ShoppingListAddRequest_householdId_createdAt_idx" ON "ShoppingListAddRequest"("householdId", "createdAt");
+
+ALTER TABLE "ShoppingListAddRequest"
+ADD CONSTRAINT "ShoppingListAddRequest_householdId_fkey"
+FOREIGN KEY ("householdId") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
