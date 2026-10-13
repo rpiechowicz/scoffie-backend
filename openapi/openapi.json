@@ -12006,7 +12006,7 @@
                 "nullable": true
               },
               "addedAt": {
-                "description": "Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak\n`archivedAt`. Telefon porównuje z zamknięciem listy: „kup jeszcze chleb” bez ilości po zamknięciu nie\nzmienia sumy, a ptaszek nie może o tym decydować — domownik odhacza\nchleb w sklepie, a ten dalej należy do nowej rundy.",
+                "description": "Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak\n`archivedAt`. Pod porównanie z zamknięciem listy („kup jeszcze chleb”\nbez ilości nie zmienia sumy); iOS jeszcze z niego nie korzysta — osobny\nwpis historii dla takiej rundy wymaga zmiany modelu archiwum (podpis\ntreści jest unikalny).",
                 "type": "number"
               }
             },

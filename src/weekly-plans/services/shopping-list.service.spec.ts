@@ -1863,6 +1863,29 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
     });
 
+    it('ponowienie rozpoznane przed katalogiem: składnik wycofany po zapisie nie odrzuca ponowienia', async () => {
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 1,
+      });
+      // Katalog już nie zna mleka — pierwsze wykonanie dałoby 404.
+      prisma.ingredient.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          {
+            clientMutationId: '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b',
+            items: [{ ingredientId: MILK_ID, amount: 1, unit: 'l' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 1, replayed: true });
+      expect(prisma.ingredient.findMany).not.toHaveBeenCalled();
+      expect(prisma.shoppingListManualItem.upsert).not.toHaveBeenCalled();
+    });
+
     it('ponowienie z UUID domu wielkimi literami też jest ponowieniem', async () => {
       prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
         householdId: mockHouseholdId,

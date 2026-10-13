@@ -1673,9 +1673,22 @@ export class ShoppingListService {
     const householdId = householdIdInput.toLowerCase();
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
+    const mutationId = dto.clientMutationId?.toLowerCase() ?? null;
+    // Ponowienie operacji, która już przeszła, rozpoznane PRZED katalogiem:
+    // `resolveManualEntries` zależy od aktywnych składników i `gramsPerPiece`,
+    // więc zmiana katalogu między próbami odrzucała ponowienie zapisanej
+    // operacji błędem walidacji zamiast oddać jej wynik. W transakcji
+    // sprawdzamy jeszcze raz (dwie kopie naraz). Kopia, która przyjdzie,
+    // gdy pierwsza jeszcze trwa, może dalej dostać błąd — telefon trzyma
+    // wtedy wybór zamrożony i ponawia tym samym id, więc nic się nie dubluje.
+    const replay = await this.findAddReplay(
+      this.prisma,
+      mutationId,
+      householdId,
+    );
+    if (replay) return replay;
     const entries = await this.resolveManualEntries(dto);
     const nameKeys = entries.map((entry) => entry.nameKey);
-    const mutationId = dto.clientMutationId?.toLowerCase() ?? null;
 
     try {
       return await runSerializable(this.prisma, (tx) =>
@@ -1708,6 +1721,27 @@ export class ShoppingListService {
     }
   }
 
+  /**
+   * Wynik operacji „Dodaj produkty” o tym `clientMutationId`, jeśli już
+   * przeszła. Cudzy dom z tym samym id to błąd klienta, nie ponowienie.
+   */
+  private async findAddReplay(
+    client: PrismaReadClient,
+    mutationId: string | null,
+    householdId: string,
+  ): Promise<{ added: number; replayed: true } | null> {
+    if (!mutationId) return null;
+    const done = await client.shoppingListAddRequest.findUnique({
+      where: { id: mutationId },
+      select: { householdId: true, added: true },
+    });
+    if (!done) return null;
+    if (done.householdId !== householdId) {
+      throw validationError('clientMutationId was already used');
+    }
+    return { added: done.added, replayed: true };
+  }
+
   private async writeShoppingProducts(
     tx: Prisma.TransactionClient,
     input: {
@@ -1731,20 +1765,9 @@ export class ShoppingListService {
       await lockMembershipInTx(tx, userId, householdId);
 
       // Ponowienie operacji, która już przeszła (zgubiony ACK) — wynik
-      // poprzedniej, bez drugiego dokładania. Cudzy dom z tym samym id to
-      // błąd klienta, nie ponowienie.
-      if (mutationId) {
-        const done = await tx.shoppingListAddRequest.findUnique({
-          where: { id: mutationId },
-          select: { householdId: true, added: true },
-        });
-        if (done) {
-          if (done.householdId !== householdId) {
-            throw validationError('clientMutationId was already used');
-          }
-          return { added: done.added, replayed: true };
-        }
-      }
+      // poprzedniej, bez drugiego dokładania.
+      const replay = await this.findAddReplay(tx, mutationId, householdId);
+      if (replay) return replay;
       // Kolejność blokad jak w `addRecipeExtras`: członkostwo → stan archiwum → dopisane →
       // `ShoppingList` → `ShoppingListItem` → `ShoppingItemCheck`.
       await tx.shoppingListArchiveState.deleteMany({
