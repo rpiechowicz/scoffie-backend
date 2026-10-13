@@ -1542,6 +1542,17 @@
         },
         "required": ["ingredientIds", "recipeId", "servings"]
       },
+      "AddShoppingProductsDto": {
+        "description": "`weeklyPlans:addShoppingProducts` — walidowane w serwisie przez `validateDto`.",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ShoppingProductInputDto" }
+          }
+        },
+        "required": ["items"]
+      },
       "AgentApplyProposalResponse": {
         "type": "object",
         "properties": {
@@ -11889,6 +11900,19 @@
         },
         "required": ["expectedRevision", "planItemId", "servings", "userId"]
       },
+      "SetShoppingProductAmountDto": {
+        "description": "`weeklyPlans:setShoppingProductAmount` — nowa ilość DOPISANEJ części\nwiersza `productKey`. Bez `amount` i `unit` = „bez ilości”.",
+        "type": "object",
+        "properties": {
+          "productKey": {
+            "description": "Klucz wiersza listy (`nazwa::jednostka`), jak w `UpdateShoppingItemCheckDto`.",
+            "type": "string"
+          },
+          "amount": { "type": "number" },
+          "unit": { "type": "string" }
+        },
+        "required": ["productKey"]
+      },
       "ShoppingListItem": {
         "type": "object",
         "properties": {
@@ -11966,17 +11990,47 @@
               }
             ]
           },
-          "addedFrom": { "type": "array", "items": { "type": "string" } }
+          "addedFrom": { "type": "array", "items": { "type": "string" } },
+          "manual": {
+            "type": "object",
+            "properties": {
+              "amount": { "type": "number", "nullable": true },
+              "unit": { "type": "string", "nullable": true },
+              "addedById": {
+                "description": "Kto dopisał (ostatnio) — telefon zamienia na domownika.",
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": ["addedById", "amount", "unit"],
+            "nullable": true,
+            "description": "Część dopisana RĘCZNIE (`ShoppingListManualItem`), `null` = brak.\n`amount`/`unit` = `null` to „kup to” bez ilości; ilość jest w jednostce\nlisty i zawiera się już w `totalAmount`."
+          }
         },
         "required": [
           "addedFrom",
           "department",
           "isChecked",
+          "manual",
           "name",
           "productKey",
           "totalAmount",
           "unit"
         ]
+      },
+      "ShoppingProductInputDto": {
+        "description": "Jeden produkt z arkusza „Dodaj produkty”: z katalogu (`ingredientId`) albo\npod własną nazwą (`name` + `department`). Ilość nieobowiązkowa — bez\n`amount` i `unit` to „kup to”; z ilością oba pola razem (sprawdza serwis,\nrazem z sufitem per jednostka).",
+        "type": "object",
+        "properties": {
+          "ingredientId": { "type": "string" },
+          "name": { "type": "string" },
+          "department": {
+            "description": "Dział własnej nazwy; produkt z katalogu ma swój. Brak = „Inne”.",
+            "type": "string"
+          },
+          "amount": { "type": "number" },
+          "unit": { "type": "string" }
+        }
       },
       "SubscriptionProvider": { "enum": ["APPLE", "MANUAL"], "type": "string" },
       "SubscriptionStatus": {
@@ -12340,6 +12394,19 @@
         },
         "required": ["data", "householdId", "weekStart"]
       },
+      "WeeklyPlansAddShoppingProductsPayload": {
+        "type": "object",
+        "properties": {
+          "data": { "$ref": "#/components/schemas/AddShoppingProductsDto" },
+          "weekStart": { "type": "string" },
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" }
+        },
+        "required": ["data", "householdId", "weekStart"]
+      },
       "WeeklyPlansApplyWeekPlanPayload": {
         "type": "object",
         "properties": {
@@ -12473,6 +12540,21 @@
         },
         "required": ["data", "householdId", "weekStart"]
       },
+      "WeeklyPlansSetShoppingProductAmountPayload": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SetShoppingProductAmountDto"
+          },
+          "weekStart": { "type": "string" },
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" }
+        },
+        "required": ["data", "householdId", "weekStart"]
+      },
       "WeeklyPlansShoppingListArchivePayload": {
         "description": "`selectShoppingListArchive` i `deleteShoppingListArchive`.",
         "type": "object",
@@ -12485,6 +12567,17 @@
           "householdId": { "type": "string" }
         },
         "required": ["archiveId", "householdId"]
+      },
+      "WeeklyPlansShoppingProductsPayload": {
+        "description": "Katalog produktów do arkusza „Dodaj produkty” — wspólny dla wszystkich\ndomów, więc bez `householdId`. `revision` = ta, którą telefon już ma.",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "revision": { "type": "string" }
+        }
       },
       "WeeklyPlansUpsertWeekSlotPayload": {
         "type": "object",
@@ -14350,6 +14443,11 @@
         },
         "required": ["added", "productKeys"]
       },
+      "WsWeeklyPlansAddShoppingProductsData": {
+        "type": "object",
+        "properties": { "added": { "type": "number" } },
+        "required": ["added"]
+      },
       "WsWeeklyPlansApplyWeekPlanData": {
         "type": "object",
         "properties": {
@@ -14883,9 +14981,34 @@
                 "weekStart"
               ]
             }
+          },
+          "recentProducts": {
+            "type": "array",
+            "items": {
+              "description": "Ostatnio dopisywane w domu — „powtórz jednym stuknięciem” w arkuszu.",
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "department": { "type": "string" },
+                "ingredientId": {
+                  "description": "`null` = własna nazwa domu, spoza katalogu.",
+                  "type": "string",
+                  "nullable": true
+                },
+                "amount": { "type": "number", "nullable": true },
+                "unit": { "type": "string", "nullable": true }
+              },
+              "required": [
+                "amount",
+                "department",
+                "ingredientId",
+                "name",
+                "unit"
+              ]
+            }
           }
         },
-        "required": ["archives", "items"]
+        "required": ["archives", "items", "recentProducts"]
       },
       "WsWeeklyPlansRemoveShoppingExtraData": {
         "type": "object",
@@ -15070,6 +15193,42 @@
           "updatedAt",
           "weekStart"
         ]
+      },
+      "WsWeeklyPlansSetShoppingProductAmountData": {
+        "type": "object",
+        "properties": { "productKey": { "type": "string" } },
+        "required": ["productKey"]
+      },
+      "WsWeeklyPlansShoppingProductsData": {
+        "description": "Katalog dla telefonu. `products: null` = telefon ma już tę rewizję\ni nic nie trzeba wysyłać.",
+        "type": "object",
+        "properties": {
+          "revision": { "type": "string" },
+          "products": {
+            "type": "array",
+            "items": {
+              "description": "Produkt katalogu w arkuszu „Dodaj produkty”.",
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "department": { "type": "string" },
+                "pieceOnly": {
+                  "description": "Ma masę sztuki — na liście zawsze w sztukach (`toShoppingUnit`).",
+                  "type": "boolean"
+                },
+                "aliases": {
+                  "description": "Inne nazwy tego samego produktu, po których też da się go znaleźć.",
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["aliases", "department", "id", "name", "pieceOnly"]
+            },
+            "nullable": true
+          }
+        },
+        "required": ["products", "revision"]
       }
     }
   }

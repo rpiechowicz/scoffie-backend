@@ -56,6 +56,9 @@ const KEEPS_ROW_ON_PURPOSE: Record<string, string> = {
   // MailMessage.user
   userId:
     'historia wysyłek jest dowodem operacyjnym; QUEUED schodzi wcześniej na SKIPPED',
+  // ShoppingListManualItem.addedBy
+  addedById:
+    'dopisany produkt jest na wspólnej liście domu; znika tylko informacja, kto go dopisał',
 };
 
 type UserRelation = {

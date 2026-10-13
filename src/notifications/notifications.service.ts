@@ -293,6 +293,7 @@ export class NotificationsService implements OnModuleDestroy {
     changedByDisplayName?: string | null;
     action?: ShoppingChangeAction;
     isChecked?: boolean | null;
+    productCount?: number | null;
   }): void {
     if (!this.apnsService.isConfigured()) {
       return;
@@ -305,6 +306,7 @@ export class NotificationsService implements OnModuleDestroy {
       changedByDisplayName: params.changedByDisplayName,
       action: params.action ?? 'UPDATE',
       isChecked: params.isChecked,
+      productCount: params.productCount,
     });
   }
 

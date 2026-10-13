@@ -25,6 +25,10 @@ import { ShoppingListService } from './services/shopping-list.service';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 import { AddRecipeExtrasDto } from './dto/add-recipe-extras.dto';
 import { RemoveShoppingExtraDto } from './dto/remove-shopping-extra.dto';
+import {
+  AddShoppingProductsDto,
+  SetShoppingProductAmountDto,
+} from './dto/add-shopping-products.dto';
 import { ApplyWeekPlanDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
@@ -89,6 +93,32 @@ class WeeklyPlansAddRecipeExtrasPayload extends WeeklyPlansHouseholdWeekPayload 
 class WeeklyPlansRemoveShoppingExtraPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: RemoveShoppingExtraDto;
+}
+
+class WeeklyPlansAddShoppingProductsPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: AddShoppingProductsDto;
+}
+
+class WeeklyPlansSetShoppingProductAmountPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: SetShoppingProductAmountDto;
+}
+
+/**
+ * Katalog produktów do arkusza „Dodaj produkty” — wspólny dla wszystkich
+ * domów, więc bez `householdId`. `revision` = ta, którą telefon już ma.
+ */
+class WeeklyPlansShoppingProductsPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  revision?: string;
 }
 
 class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
@@ -189,6 +219,7 @@ export class WeeklyPlansGateway
     changedByDisplayName?: string | null;
     action: string;
     isChecked?: boolean | null;
+    productCount?: number | null;
   }): void {
     if (!input.changedByUserId) {
       return;
@@ -199,6 +230,7 @@ export class WeeklyPlansGateway
       changedByDisplayName: input.changedByDisplayName,
       action: input.action,
       isChecked: input.isChecked,
+      productCount: input.productCount,
     });
   }
 
@@ -600,6 +632,101 @@ export class WeeklyPlansGateway
         action: 'REMOVE_SHOPPING_EXTRA',
         changedByUserId: userId,
         productKey: payload.data.productKey,
+      });
+
+      return result;
+    });
+  }
+
+  /**
+   * Katalog produktów dla arkusza „Dodaj produkty”. Tożsamość tylko do
+   * bramki i limitu — katalog nie zależy od tego, kto pyta.
+   */
+  @SubscribeMessage('weeklyPlans:shoppingProducts')
+  shoppingProducts(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansShoppingProductsPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      const envelope = await validateWsPayload(
+        WeeklyPlansShoppingProductsPayload,
+        payload,
+      );
+      return this.shoppingListService.getShoppingProductCatalog(
+        envelope.revision ?? null,
+      );
+    });
+  }
+
+  /**
+   * Arkusz „Dodaj produkty” — dopisanie kilku produktów naraz.
+   *
+   * W przeciwieństwie do „Brakuje mi” z pushem: to domownik mówi „kup to”,
+   * a druga osoba bywa właśnie w sklepie. Powiadomienie idzie przez bufor
+   * (jedno zdanie na całe dopisanie, „Ania dopisał/a 3 produkty…”).
+   */
+  @SubscribeMessage('weeklyPlans:addShoppingProducts')
+  addShoppingProducts(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansAddShoppingProductsPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansAddShoppingProductsPayload, payload);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(userId);
+      const result = await this.shoppingListService.addShoppingProducts(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'ADD_SHOPPING_PRODUCTS',
+        changedByUserId: userId,
+        changedByDisplayName,
+      });
+      this.notifyShoppingListChanged({
+        householdId: payload.householdId,
+        changedByUserId: userId,
+        changedByDisplayName,
+        action: 'ADD_SHOPPING_PRODUCTS',
+        productCount: result.added,
+      });
+
+      return result;
+    });
+  }
+
+  /** Arkusz „Zmień ilość” dopisanego produktu. Bez pusha — to korekta. */
+  @SubscribeMessage('weeklyPlans:setShoppingProductAmount')
+  setShoppingProductAmount(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansSetShoppingProductAmountPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(
+        WeeklyPlansSetShoppingProductAmountPayload,
+        payload,
+      );
+      const result = await this.shoppingListService.setShoppingProductAmount(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'SET_SHOPPING_PRODUCT_AMOUNT',
+        changedByUserId: userId,
+        productKey: result.productKey,
       });
 
       return result;
