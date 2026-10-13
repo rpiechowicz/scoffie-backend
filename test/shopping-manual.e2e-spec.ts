@@ -6,6 +6,8 @@ import { AddressInfo } from 'net';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ShoppingListService } from '../src/weekly-plans/services/shopping-list.service';
+import { parseWeekStart } from '../src/weekly-plans/utils/week-formatting.util';
 
 /**
  * Produkty dopisane ręcznie (arkusz „Dodaj produkty”) na żywej bazie.
@@ -30,6 +32,7 @@ type StateItem = {
     amount: number | null;
     unit: string | null;
     addedById: string | null;
+    addedAt: number;
   } | null;
 };
 
@@ -45,6 +48,7 @@ type State = {
 
 const PLAN_WEEK = '2026-10-05';
 const EMPTY_WEEK = '2026-10-12';
+const RACE_WEEK = '2026-10-19';
 
 describe('Dopisane ręcznie do listy zakupów E2E', () => {
   let app: NestExpressApplication;
@@ -297,6 +301,7 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
       amount: addAmount,
       unit: planned.unit,
       addedById: userId,
+      addedAt: expect.any(Number),
     });
   });
 
@@ -307,10 +312,11 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
     okData(
       await addProducts(PLAN_WEEK, [{ ingredientId: planned.ingredientId }]),
     );
-    expect((await itemOf(PLAN_WEEK, key))!.totalAmount).toBeCloseTo(
-      before.totalAmount,
-      2,
-    );
+    const again = (await itemOf(PLAN_WEEK, key))!;
+    expect(again.totalAmount).toBeCloseTo(before.totalAmount, 2);
+    // Suma ta sama, ale czas dopisania nowszy — po nim telefon rozpoznaje
+    // „kup jeszcze” po zamknięciu listy, bez patrzenia na ptaszek.
+    expect(again.manual!.addedAt).toBeGreaterThan(before.manual!.addedAt);
 
     okData(
       await addProducts(PLAN_WEEK, [
@@ -449,6 +455,73 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
     expect(
       (await state(EMPTY_WEEK)).items.some(
         (item) => item.productKey === 'chleb żytni::',
+      ),
+    ).toBe(true);
+  });
+
+  it('dopisanie zatwierdzone w trakcie przebudowy migawki nie ginie z listy', async () => {
+    // Świeża, niepusta migawka tygodnia.
+    okData(await addProducts(RACE_WEEK, [{ name: 'Sól' }]));
+    expect((await state(RACE_WEEK)).items.length).toBeGreaterThan(0);
+
+    // Przebudowa (jak równoległy odczyt) zatrzymana PO odczycie źródeł.
+    const service = app.get(ShoppingListService);
+    type Internals = {
+      buildShoppingListBase: (...args: unknown[]) => Promise<unknown>;
+      rebuildShoppingListSnapshot: (
+        householdId: string,
+        weekStart: Date,
+        tx: unknown,
+      ) => Promise<unknown>;
+    };
+    const internals = service as unknown as Internals;
+    const build = internals.buildShoppingListBase.bind(service);
+    let sourcesRead!: () => void;
+    const sourcesReadP = new Promise<void>(
+      (resolve) => (sourcesRead = resolve),
+    );
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const spy = jest
+      .spyOn(internals, 'buildShoppingListBase')
+      .mockImplementationOnce(async (...args: unknown[]) => {
+        const result = await build(...args);
+        sourcesRead();
+        await gate;
+        return result;
+      });
+
+    try {
+      const rebuild = prisma.$transaction(
+        (tx) =>
+          internals.rebuildShoppingListSnapshot(
+            householdId,
+            parseWeekStart(RACE_WEEK),
+            tx,
+          ),
+        { timeout: 15_000 },
+      );
+      await sourcesReadP;
+
+      // Dopisanie w tym czasie. Z blokadą czeka na koniec przebudowy;
+      // bez niej zatwierdzało się od razu, a przebudowa kasowała jego
+      // `isStale` migawką bez ręczników.
+      const add = addProducts(RACE_WEEK, [{ name: 'Ręczniki papierowe' }]);
+      await Promise.race([
+        add,
+        new Promise((resolve) => setTimeout(resolve, 700)),
+      ]);
+      release();
+      await rebuild;
+      okData(await add);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+
+    expect(
+      (await state(RACE_WEEK)).items.some(
+        (item) => item.productKey === 'ręczniki papierowe::',
       ),
     ).toBe(true);
   });

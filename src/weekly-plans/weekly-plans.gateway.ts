@@ -225,7 +225,8 @@ export class WeeklyPlansGateway
       return;
     }
     this.notificationsService.enqueueShoppingListChange({
-      householdId: input.householdId,
+      // Bufor pushy zbiera po domu — jeden klucz bez względu na wielkość liter.
+      householdId: input.householdId.toLowerCase(),
       changedByUserId: input.changedByUserId,
       changedByDisplayName: input.changedByDisplayName,
       action: input.action,
@@ -249,7 +250,8 @@ export class WeeklyPlansGateway
       input.householdId,
       'weeklyPlans:shoppingListChanged',
       {
-        householdId: input.householdId,
+        // Klienci porównują z UUID-em z bazy (małe litery).
+        householdId: input.householdId.toLowerCase(),
         weekStart: input.weekStart,
         action: input.action,
         changedByUserId: input.changedByUserId ?? null,

@@ -89,6 +89,11 @@ describe('nazwy pokoi', () => {
   it('są stabilnym kontraktem między adapterem a broadcastami', () => {
     expect(userRoom('u1')).toBe('user:u1');
     expect(householdRoom('h1')).toBe('household:h1');
+    // UUID wielkimi literami z payloadu trafia do tego samego pokoju, do
+    // którego socket dołączył z UUID-em z bazy.
+    expect(householdRoom('0A1B2C3D-0000-4000-8000-00000000ABCD')).toBe(
+      householdRoom('0a1b2c3d-0000-4000-8000-00000000abcd'),
+    );
     expect(LEGACY_ROOM).toBe('legacy');
   });
 });
