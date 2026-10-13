@@ -924,7 +924,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Zapamiętaj JEDNO trwałe zdanie o tym gospodarstwie, żeby wiedzieć to także w następnych ' +
       'rozmowach. Używaj OSZCZĘDNIE i tylko dla rzeczy, które będą prawdziwe za miesiąc: stałe ' +
       'zwyczaje („w środy jedzą u teściów"), trwałe niechęci („Kuba nie je ryb"), sprzęt („mają ' +
-      'Thermomixa"). NIE zapamiętuj: jednorazowych próśb, treści dzisiejszego planu, liczb, które ' +
+      'airfryer"). NIE zapamiętuj: jednorazowych próśb, treści dzisiejszego planu, liczb, które ' +
       'i tak policzą narzędzia, ani niczego o wadze, zdrowiu i celach — to jest w preferencjach ' +
       'domownika i nie ma prawa trafić do wspólnej pamięci domu. Jedno zdanie, po polsku, bez ' +
       'imion, których użytkownik sam nie użył.',

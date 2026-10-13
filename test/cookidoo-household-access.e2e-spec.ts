@@ -75,7 +75,8 @@ describe('Poświadczenia Cookidoo domu — kto zarządza (e2e)', () => {
     // Uwaga: `connect` ma stały limit 5 na 10 minut NA OSOBĘ
     // (`COOKIDOO_CONNECT_LIMIT`, tracker `user:<id>`) — żadna osoba w suicie
     // nie robi więcej niż trzech prób.
-    delete process.env.COOKIDOO_INTEGRATION_ENABLED;
+    // Integracja jest domyślnie wyłączona (do zgody Vorwerka) — suita ją włącza.
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'true';
     process.env.COOKIDOO_ENCRYPTION_KEY ??=
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
 
