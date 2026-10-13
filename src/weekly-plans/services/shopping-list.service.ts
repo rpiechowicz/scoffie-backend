@@ -1498,6 +1498,15 @@ export class ShoppingListService {
     // całego wyboru na świeżej migawce.
     return runSerializable(this.prisma, async (tx) => {
       await lockMembershipInTx(tx, userId, householdId);
+      // Klucze wierszy ze ŹRÓDEŁ listy, policzone PRZED zdjęciem czegokolwiek
+      // — tak, jak widzi je telefon. Migawka bywa nieaktualna tuż po zmianie
+      // ilości (np. „baterie aa::szt” → „baterie aa::”), a zdjęcie po kluczu
+      // z ACK tamtej zmiany ma trafić bez odczytu stanu po drodze.
+      const listKeys = await this.currentShoppingKeys(
+        householdId,
+        weekStartDate,
+        tx,
+      );
       // Po kluczu w jednostce listy, nie po kluczu z bazy: wiersz „Cebula”
       // w sztukach zbiera też dopisane sprzed ujednolicenia (`cebula::g`),
       // a zdjęcie ma zabrać całą dopisaną część, którą widać na ekranie.
@@ -1516,12 +1525,6 @@ export class ShoppingListService {
       // przy wierszu tego produktu, który pokazuje telefon (ta sama reguła
       // przyklejania na kluczach migawki). Odczyt bez blokad; kolejność
       // blokad jak w całej domenie: `ShoppingListExtra` → ręczne → lista.
-      const listKeys = (
-        await tx.shoppingListItem.findMany({
-          where: { shoppingList: { householdId, weekStart: weekStartDate } },
-          select: { productKey: true },
-        })
-      ).map((item) => item.productKey);
       const manualIds = (
         await this.loadManualItems(tx, {
           householdId,
@@ -1548,6 +1551,17 @@ export class ShoppingListService {
       await this.markShoppingListStale(householdId, weekStartDate, tx);
       return { removed: count };
     });
+  }
+
+  /** Klucze wierszy listy liczone ze źródeł (plan, przepisy, ręczne). */
+  private async currentShoppingKeys(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient,
+  ): Promise<string[]> {
+    return (
+      await this.buildShoppingListBase(householdId, weekStartDate, client)
+    ).map((item) => item.productKey);
   }
 
   /** Pozycje dopisane ręcznie, od najstarszej. */
@@ -1620,11 +1634,14 @@ export class ShoppingListService {
    */
   async addShoppingProducts(
     userId: string,
-    householdId: string,
+    householdIdInput: string,
     weekStart: string,
     input: AddShoppingProductsDto,
   ): Promise<{ added: number; replayed: boolean }> {
     const dto = await validateDto(AddShoppingProductsDto, input);
+    // Postgres oddaje UUID małymi literami — porównanie z wierszem
+    // `ShoppingListAddRequest` przy ponowieniu musi iść na tej samej postaci.
+    const householdId = householdIdInput.toLowerCase();
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     const entries = await this.resolveManualEntries(dto);
@@ -1930,12 +1947,13 @@ export class ShoppingListService {
 
     return runSerializable(this.prisma, async (tx) => {
       await lockMembershipInTx(tx, userId, householdId);
-      const listKeys = (
-        await tx.shoppingListItem.findMany({
-          where: { shoppingList: { householdId, weekStart: weekStartDate } },
-          select: { productKey: true },
-        })
-      ).map((item) => item.productKey);
+      // Klucze ze ŹRÓDEŁ listy w tej transakcji, nie z migawki — ta bywa
+      // nieaktualna tuż po zmianie (review Codexa).
+      const listKeys = await this.currentShoppingKeys(
+        householdId,
+        weekStartDate,
+        tx,
+      );
       const row = (
         await this.loadManualItems(tx, {
           householdId,

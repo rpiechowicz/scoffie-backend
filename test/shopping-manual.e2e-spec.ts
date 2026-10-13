@@ -422,11 +422,9 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
       ),
     );
     expect(result).toEqual({ productKey: 'baterie aa::' });
-    expect(await itemOf(EMPTY_WEEK, 'baterie aa::')).toMatchObject({
-      unit: '',
-      manual: { amount: null, unit: null },
-    });
 
+    // Zdjęcie po kluczu z ACK BEZ odczytu stanu po drodze — migawka jest
+    // jeszcze nieaktualna, klucze liczą się ze źródeł.
     okData(
       await ack(socket, 'weeklyPlans:removeShoppingExtra', {
         householdId,
@@ -435,6 +433,7 @@ describe('Dopisane ręcznie do listy zakupów E2E', () => {
       }),
     );
     expect(await itemOf(EMPTY_WEEK, 'baterie aa::')).toBeUndefined();
+    expect(await itemOf(EMPTY_WEEK, 'baterie aa::szt')).toBeUndefined();
   });
 
   it('lista schowana po wyczyszczeniu historii pokazuje się po dopisaniu', async () => {

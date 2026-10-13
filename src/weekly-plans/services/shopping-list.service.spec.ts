@@ -1837,6 +1837,25 @@ describe('ShoppingListService — dopisane ręcznie', () => {
       expect(prisma.shoppingListItem.updateMany).not.toHaveBeenCalled();
     });
 
+    it('ponowienie z UUID domu wielkimi literami też jest ponowieniem', async () => {
+      prisma.shoppingListAddRequest.findUnique.mockResolvedValue({
+        householdId: mockHouseholdId,
+        added: 1,
+      });
+
+      await expect(
+        service.addShoppingProducts(
+          mockUserId,
+          mockHouseholdId.toUpperCase(),
+          mockWeekStart,
+          {
+            clientMutationId: '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b',
+            items: [{ name: 'Karma dla kota' }],
+          },
+        ),
+      ).resolves.toEqual({ added: 1, replayed: true });
+    });
+
     it('pierwsze wykonanie zapisuje identyfikator operacji w tej samej transakcji', async () => {
       const mutationId = '9b2f6a3e-1c4d-4e8f-9a0b-2c3d4e5f6a7b';
 
@@ -1932,9 +1951,14 @@ describe('ShoppingListService — dopisane ręcznie', () => {
     });
 
     it('zdjęcie dopisanego biegnie w SERIALIZABLE (wybór po kluczu, kasowanie po id)', async () => {
-      prisma.shoppingListItem.findMany.mockResolvedValue([
-        { productKey: 'cebula::szt' },
-      ]);
+      // Klucze liczą się ze źródeł listy: plan ma cebulę w sztukach.
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 2, 'szt', 'Warzywa'),
+          ]),
+        ]),
+      );
       prisma.shoppingListManualItem.findMany.mockResolvedValue([
         manualRow('Cebula', null, null),
       ]);
@@ -1954,9 +1978,14 @@ describe('ShoppingListService — dopisane ręcznie', () => {
     });
 
     it('zdjęcie wiersza zabiera dopisaną ręcznie część bez ilości', async () => {
-      prisma.shoppingListItem.findMany.mockResolvedValue([
-        { productKey: 'cebula::szt' },
-      ]);
+      // Klucze liczą się ze źródeł listy: plan ma cebulę w sztukach.
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 2, 'szt', 'Warzywa'),
+          ]),
+        ]),
+      );
       prisma.shoppingListManualItem.findMany.mockResolvedValue([
         manualRow('Cebula', null, null),
       ]);
