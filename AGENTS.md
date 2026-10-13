@@ -189,7 +189,7 @@ etapami i mierzenie efektu zmian.
   do wiersza produktu, który lista już ma (`manualRowKey`, przy kilku jednostkach pierwszy
   alfabetycznie), a bez takiego wiersza stoi jako `nazwa::` z `unit: ""` i `totalAmount: 0`. Ilość
   leży w jednostce listy (`kg`/`l` → `g`/`ml`, gramy produktu z masą sztuki → `szt`), sumuje się
-  z planem. Stan listy niesie `manual {amount, unit, addedById}` i `recentProducts`; katalog dla
+  z planem. Stan listy niesie `manual {amount, unit, addedById, addedAt}` i `recentProducts`; katalog dla
   telefonu to `weeklyPlans:shoppingProducts` z rewizją (ta sama = `products: null`). Dopisanie
   wysyła push przez bufor („dopisał/a N produktów”), „Brakuje mi” dalej nie. Każdy zapis dopisanych (oba źródła)
   bierze NAJPIERW wiersz `Membership` pytającego FOR SHARE (`lockMembershipInTx`) — zapisy listy nie mają zamka tygodnia,
@@ -197,6 +197,9 @@ etapami i mierzenie efektu zmian.
   `test/shopping-manual.e2e-spec.ts`. Dopisanie jest IDEMPOTENTNE po `clientMutationId` (telefon ponawia `emitWithAck`
   po przekroczeniu czasu): `ShoppingListAddRequest` powstaje w tej samej transakcji, ponowienie oddaje poprzedni wynik
   bez dokładania i bez drugiego pusha.
+  Przebudowa migawki (`rebuildShoppingListSnapshot`) bierze wiersz `ShoppingList` (upsert) PRZED odczytem
+  źródeł: zapis czeka w `markShoppingListStale` i stawia `isStale` po niej. Odwrotnie przebudowa nadpisywała
+  `isStale` zapisu zatwierdzonego w trakcie jej liczenia (lista bez dopisanego do następnej zmiany).
 - „Czego nie jem” WYCOFANE (2.10.2026; ekran zniknął z iOS 23.09, #179): `UserPreference.excludedIngredientIds`
   i `maxPrepTimeMinutes` NIE są czytane (walidator planu, planer, wyszukiwarka i prompt asystenta) ani zapisywane
   (`updatePreferences` przyjmuje pola od starszych buildów i je pomija). `MemberContext.restrictions` jest zawsze

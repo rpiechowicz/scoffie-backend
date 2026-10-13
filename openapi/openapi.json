@@ -12004,9 +12004,13 @@
                 "description": "Kto dopisał (ostatnio) — telefon zamienia na domownika.",
                 "type": "string",
                 "nullable": true
+              },
+              "addedAt": {
+                "description": "Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak\n`archivedAt`. Telefon porównuje z zamknięciem listy: „kup jeszcze chleb” bez ilości po zamknięciu nie\nzmienia sumy, a ptaszek nie może o tym decydować — domownik odhacza\nchleb w sklepie, a ten dalej należy do nowej rundy.",
+                "type": "number"
               }
             },
-            "required": ["addedById", "amount", "unit"],
+            "required": ["addedAt", "addedById", "amount", "unit"],
             "nullable": true,
             "description": "Część dopisana RĘCZNIE (`ShoppingListManualItem`), `null` = brak.\n`amount`/`unit` = `null` to „kup to” bez ilości; ilość jest w jednostce\nlisty i zawiera się już w `totalAmount`."
           }

@@ -134,6 +134,8 @@ type ShoppingManualRow = {
   amount: number | null;
   unit: string | null;
   addedById: string | null;
+  /** Ostatnie dopisanie albo zmiana ilości (`@updatedAt`). */
+  updatedAt: Date;
 };
 
 /** Ile ostatnio dopisywanych produktów wraca ze stanem listy. */
@@ -384,6 +386,30 @@ export class ShoppingListService {
     weekStartDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<ShoppingListItem[]> {
+    // Wiersz listy pod blokadą PRZED odczytem źródeł. Zapis, który w tym
+    // czasie dopisze produkt albo zmieni plan, czeka w `markShoppingListStale`
+    // na koniec przebudowy i dopiero wtedy stawia `isStale`. Dotąd blokada
+    // przychodziła po odczycie: zapis zdążył się zatwierdzić pomiędzy,
+    // a przebudowa nadpisywała jego `isStale` swoim `false` — lista bez
+    // dopisanego produktu wisiała do następnej zmiany (Codex, 13.10.2026).
+    // Nowy wiersz rodzi się nieaktualny: przebudowa, która nie dojdzie do
+    // końca, nie zostawia „świeżej” pustej listy.
+    await tx.shoppingList.upsert({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      update: { updatedAt: new Date() },
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+        isStale: true,
+      },
+      select: { id: true },
+    });
+
     const aggregatedItems = await this.buildShoppingListBase(
       householdId,
       weekStartDate,
@@ -886,6 +912,7 @@ export class ShoppingListService {
         amount: row.amount,
         unit: row.amount == null ? null : row.unit,
         addedById: row.addedById,
+        addedAt: row.updatedAt.getTime(),
       });
     }
     return parts;
@@ -1582,6 +1609,7 @@ export class ShoppingListService {
         amount: true,
         unit: true,
         addedById: true,
+        updatedAt: true,
       },
     });
   }

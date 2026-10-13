@@ -1503,6 +1503,8 @@ describe('ShoppingListService — dopisane z przepisu', () => {
   });
 });
 
+const MANUAL_UPDATED_AT = new Date('2026-10-13T10:00:00.000Z');
+
 /// Wiersz `ShoppingListManualItem` tak, jak czyta go `loadManualItems`.
 const manualRow = (
   name: string,
@@ -1522,6 +1524,7 @@ const manualRow = (
   amount,
   unit,
   addedById: options.addedById ?? mockUserId,
+  updatedAt: MANUAL_UPDATED_AT,
 });
 
 const MILK_ID = '7adf5ec0-e3e5-4b28-8bb4-5515c780948c';
@@ -1660,6 +1663,7 @@ describe('ShoppingListService — dopisane ręcznie', () => {
         amount: 1000,
         unit: 'ml',
         addedById: mockUserId,
+        addedAt: MANUAL_UPDATED_AT.getTime(),
       });
       expect(state.recentProducts.map((product) => product.name)).toEqual([
         'Karma dla kota',

@@ -46,6 +46,13 @@ export type ShoppingManualPart = {
   unit: string | null;
   /** Kto dopisał (ostatnio) — telefon zamienia na domownika. */
   addedById: string | null;
+  /**
+   * Kiedy ostatnio dopisano albo zmieniono ilość — ms od epoki, jak
+   * `archivedAt`. Telefon porównuje z zamknięciem listy: „kup jeszcze chleb” bez ilości po zamknięciu nie
+   * zmienia sumy, a ptaszek nie może o tym decydować — domownik odhacza
+   * chleb w sklepie, a ten dalej należy do nowej rundy.
+   */
+  addedAt: number;
 };
 
 /** Ostatnio dopisywane w domu — „powtórz jednym stuknięciem” w arkuszu. */
