@@ -217,6 +217,24 @@ describe('WeeklyPlansGateway', () => {
       );
     });
 
+    it('weekChanged niesie rodzaj zmiany i przepis — telefon domownika ogłasza tylko nowe danie', async () => {
+      weeklyPlansService.upsertWeekSlot.mockResolvedValue({
+        changeKind: 'CREATED',
+        replacedItemIds: [],
+      });
+
+      await gateway.upsertWeekSlot(tokenClient(USER), payload);
+
+      expect(emit).toHaveBeenCalledWith(
+        'weeklyPlans:weekChanged',
+        expect.objectContaining({
+          action: 'UPSERT_SLOT',
+          changeKind: 'CREATED',
+          recipeId: RECIPE,
+        }),
+      );
+    });
+
     it('CREATED dokłada powiadomienie (regresja)', async () => {
       weeklyPlansService.upsertWeekSlot.mockResolvedValue({
         changeKind: 'CREATED',
@@ -259,6 +277,79 @@ describe('WeeklyPlansGateway', () => {
       expect(
         notificationsService.enqueueWeeklyPlanChange,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('broadcastWeekApplied (zapis karty asystenta)', () => {
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+    it('rozgłasza APPLY_WEEK i dokłada powiadomienie dla domowników', () => {
+      gateway.broadcastWeekApplied({
+        householdId: HH,
+        weekStart: WEEK,
+        changedByUserId: USER,
+        changedByDisplayName: 'Ania',
+      });
+
+      expect(emit).toHaveBeenCalledWith(
+        'weeklyPlans:weekChanged',
+        expect.objectContaining({
+          action: 'APPLY_WEEK',
+          changedByDisplayName: 'Ania',
+        }),
+      );
+      expect(notificationsService.enqueueWeeklyPlanChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          householdId: HH,
+          changedByUserId: USER,
+          changedByDisplayName: 'Ania',
+          action: 'APPLY_WEEK',
+          context: expect.objectContaining({ weekStart: WEEK }),
+        }),
+      );
+    });
+
+    it('bez imienia (propozycje asystenta) dociąga je przed rozgłoszeniem', async () => {
+      gateway.broadcastWeekApplied({
+        householdId: HH,
+        weekStart: WEEK,
+        changedByUserId: USER,
+      });
+      await flush();
+
+      expect(weeklyPlansService.getUserDisplayName).toHaveBeenCalledWith(USER);
+      expect(emit).toHaveBeenCalledWith(
+        'weeklyPlans:weekChanged',
+        expect.objectContaining({
+          action: 'APPLY_WEEK',
+          changedByDisplayName: 'Ania',
+        }),
+      );
+      expect(notificationsService.enqueueWeeklyPlanChange).toHaveBeenCalledWith(
+        expect.objectContaining({ changedByDisplayName: 'Ania' }),
+      );
+    });
+
+    it('padnięty odczyt imienia nie blokuje rozgłoszenia', async () => {
+      weeklyPlansService.getUserDisplayName.mockRejectedValue(new Error('db'));
+
+      gateway.broadcastWeekApplied({
+        householdId: HH,
+        weekStart: WEEK,
+        changedByUserId: USER,
+      });
+      await flush();
+
+      expect(emit).toHaveBeenCalledWith(
+        'weeklyPlans:weekChanged',
+        expect.objectContaining({
+          action: 'APPLY_WEEK',
+          changedByDisplayName: null,
+        }),
+      );
+      expect(
+        notificationsService.enqueueWeeklyPlanChange,
+      ).toHaveBeenCalledTimes(1);
     });
   });
 
