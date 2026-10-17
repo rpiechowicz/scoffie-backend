@@ -208,6 +208,12 @@ etapami i mierzenie efektu zmian.
   przyjmują wykluczenia — żadne źródło ich nie podaje. Nie przywracać odczytu bez ekranu, który je pokazuje.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
+- Zmiana planu u domownika (16.10.2026): `weeklyPlans:weekChanged` z `UPSERT_SLOT` niesie `changeKind`
+  (`CREATED`/`REPLACED`/`DETAILS_CHANGED`/`NOOP`, także z `setPortion`) i `recipeId` — telefon ogłasza w aplikacji
+  tylko nowe/zamienione danie. Zapis karty asystenta (`broadcastWeekApplied`: apply i „Cofnij”) idzie do bufora
+  pushy jak kratka (`APPLY_WEEK` → „zaktualizował/a plan na …”) i sam dociąga imię autora. Push wychodzi tylko
+  przy `APNS_ENABLED=true` + klucz `APNS_KEY_ID`/`APNS_PRIVATE_KEY` — na prod 16.10.2026 WYŁĄCZONE (brak klucza),
+  więc domownik dostawał informację wyłącznie z telefonu z otwartą aplikacją.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje
   `AuthIoAdapter` (`src/common/ws-auth.adapter.ts`, jeden dla 5 gatewayów); tożsamość w handlerze
   WYŁĄCZNIE przez `actorId(client, payload)` (`src/common/ws-socket.ts`), broadcasty przez

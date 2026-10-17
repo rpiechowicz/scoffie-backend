@@ -198,7 +198,9 @@ export class WeeklyPlansGateway
     },
   ): void {
     this.notificationsService.enqueueWeeklyPlanChange({
-      householdId,
+      // Bufor pushy zbiera po domu — zapis asystenta (id z bazy) i kratka
+      // z telefonu mają trafić do JEDNEJ paczki bez względu na wielkość liter.
+      householdId: householdId.toLowerCase(),
       changedByUserId,
       changedByDisplayName,
       action,
@@ -277,12 +279,43 @@ export class WeeklyPlansGateway
    * rozgłaszają się wcale — to jest ta dziura).
    *
    * `nextChangeVersion` zostaje tutaj, żeby wersje szły z jednego licznika.
+   *
+   * Push też stąd (16.10.2026). Zapis karty asystenta („Zapisz dzień”,
+   * „Dodaj do planu”, „Cofnij”) nie wysyłał domownikom ŻADNEGO powiadomienia:
+   * ani pusha (bufor dostawał tylko ręczne `upsertWeekSlot`), ani lokalnego
+   * (telefon nie znał akcji `APPLY_WEEK`). Bufor zbiera to tak samo jak
+   * kratki planu — zapis i jego cofnięcie w minutę to jedno zdanie.
+   *
+   * Asystent nie podaje imienia autora, więc dociągamy je sami, ZANIM coś
+   * wyjdzie: z `null` domownik czytał „Ktoś zaktualizował plan”. Z imieniem
+   * (ścieżka WS) rozgłaszamy od razu, synchronicznie, jak dotąd.
    */
   broadcastWeekApplied(input: {
     householdId: string;
     weekStart: string;
     changedByUserId: string;
     changedByDisplayName?: string | null;
+  }): void {
+    if (input.changedByDisplayName !== undefined) {
+      this.emitWeekApplied({
+        ...input,
+        changedByDisplayName: input.changedByDisplayName,
+      });
+      return;
+    }
+    void this.weeklyPlansService
+      .getUserDisplayName(input.changedByUserId)
+      .catch(() => null)
+      .then((changedByDisplayName) =>
+        this.emitWeekApplied({ ...input, changedByDisplayName }),
+      );
+  }
+
+  private emitWeekApplied(input: {
+    householdId: string;
+    weekStart: string;
+    changedByUserId: string;
+    changedByDisplayName: string | null;
   }): void {
     broadcastToHousehold(
       this.server,
@@ -304,6 +337,13 @@ export class WeeklyPlansGateway
       changedByUserId: input.changedByUserId,
       changedByDisplayName: input.changedByDisplayName ?? null,
     });
+    this.notifyPlanChanged(
+      input.householdId,
+      input.changedByUserId,
+      input.changedByDisplayName,
+      'APPLY_WEEK',
+      { weekStart: input.weekStart },
+    );
   }
 
   /**
@@ -769,6 +809,13 @@ export class WeeklyPlansGateway
           changedByDisplayName,
           dayOfWeek: payload.data?.dayOfWeek,
           mealType: payload.data?.mealType,
+          // Co się stało i z jakim daniem — telefon domownika mówi o NOWYM
+          // daniu od razu, w aplikacji („Ania: nowe danie w planie · Kurczak
+          // curry”), a porcje i chipy „dla kogo” (`DETAILS_CHANGED`, `NOOP`)
+          // przemilcza tak samo jak push. Pola dodane 16.10.2026 — starszy
+          // klient ich nie czyta.
+          changeKind: result?.changeKind ?? null,
+          recipeId: payload.data?.recipeId ?? null,
           changeVersion,
         },
       );
@@ -963,6 +1010,9 @@ export class WeeklyPlansGateway
           changedByDisplayName,
           dayOfWeek: result.dayOfWeek,
           mealType: result.mealType,
+          // Porcja to ustawienie, nie nowe danie — telefon domownika jej nie
+          // ogłasza (patrz `upsertWeekSlot`).
+          changeKind: result.changeKind,
           changeVersion: this.nextChangeVersion(),
         },
       );

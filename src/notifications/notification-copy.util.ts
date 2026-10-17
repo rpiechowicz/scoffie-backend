@@ -8,7 +8,12 @@ import { DEFAULT_TIME_ZONE } from './quiet-hours.util';
  */
 
 export type PlanChangeAction =
-  'UPSERT_SLOT' | 'REMOVE_SLOT' | 'CLEAR_PLAN' | (string & {});
+  | 'UPSERT_SLOT'
+  | 'REMOVE_SLOT'
+  | 'CLEAR_PLAN'
+  /** Zapis wielu pozycji naraz — karta asystenta i jej „Cofnij”. */
+  | 'APPLY_WEEK'
+  | (string & {});
 
 export interface PlanChangeEvent {
   action: PlanChangeAction;
@@ -204,6 +209,12 @@ export function buildPlanSummary(
 
   if (actions.has('CLEAR_PLAN')) {
     return { title, body: `${actor} usunął/ęła plan na ${week}.` };
+  }
+
+  // Zapis asystenta zmienia wiele kratek naraz i nie mówi których — opisuje
+  // tydzień lepiej niż pojedyncza kratka, która trafiła do tej samej paczki.
+  if (actions.has('APPLY_WEEK')) {
+    return { title, body: `${actor} zaktualizował/a plan na ${week}.` };
   }
 
   const slotEvents = events.filter((e) => e.dayOfWeek && e.mealType);

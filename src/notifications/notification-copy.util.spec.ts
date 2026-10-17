@@ -168,6 +168,23 @@ describe('notification-copy', () => {
       );
       expect(copy.body).toBe('Marek usunął/ęła plan na ten tydzień.');
     });
+
+    it('zapis asystenta opisuje tydzień, nie przypadkową kratkę z paczki', () => {
+      const copy = buildPlanSummary(
+        'Marek',
+        [
+          {
+            action: 'UPSERT_SLOT',
+            weekStart: '2026-08-24',
+            dayOfWeek: 'MON',
+            mealType: 'BREAKFAST',
+          },
+          { action: 'APPLY_WEEK', weekStart: '2026-08-24' },
+        ],
+        MONDAY,
+      );
+      expect(copy.body).toBe('Marek zaktualizował/a plan na ten tydzień.');
+    });
   });
 
   describe('buildShoppingSummary', () => {
